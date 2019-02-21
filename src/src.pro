@@ -5,7 +5,6 @@ DESTDIR=../bin
 
 QT -= gui network
 CONFIG += c++11 console
-include($$PWD/../lib/cuda.pri)
 
 CONFIG(release, debug|release) {
   CONFIG += optimize_full
@@ -22,9 +21,15 @@ INCLUDEPATH += $$PWD/../lib
 SOURCES += \
     main.cpp
 
-PRE_TARGETDEPS += $$PWD/../lib $$DESTDIR/libmargean.a
-LIBS += -L$$OUT_PWD/../bin -lmargean
-LIBS += -lcudart -lcudnn -lcublas -lprotobuf -latomic -lz
+win32 {
+    PRE_TARGETDEPS += $$PWD/../lib $$DESTDIR/margean.lib
+} else {
+    PRE_TARGETDEPS += $$PWD/../lib $$DESTDIR/libmargean.a
+}
 
-target.path = ~/.local/bin
-INSTALLS += target
+LIBS += -L$$OUT_PWD/../bin -lmargean
+
+include($$PWD/../lib/atomic.pri)
+include($$PWD/../lib/zlib.pri)
+include($$PWD/../lib/protobuf.pri)
+include($$PWD/../lib/cuda.pri)

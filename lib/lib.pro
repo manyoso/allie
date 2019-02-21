@@ -14,6 +14,8 @@ lessThan(QT_MINOR_VERSION, 9) {
     error("Requres at least at least Qt 5.9")
 }
 
+include(atomic.pri)
+include(zlib.pri)
 PROTOS += $$PWD/proto/net.proto
 include(protobuf.pri)
 include(cuda.pri)
@@ -81,6 +83,3 @@ SOURCES += \
     $$PWD/neural/loader.cpp \
     $$PWD/neural/nn_policy.cpp \
     $$PWD/neural/weights_adapter.cpp
-
-target.path = ~/.local/bin
-INSTALLS += target

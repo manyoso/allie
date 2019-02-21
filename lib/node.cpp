@@ -47,8 +47,7 @@ Node::Node(Node *parent, const Game &game)
     m_uCoeff(-2.0f),
     m_repetitions(-1),
     m_isExact(false),
-    m_isPrefetch(false),
-    m_scoringOrScored(false)
+    m_isPrefetch(false)
 {
 }
 
