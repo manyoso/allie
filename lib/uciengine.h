@@ -93,7 +93,6 @@ Q_SIGNALS:
     void standardInput(const QString &line);
 
 private:
-    QSocketNotifier *m_notifier;
     QQueue<QString> m_debugLines;
     QString m_waitingOnOutput;
 };

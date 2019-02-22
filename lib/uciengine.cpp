@@ -27,6 +27,8 @@
 #include <QTextStream>
 #include <QTimer>
 
+#include <iostream>
+
 #include "chess.h"
 #include "clock.h"
 #include "game.h"
@@ -188,9 +190,6 @@ IOWorker::IOWorker(const QString &debugFile, QObject *parent)
             file.close();
         }
     }
-
-    m_notifier = new QSocketNotifier(fileno(stdin), QSocketNotifier::Read, this);
-    m_notifier->setEnabled(true);
 }
 
 void IOWorker::startDebug()
@@ -217,18 +216,20 @@ void IOWorker::startDebug()
 
 void IOWorker::run()
 {
-    connect(m_notifier, &QSocketNotifier::activated, this, &IOWorker::readyRead);
     if (!m_debugLines.isEmpty())
         startDebug();
+    else
+        readyRead();
 }
 
 void IOWorker::readyRead()
 {
-    QString line;
-    QTextStream stream(stdin);
-    while (stream.readLineInto(&line)) {
-        emit standardInput(line);
-        if (line == QLatin1Literal("quit"))
+    std::cout.setf(std::ios::unitbuf);
+    std::string line;
+    while (std::getline(std::cin, line)) {
+        QString ln = QString::fromStdString(line);
+        emit standardInput(ln);
+        if (ln == QLatin1Literal("quit"))
             return;
     }
 }
