@@ -1,7 +1,9 @@
 TEMPLATE = subdirs
 CONFIG += ordered
-SUBDIRS += \
-    lib src tests
-
+SUBDIRS += lib src
 src.depends = lib
-tests.depends = lib
+
+!win32 {
+    SUBDIRS += tests
+    tests.depends = lib
+}

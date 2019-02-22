@@ -27,7 +27,7 @@ CUDA_LIB_DIR = $$(CUDA_LIB_DIR)
 NVCC_EXEC = nvcc
 
 win32 {
-    NVCC_EXEC = "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.0\bin\nvcc"
+    NVCC_EXEC = "\""C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.0\bin\nvcc""\"
     CONFIG(release, debug|release) {
         CUDA_FLAGS += -MD
     }
