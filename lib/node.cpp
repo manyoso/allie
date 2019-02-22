@@ -49,6 +49,7 @@ Node::Node(Node *parent, const Game &game)
     m_isExact(false),
     m_isPrefetch(false)
 {
+    m_scoringOrScored.clear();
 }
 
 Node::~Node()

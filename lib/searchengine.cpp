@@ -277,10 +277,8 @@ QVector<Node*> SearchWorker::playoutNodesMCTS(int size, bool *didWork)
 
 void SearchWorker::search()
 {
-    int sanity = MAX_DEPTH;
-
     // Main iteration loop
-    while (!checkStop() && sanity) {
+    while (!checkStop()) {
 
         // Reset our search stats
         resetStats();
@@ -292,7 +290,6 @@ void SearchWorker::search()
 #endif
             QMutexLocker locker(&m_sleepMutex);
             m_sleepCondition.wait(locker.mutex(), 10);
-            --sanity;
             continue;
         }
 
@@ -374,6 +371,7 @@ SearchEngine::~SearchEngine()
 
 void SearchEngine::reset()
 {
+    QMutexLocker locker(&m_mutex);
     const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt();
     const int numberOfThreads = Options::globalInstance()->option("Threads").value().toInt();
     const int numberOfSearchThreads = qMax(1, numberOfGPUCores * numberOfThreads);
@@ -584,6 +582,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
 
 void SearchEngine::workerReachedMaxBatchSize()
 {
+    QMutexLocker locker(&m_mutex);
     // It is possible this could have been queued before we were asked to stop
     // so ignore if so
     if (m_stop)
