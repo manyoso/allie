@@ -10,7 +10,7 @@ Like Leela, Allie is based off of the same concepts and algorithms that were int
 
 ## Is this like Anti-fish or Leelenstein?
 
-Not exactly. AF and the Stein are (apparently quite successful) experiments with the training procedures that go into making a Lc0 project neural net. However, they both utilize the Lc0 binary as the actual chess engine and just load these alternative networks. Allie is different. She can be used as a complete replacement of the Lc0 binary with different search, hash, move generation, etc, etc. That means that Allie could be used in theory with the AF or Stein networks too. In practice, she is currently only compatible with t10 - t30 networks and does not yet support the protocol changes introduced by t40+ nets.
+Not exactly. AF and the Stein are (apparently quite successful) experiments with the training procedures that go into making a Lc0 project neural net. However, they both utilize the Lc0 binary as the actual chess engine and just load these alternative networks. Allie is different. She can be used as a complete replacement of the Lc0 binary with different search, hash, move generation, etc, etc. That means that Allie can be used with the AF or Stein networks too.
 
 ## Ok, so details. How is she different?
 
@@ -33,6 +33,10 @@ A couple reasons. First, my original inspiration was to see if I could implement
 ## Ok, so she uses Lc0's networks. Why don't you make your own?
 
 Two reasons. First, I couldn't hope to compete with the machine learning and AI experts who are contributing to the Lc0 project. Second, it would take a lot of compute power to train a new network and I just don't have that.
+
+## Supporting further development of Allie
+
+I've set up a patreon page here: https://www.patreon.com/gonzochess75 and would greatly appreciate any support from the community to be used to test Allie on more multi-gpu systems.
 
 ## Anything else?
 
