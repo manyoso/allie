@@ -137,6 +137,24 @@ void TestGames::testStartingPosition()
     qDeleteAll(gc);
 }
 
+void TestGames::testStartingPositionBlack()
+{
+    Game g("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
+    QCOMPARE(g.stateOfGameToFen(), QLatin1String("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"));
+    QCOMPARE(g.activeArmy(), Chess::Black);
+
+    Node *n = new Node(nullptr, g);
+    n->generatePotentials();
+
+    QCOMPARE(n->potentials().count(), 20);
+
+    QVector<Node*> gc;
+    TreeIterator<PreOrder> it = n->begin<PreOrder>();
+    for (; it != n->end<PreOrder>(); ++it)
+        gc.append(*it);
+    qDeleteAll(gc);
+}
+
 void TestGames::testSearchForMateInOne()
 {
     const QLatin1String mateInOne = QLatin1String("8/8/5K2/3P3k/2P5/8/6Q1/8 w - - 12 68");

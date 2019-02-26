@@ -60,6 +60,7 @@ private slots:
     void testBasicStructures();
     void testSizes();
     void testStartingPosition();
+    void testStartingPositionBlack();
     void testSearchForMateInOne();
     void testThreeFold();
     void testThreeFold2();

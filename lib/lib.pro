@@ -4,7 +4,7 @@ TARGET = margean
 QT -= gui network
 
 DESTDIR=../bin
-CONFIG += staticlib
+CONFIG += staticlib c++14 console
 
 lessThan(QT_MAJOR_VERSION, 5) {
     error("Requres at least at least Qt 5.9")

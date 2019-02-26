@@ -5,7 +5,7 @@ DESTDIR=../bin
 
 QT += testlib
 QT -= gui network
-CONFIG += c++11 console
+CONFIG += c++14 console
 
 CONFIG(release, debug|release) {
   CONFIG += optimize_full

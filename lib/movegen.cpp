@@ -138,7 +138,7 @@ static void initSliderMoves(const Square &square, Magic *table, quint64 magic, c
     table[sq].shift = quint64(64 - BitBoard(table[sq].mask).count());
 
     if (sq != 64 - 1)
-        table[sq+1].offset = table[sq].offset + (1 << BitBoard(table[sq].mask).count());
+        table[sq+1].offset = table[sq].offset + (quint64(1) << BitBoard(table[sq].mask).count());
 
     do {
         int index = sliderIndex(occupied, &table[sq]);

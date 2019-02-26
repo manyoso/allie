@@ -138,7 +138,7 @@ private:
     bool m_hasBlackKingCastle : 1;
     bool m_hasWhiteQueenCastle : 1;
     bool m_hasBlackQueenCastle : 1;
-    Chess::Army m_activeArmy : 1;
+    Chess::Army m_activeArmy;
 };
 
 inline BitBoard Game::board(Chess::PieceType piece) const
