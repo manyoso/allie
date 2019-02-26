@@ -209,6 +209,10 @@ void TestGames::testThreeFold3()
 
     Node *n = new Node(nullptr, g);
     QVERIFY(n->isThreeFold());
+
+    // FIXME: Test a complete game starting at this fen:
+    // 4k3/8/8/8/8/1R6/8/4K3 b - - 0 40
+    // to make sure we don't draw
 }
 
 void TestGames::testHashInsertAndRetrieve()
