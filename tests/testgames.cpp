@@ -168,11 +168,16 @@ void TestGames::testSearchForMateInOne()
 
     QSignalSpy bestMoveSpy(&handler, &UCIIOHandler::receivedBestMove);
     engine.readyRead(mateInOneMoves);
-    engine.readyRead(QLatin1String("go depth 1"));
-    bestMoveSpy.wait();
-
-    QCOMPARE(handler.lastInfo().score, QLatin1String("mate 1"));
+    engine.readyRead(QLatin1String("go depth 2"));
+    bool receivedSignal = bestMoveSpy.wait();
+    if (!receivedSignal) {
+        QString message = QString("Did not receive signal for position %1").arg(mateInOneMoves);
+        QWARN(message.toLatin1().constData());
+        engine.readyRead(QLatin1String("stop"));
+    }
+    QVERIFY(receivedSignal);
     QVERIFY(handler.lastBestMove() == QLatin1String("g2h3") || handler.lastBestMove() == QLatin1String("g2g5"));
+    QCOMPARE(handler.lastInfo().score, QLatin1String("mate 1"));
 }
 
 void TestGames::testThreeFold()
