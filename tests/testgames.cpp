@@ -232,10 +232,81 @@ void TestGames::testThreeFold3()
 
     Node *n = new Node(nullptr, g);
     QVERIFY(n->isThreeFold());
+}
 
-    // FIXME: Test a complete game starting at this fen:
-    // 4k3/8/8/8/8/1R6/8/4K3 b - - 0 40
-    // to make sure we don't draw
+void TestGames::testMateWithRook()
+{
+    QString fen = QLatin1String("4k3/8/8/8/8/1R6/8/4K3 b - - 0 40");
+
+    UciEngine engine(this, QString());
+    UCIIOHandler engineHandler(this);
+    engine.installIOHandler(&engineHandler);
+    QSignalSpy bestMoveSpy(&engineHandler, &UCIIOHandler::receivedBestMove);
+
+    QVector<QString> moves;
+    moves.append(QLatin1String("e8d7"));
+
+    enum Result { CheckMate, StaleMate, HalfMoveClock, ThreeFold, NoResult };
+    Result r = NoResult;
+
+    for (int i = 0; i < 100; ++i) {
+        QString position = QLatin1String("position fen ") + fen;
+        if (!moves.isEmpty())
+            position.append(QLatin1String(" moves ") + moves.toList().join(' '));
+        engine.readyRead(position);
+
+        Game g = History::globalInstance()->currentGame();
+        if (g.halfMoveClock() >= 100) {
+            r = HalfMoveClock;
+            break;
+        }
+
+        Node n(nullptr, g);
+        n.generatePotentials();
+
+        if (n.isThreeFold()) {
+            r = ThreeFold;
+            break;
+        }
+
+        if (n.isCheckMate()) {
+            r = CheckMate;
+            break;
+        }
+
+        if (n.isStaleMate()) {
+            r = StaleMate;
+            break;
+        }
+
+        engineHandler.clear();
+        engine.readyRead(QLatin1String("go depth 2"));
+        bool receivedSignal = bestMoveSpy.wait();
+        if (!receivedSignal) {
+            QString message = QString("Did not receive signal for position %1").arg(position);
+            QWARN(message.toLatin1().constData());
+            engine.readyRead(QLatin1String("stop"));
+        }
+        QVERIFY(receivedSignal);
+        QString bestMove = engineHandler.lastBestMove();
+        QVERIFY(!bestMove.isEmpty());
+        moves.append(bestMove);
+    }
+
+    QString resultString;
+    switch (r) {
+    case CheckMate:
+        resultString = "CheckMate"; break;
+    case StaleMate:
+        resultString = "StaleMate"; break;
+    case HalfMoveClock:
+        resultString = "HalfMoveClock"; break;
+    case ThreeFold:
+        resultString = "ThreeFold"; break;
+    case NoResult:
+        resultString = "NoResult"; break;
+    }
+    QVERIFY2(r == CheckMate, QString("Result is %1").arg(resultString).toLatin1().constData());
 }
 
 void TestGames::testHashInsertAndRetrieve()

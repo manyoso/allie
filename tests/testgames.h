@@ -45,6 +45,12 @@ public:
     SearchInfo lastInfo() const { return m_lastInfo; }
     QString lastBestMove() const { return m_lastBestMove; }
 
+    void clear()
+    {
+        m_lastInfo = SearchInfo();
+        m_lastBestMove = QString();
+    }
+
 Q_SIGNALS:
     void receivedInfo();
     void receivedBestMove();
@@ -65,5 +71,6 @@ private slots:
     void testThreeFold();
     void testThreeFold2();
     void testThreeFold3();
+    void testMateWithRook();
     void testHashInsertAndRetrieve();
 };
