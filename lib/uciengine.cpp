@@ -294,11 +294,14 @@ void UciEngine::readyRead(const QString &line)
         QList<QString> position = line.split(' ');
         QString pos = position.at(1);
         if (pos == QLatin1String("fen")) {
+            QList<QString> moves;
             QString fen = line.mid(13);
             int indexOfMoves = fen.indexOf(QLatin1String("moves "));
-            QString m = fen.mid(indexOfMoves + 6);
-            QList<QString> moves = m.split(' ');
-            fen.truncate(indexOfMoves - 1);
+            if (indexOfMoves > 0) {
+                QString m = indexOfMoves > 0 ? fen.mid(indexOfMoves + 6) : fen;
+                moves = m.split(' ');
+                fen.truncate(indexOfMoves - 1);
+            }
             setPosition(fen, moves.toVector());
         } else {
             QList<QString> moves;
