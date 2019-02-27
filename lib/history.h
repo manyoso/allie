@@ -28,7 +28,6 @@
 class History {
 public:
     static History *globalInstance();
-    static int size() { return 11; }
 
     QVector<Game> games() const { return m_history; }
 
@@ -39,13 +38,7 @@ public:
         return m_history.last();
     }
 
-    void addGame(const Game &game)
-    {
-        // limit our history to last n positions
-        if (m_history.count() == size())
-            m_history.removeFirst();
-        m_history.append(game);
-    }
+    void addGame(const Game &game);
 
     void clear()
     {
@@ -55,7 +48,6 @@ public:
 private:
     History()
     {
-        m_history.reserve(size());
     }
 
     ~History() {}

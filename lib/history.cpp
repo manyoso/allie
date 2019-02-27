@@ -26,3 +26,24 @@ History* History::globalInstance()
 {
     return HistoryInstance();
 }
+
+void History::addGame(const Game &game)
+{
+    qint8 r = 0;
+    const QVector<Game> previous = m_history;
+    QVector<Game>::const_reverse_iterator it = previous.crbegin();
+    for (; it != previous.crend(); ++it) {
+        if (game.isSamePosition(*it))
+            ++r;
+
+        if (r >= 2)
+            break; // No sense in counting further
+
+        if (!(*it).halfMoveClock())
+            break;
+    }
+
+    Game g = game;
+    g.setRepetitions(r);
+    m_history.append(g);
+}

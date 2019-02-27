@@ -46,6 +46,7 @@ public:
           m_halfMoveNumber(other.m_halfMoveNumber),
           m_fileOfKingsRook(other.m_fileOfKingsRook),
           m_fileOfQueensRook(other.m_fileOfQueensRook),
+          m_repetitions(other.m_repetitions),
           m_enPassantTarget(other.m_enPassantTarget),
           m_hasWhiteKingCastle(other.m_hasWhiteKingCastle),
           m_hasBlackKingCastle(other.m_hasBlackKingCastle),
@@ -100,12 +101,15 @@ public:
 
     QString toString(Chess::NotationType type) const;
 
+    int repetitions() const { return m_repetitions; }
+
     // non-const and will modify in-place
     void setFen(const QString &fen);
     bool makeMove(const Move &move);
     bool isChecked(Chess::Army army); // sets the checked flag if we are in check
     void setCheckMate(bool checkMate);
     void setStaleMate(bool staleMate);
+    void setRepetitions(int repetitions) { m_repetitions = qint8(repetitions); }
 
 private:
     // non-const and will modify in-place
@@ -133,6 +137,7 @@ private:
     quint16 m_halfMoveNumber;
     quint8 m_fileOfKingsRook;
     quint8 m_fileOfQueensRook;
+    qint8 m_repetitions;
     Square m_enPassantTarget;
     bool m_hasWhiteKingCastle : 1;
     bool m_hasBlackKingCastle : 1;

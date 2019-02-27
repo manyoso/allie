@@ -71,6 +71,7 @@ private slots:
     void testThreeFold();
     void testThreeFold2();
     void testThreeFold3();
+    void testThreeFold4();
     void testMateWithRook();
     void testHashInsertAndRetrieve();
 };

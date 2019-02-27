@@ -194,8 +194,8 @@ void TestGames::testThreeFold()
         History::globalInstance()->addGame(g);
     }
 
-    Node *n = new Node(nullptr, g);
-    QVERIFY(n->isThreeFold());
+    Node n(nullptr, g);
+    QVERIFY(n.isThreeFold());
 }
 
 void TestGames::testThreeFold2()
@@ -212,8 +212,8 @@ void TestGames::testThreeFold2()
         History::globalInstance()->addGame(g);
     }
 
-    Node *n = new Node(nullptr, g);
-    QVERIFY(n->isThreeFold());
+    Node n(nullptr, g);
+    QVERIFY(n.isThreeFold());
 }
 
 void TestGames::testThreeFold3()
@@ -230,8 +230,41 @@ void TestGames::testThreeFold3()
         History::globalInstance()->addGame(g);
     }
 
-    Node *n = new Node(nullptr, g);
-    QVERIFY(n->isThreeFold());
+    Node n(nullptr, g);
+    QVERIFY(n.isThreeFold());
+}
+
+void TestGames::testThreeFold4()
+{
+    History::globalInstance()->clear();
+
+    QLatin1String fen = QLatin1String("4k3/8/8/8/8/1R6/8/4K3 b - - 0 40");
+    QVector<QString> moves = QString("e8d7 e1f1 d7d6 b3b2 d6c6 b2b8 c6d6 b8b7 d6c6 b7b3 c6d7 b3a3 d7c7 a3a6 c7c8 a6a1 c8d7 f1g1 d7c6 a1a8 c6b7 a8d8 b7a7 d8d3 a7b8 d3a3 b8c7 a3a6 c7b7 a6f6 b7b8 f6f2 b8c7 f2a2 c7b6 a2a3 b6b7 a3a2 b7c7 a2a6 c7b7 a6a5 b7b8 a5a4 b8c7 a4b4 c7d7 b4b6 d7d8 b6b5 d8c7 b5b4 c7d7 b4b6 d7c7 b6f6 c7d7 f6f2 d7e8 f2a2 e8d7 a2a6 d7c7 a6a5 c7b8 a5a4 b8c7").split(" ").toVector();
+    Game g(fen);
+    History::globalInstance()->addGame(g);
+    for (QString mv : moves) {
+        Move move = Notation::stringToMove(mv, Chess::Computer);
+        bool success = g.makeMove(move);
+        QVERIFY(success);
+        History::globalInstance()->addGame(g);
+    }
+
+    Node n(nullptr, g);
+    QVERIFY(!n.isThreeFold());
+    n.generatePotentials();
+    QVector<PotentialNode*> potentials = n.potentials();
+    QVERIFY(!potentials.isEmpty());
+    bool found = false;
+    for (PotentialNode *p : potentials) {
+        if (QLatin1String("a4b4") == Notation::moveToString(p->move(), Chess::Computer)) {
+            found = true;
+            Node *threeFold = n.generateChild(p);
+            threeFold->generatePotentials();
+            QVERIFY(threeFold->isThreeFold());
+            delete threeFold;
+        }
+    }
+    QVERIFY(found);
 }
 
 void TestGames::testMateWithRook()
@@ -249,8 +282,9 @@ void TestGames::testMateWithRook()
     enum Result { CheckMate, StaleMate, HalfMoveClock, ThreeFold, NoResult };
     Result r = NoResult;
 
+    QString position;
     for (int i = 0; i < 100; ++i) {
-        QString position = QLatin1String("position fen ") + fen;
+        position = QLatin1String("position fen ") + fen;
         if (!moves.isEmpty())
             position.append(QLatin1String(" moves ") + moves.toList().join(' '));
         engine.readyRead(position);
@@ -280,14 +314,13 @@ void TestGames::testMateWithRook()
         }
 
         engineHandler.clear();
-        engine.readyRead(QLatin1String("go depth 2"));
+        engine.readyRead(QLatin1String("go depth 5"));
         bool receivedSignal = bestMoveSpy.wait();
         if (!receivedSignal) {
             QString message = QString("Did not receive signal for position %1").arg(position);
             QWARN(message.toLatin1().constData());
             engine.readyRead(QLatin1String("stop"));
         }
-        QVERIFY(receivedSignal);
         QString bestMove = engineHandler.lastBestMove();
         QVERIFY(!bestMove.isEmpty());
         moves.append(bestMove);
@@ -306,7 +339,8 @@ void TestGames::testMateWithRook()
     case NoResult:
         resultString = "NoResult"; break;
     }
-    QVERIFY2(r == CheckMate, QString("Result is %1").arg(resultString).toLatin1().constData());
+    QVERIFY2(r == CheckMate, QString("Result is %1 at %2")
+        .arg(resultString).arg(position).toLatin1().constData());
 }
 
 void TestGames::testHashInsertAndRetrieve()

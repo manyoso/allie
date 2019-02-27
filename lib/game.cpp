@@ -40,6 +40,7 @@ Game::Game(const QString &fen)
     m_halfMoveNumber(2),
     m_fileOfKingsRook(0),
     m_fileOfQueensRook(0),
+    m_repetitions(-1),
     m_hasWhiteKingCastle(false),
     m_hasBlackKingCastle(false),
     m_hasWhiteQueenCastle(false),
@@ -241,6 +242,7 @@ void Game::processMove(Chess::Army army, const Move &move)
             togglePieceAt(end, Black, move.piece(), true);
     }
 
+    m_repetitions = -1;
     m_halfMoveNumber++;
     m_activeArmy = m_activeArmy == White ? Black : White;
 }
