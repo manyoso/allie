@@ -22,8 +22,9 @@
 #define HASH_H
 
 #include <QtGlobal>
+#include <QCache>
 
-struct HashBucket;
+struct HashEntry;
 class Node;
 class Hash {
 public:
@@ -33,15 +34,14 @@ public:
     bool contains(const Node *node) const;
     bool fillOut(Node *node) const;
     void insert(const Node *node);
-    quint64 size() const { return m_size; }
+    quint64 size() const;
     float percentFull(int halfMoveNumber) const;
 
 private:
     Hash();
     ~Hash();
     void clear();
-    quint64 m_size;
-    HashBucket *m_table;
+    QCache<quint64, HashEntry> *m_cache;
     friend class MyHash;
 };
 

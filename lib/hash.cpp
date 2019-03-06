@@ -27,7 +27,8 @@
 #include "options.h"
 
 //#define DEBUG_HASH
-#define MAX_POTENTIALS_COUNT 37 // gives 32768 entries while increasing by one cuts that by half
+// increasing by one cuts number of entries by half
+#define MAX_POTENTIALS_COUNT 159
 
 struct HashPValue {
     float pValue = -2.0f;
@@ -56,17 +57,6 @@ struct HashEntry {
     quint64 potentialValues[MAX_POTENTIALS_COUNT];
 };
 
-struct HashNode {
-    quint64 key = 0;
-    qint8 generation = -1;
-    HashEntry value;
-};
-
-struct HashBucket {
-    std::atomic<HashNode> first;
-    std::atomic<HashNode> second;
-};
-
 class MyHash : public Hash { };
 Q_GLOBAL_STATIC(MyHash, HashInstance)
 Hash* Hash::globalInstance()
@@ -75,8 +65,7 @@ Hash* Hash::globalInstance()
 }
 
 Hash::Hash()
-    : m_size(0),
-      m_table(nullptr)
+    : m_cache(nullptr)
 {
     Q_ASSERT(sizeof(HashPValue) == 8);
 
@@ -100,7 +89,10 @@ Hash::Hash()
 
 Hash::~Hash()
 {
-    delete[] m_table;
+    if (m_cache)
+        m_cache->clear();
+    delete m_cache;
+    m_cache = nullptr;
 }
 
 quint64 largestPowerofTwoLessThan(quint64 n)
@@ -112,14 +104,13 @@ quint64 largestPowerofTwoLessThan(quint64 n)
 void Hash::reset()
 {
     quint64 bytes = Options::globalInstance()->option("Hash").value().toUInt() * quint64(1024) * quint64(1024);
-    quint64 maxSize = bytes / sizeof(HashBucket);
+    quint64 maxSize = bytes / sizeof(HashEntry);
     quint64 size = largestPowerofTwoLessThan(maxSize);
-    if (!m_table || m_size != size) {
-        delete[] m_table;
-        m_size = size;
-        m_table = new HashBucket[m_size];
+    if (!m_cache || quint64(m_cache->totalCost()) != size) {
+        delete m_cache;
+        m_cache = new QCache<quint64, HashEntry>(int(size));
 #if defined(DEBUG_HASH)
-        qDebug() << "Hash size is" << m_size;
+        qDebug() << "Hash size is" << size;
 #endif
     }
 
@@ -128,25 +119,16 @@ void Hash::reset()
 
 void Hash::clear()
 {
-    memset(m_table, 0, sizeof(m_table) * m_size);
+    if (m_cache)
+        m_cache->clear();
 }
 
 bool Hash::contains(const Node *node) const
 {
-    if (!m_size)
+    if (!m_cache || !m_cache->maxCost())
         return false;
 
-    const quint64 hash = node->game().hash();
-    const quint64 index = hash & (m_size - 1);
-    const HashBucket *bucket = m_table + index;
-    Q_ASSERT(bucket);
-    if (!bucket)
-        return false;
-    if (bucket->first.load().key == hash)
-        return true;
-    if (bucket->second.load().key == hash)
-        return true;
-    return false;
+    return m_cache->contains(node->game().hash());
 }
 
 bool fillOutNodeFromEntry(Node *node, const HashEntry &entry)
@@ -177,44 +159,28 @@ bool fillOutNodeFromEntry(Node *node, const HashEntry &entry)
 
 bool Hash::fillOut(Node *node) const
 {
-    Q_ASSERT(m_size);
-    const quint64 hash = node->game().hash();
-    const quint64 index = hash & (m_size - 1);
-    const HashBucket *bucket = m_table + index;
-    Q_ASSERT(bucket);
-    if (!bucket)
+    Q_ASSERT(m_cache);
+    if (!m_cache)
         return false;
-    {
-        HashNode hashNode = bucket->first.load();
-        if (hashNode.key == hash)
-            return fillOutNodeFromEntry(node, hashNode.value);
-    }
-    {
-        HashNode hashNode = bucket->second.load();
-        if (hashNode.key == hash)
-            return fillOutNodeFromEntry(node, hashNode.value);
-    }
-    return false;
+
+    HashEntry *entry = m_cache->object(node->game().hash());
+    if (!entry)
+        return false;
+
+    return fillOutNodeFromEntry(node, *entry);
 }
 
 void Hash::insert(const Node *node)
 {
-    if (!m_size)
-        return;
-
-    const quint64 hash = node->game().hash();
-    const quint64 index = hash & (m_size - 1);
-    HashBucket *bucket = m_table + index;
-    Q_ASSERT(bucket);
-    if (!bucket)
+    if (!m_cache || !m_cache->maxCost())
         return;
 
     if (node->potentials().count() > MAX_POTENTIALS_COUNT)
         return; // Too many potentials to cache!
 
-    HashEntry entry;
-    entry.qValue = node->rawQValue();
-    Q_ASSERT(!qFuzzyCompare(entry.qValue, -2.0f));
+    HashEntry *entry = new HashEntry;
+    entry->qValue = node->rawQValue();
+    Q_ASSERT(!qFuzzyCompare(entry->qValue, -2.0f));
 
     const QVector<PotentialNode*> po = node->potentials();
     for (int i = 0; i < po.count(); ++i) {
@@ -223,78 +189,21 @@ void Hash::insert(const Node *node)
         pValue.pValue = potential->pValue();
         Q_ASSERT(!qFuzzyCompare(potential->pValue(), -2.0f));
         pValue.index = moveToNNIndex(potential->move());
-        entry.potentialValues[i] = pValueToHash(pValue);
+        entry->potentialValues[i] = pValueToHash(pValue);
     }
 
     for (int i = po.count(); i < MAX_POTENTIALS_COUNT; ++i)
-        entry.potentialValues[i] = pValueToHash(HashPValue());
+        entry->potentialValues[i] = pValueToHash(HashPValue());
 
-    HashNode hashNode;
-    hashNode.key = hash;
-    hashNode.value = entry;
-    hashNode.generation = qint8(node->rootNode()->game().halfMoveNumber());
-
-    // See if the first bucket is empty and if so use that
-    HashNode first = bucket->first.load();
-    if (qFuzzyCompare(first.value.qValue, -2.0f)) {
-        bucket->first.store(hashNode);
-        return;
-    }
-
-    // See if the second bucket is empty and if so use that
-    HashNode second = bucket->second.load();
-    if (qFuzzyCompare(second.value.qValue, -2.0f)) {
-        bucket->second.store(hashNode);
-        return;
-    }
-
-    // See if the first bucket is older and if so use that
-    bool firstIsOlder = first.generation < second.generation;
-    if (firstIsOlder) {
-        bucket->first.store(hashNode);
-        return;
-    }
-
-    // Just use the second bucket
-    bucket->second.store(hashNode);
+    m_cache->insert(node->game().hash(), entry, 1);
 }
 
 float Hash::percentFull(int halfMoveNumber) const
 {
-    if (!m_size)
+    if (!m_cache || !m_cache->maxCost())
         return 1.0f;
 
-#if defined(DEBUG_HASH)
-    quint64 sample = m_size;
-#else
-    quint64 sample = 1000;
-#endif
-    quint64 touchedFirst = 0;
-    quint64 touchedSecond = 0;
-    QVector<quint64> indexesTouched;
-    for (quint64 i = 0; i < sample; ++i) {
-        quint64 index = i;
-        HashBucket *bucket = m_table + index;
-        {
-            HashNode hashNode = bucket->first.load();
-            if (hashNode.generation == halfMoveNumber) {
-                touchedFirst++;
-                indexesTouched.append(index);
-            }
-        }
-        {
-            HashNode hashNode = bucket->second.load();
-            if (hashNode.generation == halfMoveNumber) {
-                touchedSecond++;
-                indexesTouched.append(index);
-            }
-        }
-    }
-    if (!(touchedFirst + touchedSecond))
-        return 0.0f;
-#if defined(DEBUG_HASH)
-    qDebug() << "Full hash buckets first:" << touchedFirst << "second:" << touchedSecond << "of" << m_size * 2 /*<< indexesTouched*/;
-#endif
-    return (touchedFirst + touchedSecond) / float(sample * 2);
+    Q_UNUSED(halfMoveNumber);
+    return quint64(m_cache->count()) / float(m_cache->maxCost());
 }
 

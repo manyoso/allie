@@ -102,9 +102,8 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             if (!node->isPrefetch()) {
                 node->setQValueAndPropagate();
             }
+            Hash::globalInstance()->insert(node);
         }
-
-        Hash::globalInstance()->insert(node);
     }
 
     WorkerInfo myInfo = info;
