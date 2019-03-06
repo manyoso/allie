@@ -167,9 +167,8 @@ void NeuralNet::reset()
     }
 
     const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt();
-    const int numberOfThreads = Options::globalInstance()->option("Threads").value().toInt();
     const bool useFP16 = Options::globalInstance()->option("UseFP16").value() == "true";
-    if (numberOfGPUCores * numberOfThreads == m_availableNetworks.count()
+    if (numberOfGPUCores == m_availableNetworks.count()
         && useFP16 == m_usingFP16)
         return; // Nothing to do
 
@@ -177,8 +176,7 @@ void NeuralNet::reset()
     qDeleteAll(m_availableNetworks);
     m_availableNetworks.clear();
     for (int i = 0; i < numberOfGPUCores; ++i)
-        for (int j = 0; j < numberOfThreads; ++j)
-            m_availableNetworks.append(createNewNetwork(i, m_usingFP16));
+        m_availableNetworks.append(createNewNetwork(i, m_usingFP16));
 }
 
 void NeuralNet::setWeights(const QString &pathToWeights)

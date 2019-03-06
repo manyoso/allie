@@ -45,7 +45,7 @@ Options::Options()
     UciOption moveOverhead;
     moveOverhead.m_name = QLatin1Literal("MoveOverhead");
     moveOverhead.m_type = UciOption::Spin;
-    moveOverhead.m_default = QLatin1Literal("100");
+    moveOverhead.m_default = QLatin1Literal("300");
     moveOverhead.m_value = moveOverhead.m_default;
     moveOverhead.m_min = QLatin1Literal("0");
     moveOverhead.m_max = QLatin1Literal("5000");
@@ -81,7 +81,7 @@ Options::Options()
     UciOption threads;
     threads.m_name = QLatin1Literal("Threads");
     threads.m_type = UciOption::Spin;
-    threads.m_default = QLatin1Literal("2");
+    threads.m_default = QLatin1Literal("1");
     threads.m_value = threads.m_default;
     threads.m_min = QLatin1Literal("0");
     threads.m_max = QLatin1Literal("256");

@@ -428,7 +428,8 @@ void UciEngine::sendBestMove(bool force)
 {
     // We don't have a best move yet!
     if (m_lastInfo.bestMove.isEmpty()) {
-        output("We have no more time and no bestmove!\n");
+        QString o = QString("No more time and no bestmove forced=%1!\n").arg(force ? "t" : "f");
+        output(o);
         if (!force)
             return;
     }

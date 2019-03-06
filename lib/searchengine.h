@@ -23,6 +23,7 @@
 
 #include <QObject>
 #include <QDebug>
+#include <QFuture>
 #include <QThread>
 #include <QMutex>
 #include <QWaitCondition>
@@ -46,7 +47,6 @@ public:
 
 public Q_SLOTS:
     void startSearch(Tree *tree);
-    void search();
     void printTree(int depth) const;
 
 Q_SIGNALS:
@@ -54,33 +54,25 @@ Q_SIGNALS:
     void searchStopped();
     void reachedMaxBatchSize();
 
+private Q_SLOTS:
+    void search();
+
 private:
-    void resetStats();
-    bool checkStop() const;
-    void reportProgress();
-    void fetchBatch(const QVector<Node*> &batch);
-    void fetchFromNN(const QVector<Node*> &fetch);
+    void fetchBatch(const QVector<Node*> &batch,
+        lczero::Network *network, Tree *tree, const WorkerInfo &info);
+    void fetchFromNN(const QVector<Node*> &fetch, const WorkerInfo &info);
     bool fillOutTree();
 
     // Playout methods
-    bool handlePlayout(Node *node, int depth);
+    bool handlePlayout(Node *node, int depth, WorkerInfo *info);
 
     // MCTS related methods
-    QVector<Node*> playoutNodesMCTS(int size, bool *didWork);
+    QVector<Node*> playoutNodesMCTS(int size, bool *didWork, WorkerInfo *info);
 
     int m_id;
-    int m_sumDepths;
-    int m_maxDepth;
-    int m_nodesSearched;
-    int m_nodesSearchedTotal;
-    int m_nodesEvaluated;
-    int m_nodesCacheHits;
-    int m_nodesReduced;
-    int m_nodesPruned;
-    int m_numberOfBatches;
     bool m_reachedMaxBatchSize;
-    lczero::Network *m_network;
     Tree *m_tree;
+    QVector<QFuture<void>> m_futures;
     QMutex m_sleepMutex;
     QWaitCondition m_sleepCondition;
     std::atomic<bool> m_stop;
@@ -122,7 +114,7 @@ Q_SIGNALS:
     void sendInfo(const SearchInfo &info, bool isPartial);
 
 private:
-    void gcNode(Node *node) const;
+    static void gcNode(Node *node);
     void resetSearch(const Search &search);
     bool tryResumeSearch(const Search &search);
 
