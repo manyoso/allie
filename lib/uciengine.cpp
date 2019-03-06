@@ -21,6 +21,7 @@
 #include "uciengine.h"
 
 #include <QCoreApplication>
+#include <QDateTime>
 #include <QDebug>
 #include <QDir>
 #include <QStringList>
@@ -39,7 +40,8 @@
 #include "options.h"
 #include "searchengine.h"
 
-//#define LOG
+#define LOG
+//#define AVERAGES
 #if defined(LOG)
 static bool s_firstLog = true;
 #endif
@@ -132,9 +134,9 @@ void g_uciMessageHandler(QtMsgType type, const QMessageLogContext &context, cons
     QString format;
     QTextStream out(&format);
     if (QLatin1String(context.category) == QLatin1Literal("input")) {
-        out << "Input:" << endl << msg << endl;
+        out << "Input: " << msg << endl;
     } else if (QLatin1String(context.category) == QLatin1Literal("output")) {
-        out << "Output:"  << endl << msg;
+        out << "Output: " << msg;
         fprintf(stdout, "%s", qPrintable(msg));
         fflush(stdout);
     } else {
@@ -161,17 +163,17 @@ void g_uciMessageHandler(QtMsgType type, const QMessageLogContext &context, cons
 #if defined(LOG)
     QString logFilePath = QCoreApplication::applicationDirPath() +
         QDir::separator() + QCoreApplication::applicationName() +
-        "_" + QString::number(QCoreApplication::applicationPid()) + ".log";
+        "_debug.log";
     QFile file(logFilePath);
 
-    QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text;
-    if (!s_firstLog)
-        mode |= QIODevice::Append;
-
+    QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append;
     if (!file.open(mode))
         return;
 
     QTextStream log(&file);
+    if (s_firstLog)
+        log << "Output: log pid " << QCoreApplication::applicationPid() << " at "
+            << QDateTime::currentDateTime().toString() << "\n";
     log << format;
     s_firstLog = false;
 #endif
@@ -592,7 +594,7 @@ void UciEngine::uciNewGame()
     m_searchEngine->reset();
 
     m_averageInfo = SearchInfo();
-#if defined(LOG)
+#if defined(AVERAGES)
     if (m_averageInfo.depth != -1)
         sendAverages();
 #endif
@@ -615,7 +617,7 @@ void UciEngine::stop()
 void UciEngine::quit()
 {
     //qDebug() << "quit";
-#if defined(LOG)
+#if defined(AVERAGES)
     sendAverages();
 #endif
     Q_ASSERT(m_searchEngine && m_gameInitialized);
