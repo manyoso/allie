@@ -42,6 +42,16 @@ Options::Options()
     hash.m_description = QLatin1String("Size of the hash in MB");
     insertOption(hash);
 
+    UciOption treeSize;
+    treeSize.m_name = QLatin1Literal("TreeSize");
+    treeSize.m_type = UciOption::Spin;
+    treeSize.m_default = QLatin1Literal("0");
+    treeSize.m_value = treeSize.m_default;
+    treeSize.m_min = QLatin1Literal("0");
+    treeSize.m_max = QLatin1Literal("65536");
+    treeSize.m_description = QLatin1String("Limit the size of the tree in MB");
+    insertOption(treeSize);
+
     UciOption moveOverhead;
     moveOverhead.m_name = QLatin1Literal("MoveOverhead");
     moveOverhead.m_type = UciOption::Spin;

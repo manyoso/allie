@@ -420,8 +420,8 @@ void UciEngine::calculateRollingAverage(const SearchInfo &info)
     const WorkerInfo &newW = info.workerInfo;
     avgW.nodesSearched     = rollingAverage(avgW.nodesSearched, newW.nodesSearched, n);
     avgW.nodesEvaluated    = rollingAverage(avgW.nodesEvaluated, newW.nodesEvaluated, n);
+    avgW.nodesCreated    = rollingAverage(avgW.nodesCreated, newW.nodesCreated, n);
     avgW.nodesCacheHits    = rollingAverage(avgW.nodesCacheHits, newW.nodesCacheHits, n);
-    avgW.nodesPruned       = rollingAverage(avgW.nodesPruned, newW.nodesPruned, n);
 }
 
 void UciEngine::sendBestMove(bool force)
@@ -478,6 +478,13 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
         return;
     }
 
+    // Check if we've exceeded the ram limit for tree size
+    const quint64 treeSizeLimit = Options::globalInstance()->option("TreeSize").value().toUInt() * quint64(1024) * quint64(1024);
+    if (treeSizeLimit && quint64(info.workerInfo.nodesCreated) * sizeof(Node) > treeSizeLimit) {
+        sendBestMove(true /*force*/);
+        return;
+    }
+
     // Otherwise begin updating info
     qint64 msecs = m_clock->elapsed();
     m_lastInfo.time = msecs;
@@ -517,8 +524,8 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
                << " efficiency " << m_lastInfo.workerInfo.nodesSearched / float(m_lastInfo.workerInfo.nodesEvaluated)
                << " nodesSearched " << m_lastInfo.workerInfo.nodesSearched
                << " nodesEvaluated " << m_lastInfo.workerInfo.nodesEvaluated
+               << " nodesCreated " << m_lastInfo.workerInfo.nodesCreated
                << " nodesCacheHits " << m_lastInfo.workerInfo.nodesCacheHits
-               << " nodesPruned " << m_lastInfo.workerInfo.nodesPruned
                << endl;
     }
 
@@ -559,8 +566,8 @@ void UciEngine::sendAverages()
            << " efficiency " << m_averageInfo.workerInfo.nodesSearched / float(m_averageInfo.workerInfo.nodesEvaluated)
            << " nodesSearched " << m_averageInfo.workerInfo.nodesSearched
            << " nodesEvaluated " << m_averageInfo.workerInfo.nodesEvaluated
+           << " nodesCreated " << m_averageInfo.workerInfo.nodesCreated
            << " nodesCacheHits " << m_averageInfo.workerInfo.nodesCacheHits
-           << " nodesPruned " << m_averageInfo.workerInfo.nodesPruned
            << endl;
     output(out);
 }

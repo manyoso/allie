@@ -273,10 +273,13 @@ public:
     }
 
     // Creates the node if necessary
-    Node *actualNode() const
+    Node *actualNode(bool *created) const
     {
-        if (isPotential())
+        if (isPotential()) {
+            *created = true;
             return m_parent->generateChild(m_potential);
+        }
+        *created = false;
         return m_node;
     }
 
@@ -307,7 +310,7 @@ int virtualLossDistance(float wec, const MCTSNode &a, const MCTSNode &b)
     return n;
 }
 
-Node *Node::playout(int *depth)
+Node *Node::playout(int *depth, bool *createdNode)
 {
     int tryPlayoutLimit = 256;
     int vldMax = 9999;
@@ -406,7 +409,13 @@ start_playout:
                 vld = qMin(vld, vldNew);
         }
 
-        n = firstNode.actualNode();
+        // Retrieve the actual first node
+        bool created = false;
+        n = firstNode.actualNode(&created);
+
+        // If we created any nodes, then update to indicate
+        if (created)
+            *createdNode = true;
     }
 
     *depth = d;

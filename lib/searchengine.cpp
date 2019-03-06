@@ -188,7 +188,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 #if defined(DEBUG_PLAYOUT_MCTS)
         qDebug() << "found resumed playout" << playout->toString();
 #endif
-        ++(*info).nodesCacheHits;
+        info->nodesCacheHits += 1;
         QMutexLocker locker(&m_tree->mutex);
         playout->setPrefetch(false);
         playout->setQValueAndPropagate();
@@ -213,7 +213,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 #if defined(DEBUG_PLAYOUT_MCTS)
         qDebug() << "found cached playout" << playout->toString();
 #endif
-        ++(*info).nodesCacheHits;
+        info->nodesCacheHits += 1;
         QMutexLocker locker(&m_tree->mutex);
         Hash::globalInstance()->fillOut(playout);
         playout->setQValueAndPropagate();
@@ -235,7 +235,10 @@ QVector<Node*> SearchWorker::playoutNodesMCTS(int size, bool *didWork, WorkerInf
         int depth = 0;
 
         m_tree->mutex.lock();
-        Node *playout = m_tree->root->playout(&depth);
+        bool createdNode = false;
+        Node *playout = m_tree->root->playout(&depth, &createdNode);
+        if (createdNode)
+            info->nodesCreated += 1;
         m_tree->mutex.unlock();
 
         if (!playout)
@@ -483,9 +486,9 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.workerInfo.nodesSearched += info.nodesSearched;
     m_currentInfo.workerInfo.nodesSearchedTotal += info.nodesSearchedTotal;
     m_currentInfo.workerInfo.nodesEvaluated += info.nodesEvaluated;
+    m_currentInfo.workerInfo.nodesCreated += info.nodesCreated;
     m_currentInfo.workerInfo.numberOfBatches += info.numberOfBatches;
     m_currentInfo.workerInfo.nodesCacheHits += info.nodesCacheHits;
-    m_currentInfo.workerInfo.nodesPruned += info.nodesPruned;
 
     // Update our depth info
     const int newDepth = m_currentInfo.workerInfo.sumDepths / qMax(1, m_currentInfo.workerInfo.nodesSearched);

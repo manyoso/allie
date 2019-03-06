@@ -129,7 +129,7 @@ public:
     void backPropagateValueFull();
     void setQValueAndPropagate();
     bool isAlreadyPlayingOut() const;
-    Node *playout(int *depth);
+    Node *playout(int *depth, bool *createdNode);
 
     bool hasPValue() const;
     float pValue() const { return m_pValue; }
