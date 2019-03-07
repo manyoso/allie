@@ -403,7 +403,7 @@ bool SearchEngine::tryResumeSearch(const Search &s)
     for (Node *child : ch) {
         const QVector<Node*> gch = child->children();
         for (Node *grandChild : gch) {
-            if (grandChild->m_game.isSamePosition(s.game)) {
+            if (grandChild->m_game.isSamePosition(s.game) && !grandChild->isExact()) {
                 grandChild->setAsRootNode();
                 std::function<void()> gc = std::bind(&SearchEngine::gcNode, m_tree->root);
                 QtConcurrent::run(gc);
