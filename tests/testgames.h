@@ -72,6 +72,13 @@ private slots:
     void testThreeFold2();
     void testThreeFold3();
     void testThreeFold4();
-    void testMateWithRook();
+    void testMateWithKRvK();
+    void testMateWithKQvK();
+    void testMateWithKBNvK();
+    void testMateWithKBBvK();
+    void testMateWithKQQvK();
     void testHashInsertAndRetrieve();
+
+private:
+    void checkGame(const QString &fen, const QVector<QString> &mv);
 };

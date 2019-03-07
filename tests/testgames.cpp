@@ -171,7 +171,7 @@ void TestGames::testSearchForMateInOne()
     engine.readyRead(QLatin1String("go depth 2"));
     bool receivedSignal = bestMoveSpy.wait();
     if (!receivedSignal) {
-        QString message = QString("Did not receive signal for position %1").arg(mateInOneMoves);
+        QString message = QString("Did not receive signal for %1").arg(mateInOneMoves);
         QWARN(message.toLatin1().constData());
         engine.readyRead(QLatin1String("stop"));
     }
@@ -267,19 +267,15 @@ void TestGames::testThreeFold4()
     QVERIFY(found);
 }
 
-void TestGames::testMateWithRook()
+void TestGames::checkGame(const QString &fen, const QVector<QString> &mv)
 {
-    QString fen = QLatin1String("4k3/8/8/8/8/1R6/8/4K3 b - - 0 40");
-
+    QVector<QString> moves = mv;
     UciEngine engine(this, QString());
     UCIIOHandler engineHandler(this);
     engine.installIOHandler(&engineHandler);
     QSignalSpy bestMoveSpy(&engineHandler, &UCIIOHandler::receivedBestMove);
 
-    QVector<QString> moves;
-    moves.append(QLatin1String("e8d7"));
-
-    enum Result { CheckMate, StaleMate, HalfMoveClock, ThreeFold, NoResult };
+    enum Result { CheckMate, StaleMate, HalfMoveClock, ThreeFold, DeadPosition, NoResult };
     Result r = NoResult;
 
     QString position;
@@ -292,6 +288,11 @@ void TestGames::testMateWithRook()
         Game g = History::globalInstance()->currentGame();
         if (g.halfMoveClock() >= 100) {
             r = HalfMoveClock;
+            break;
+        }
+
+        if (g.isDeadPosition()) {
+            r = DeadPosition;
             break;
         }
 
@@ -314,10 +315,10 @@ void TestGames::testMateWithRook()
         }
 
         engineHandler.clear();
-        engine.readyRead(QLatin1String("go depth 5"));
+        engine.readyRead(QLatin1String("go wtime 2000 btime 100"));
         bool receivedSignal = bestMoveSpy.wait();
         if (!receivedSignal) {
-            QString message = QString("Did not receive signal for position %1").arg(position);
+            QString message = QString("Did not receive signal for %1").arg(position);
             QWARN(message.toLatin1().constData());
             engine.readyRead(QLatin1String("stop"));
         }
@@ -336,11 +337,58 @@ void TestGames::testMateWithRook()
         resultString = "HalfMoveClock"; break;
     case ThreeFold:
         resultString = "ThreeFold"; break;
+    case DeadPosition:
+        resultString = "DeadPosition"; break;
     case NoResult:
         resultString = "NoResult"; break;
     }
     QVERIFY2(r == CheckMate, QString("Result is %1 at %2")
         .arg(resultString).arg(position).toLatin1().constData());
+}
+
+void TestGames::testMateWithKRvK()
+{
+    QString fen = QLatin1String("4k3/8/8/8/8/1R6/8/4K3 b - - 0 40");
+
+    QVector<QString> moves;
+    moves.append(QLatin1String("e8d7"));
+    checkGame(fen, moves);
+}
+
+void TestGames::testMateWithKQvK()
+{
+    QString fen = QLatin1String("4k3/8/8/8/8/1Q6/8/4K3 b - - 0 40");
+
+    QVector<QString> moves;
+    moves.append(QLatin1String("e8d7"));
+    checkGame(fen, moves);
+}
+
+void TestGames::testMateWithKBNvK()
+{
+    QString fen = QLatin1String("4k3/8/8/8/8/1N6/8/4K2B b - - 0 40");
+
+    QVector<QString> moves;
+    moves.append(QLatin1String("e8d7"));
+    checkGame(fen, moves);
+}
+
+void TestGames::testMateWithKBBvK()
+{
+    QString fen = QLatin1String("4k3/8/8/8/8/1B6/8/4K1B1 b - - 0 40");
+
+    QVector<QString> moves;
+    moves.append(QLatin1String("e8d7"));
+    checkGame(fen, moves);
+}
+
+void TestGames::testMateWithKQQvK()
+{
+    QString fen = QLatin1String("4k3/8/8/8/8/1Q6/8/4K2Q b - - 0 40");
+
+    QVector<QString> moves;
+    moves.append(QLatin1String("e8d7"));
+    checkGame(fen, moves);
 }
 
 void TestGames::testHashInsertAndRetrieve()
