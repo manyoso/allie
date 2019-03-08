@@ -14,8 +14,7 @@ Not exactly. AF and the Stein are (apparently quite successful) experiments with
 
 ## Ok, so details. How is she different?
 
-Well, I was inspired during the original CCC to see if you could pair traditional AlphaBeta search with an NN. This is still her main purpose and the focus going forward. However, the initial pre-release version that will play in CCC 6 is using much the same MCTS algorithm as Lc0 with a few differences. Here is a non-exhaustive list of some of the other differences:
-- She has a lockless hashtable
+Well, I was inspired during the original CCC to see if you could pair traditional AlphaBeta search with an NN. This is still her main purpose and the focus going forward. However, the initial pre-release version is using much the same MCTS algorithm as Lc0 with a few differences. Here is a non-exhaustive list of some of the other differences:
 - The threading model is different
 - She does not have fpu-reduction
 - Optimized magic bitboard move generation
@@ -24,7 +23,7 @@ Well, I was inspired during the original CCC to see if you could pair traditiona
 
 ## All right, brass tacks how strong is she?
 
-Depends. First, her ELO will obviously depend upon which network is used. However, head-to-head using the same network on my limited hardware setup she is 50-100 elo behind. When playing in CCC she will be playing on much more powerful hardware that she has not been tested on, but if she scales correctly then I expect she will be competitive. She also does not have TB support at this time so that will hurt. Really, it will depend upon her NPS and if she is stable enough.
+Depends. First, her ELO will obviously depend upon which network is used. However, head-to-head using the same network on my limited hardware setup she is 50-100 elo behind.
 
 ## Why did you develop her rather than just help out Leela?
 
@@ -40,5 +39,5 @@ I've set up a patreon page here: https://www.patreon.com/gonzochess75 and would 
 
 ## Anything else?
 
-Yes, I'd like to wholeheartedly thank the developers of the Lc0 project which make Allie even possible. Only by standing on their shoulders could Allie exist. I'd also like to thank Deepmind for their work on AlphaZero which started the whole NN for chess era. Finally, thanks to chess.com for giving her a chance.
+Yes, I'd like to wholeheartedly thank the developers of the Lc0 project which make Allie even possible. Only by standing on their shoulders could Allie exist. I'd also like to thank Deepmind for their work on AlphaZero which started the whole NN for chess era. Finally, thanks to chess.com for giving her a chance. Finally, I'd like to thank Andrew Grant who wrote the Ethereal engine whose code was a big inspiration for writing Allie.
 
