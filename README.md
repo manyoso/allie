@@ -39,5 +39,5 @@ I've set up a patreon page here: https://www.patreon.com/gonzochess75 and would 
 
 ## Anything else?
 
-Yes, I'd like to wholeheartedly thank the developers of the Lc0 project which make Allie even possible. Only by standing on their shoulders could Allie exist. I'd also like to thank Deepmind for their work on AlphaZero which started the whole NN for chess era. Finally, thanks to chess.com for giving her a chance. Finally, I'd like to thank Andrew Grant who wrote the Ethereal engine whose code was a big inspiration for writing Allie.
+Yes, I'd like to wholeheartedly thank the developers of the Lc0 project which make Allie even possible. Only by standing on their shoulders could Allie exist. I'd also like to thank Deepmind for their work on AlphaZero which started the whole NN for chess era. Finally, I'd like to thank Andrew Grant who wrote the Ethereal engine whose code was a big inspiration for writing Allie and to CCC and TCEC for including the engine in their tournaments.
 
