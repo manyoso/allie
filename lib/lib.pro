@@ -14,6 +14,8 @@ lessThan(QT_MINOR_VERSION, 9) {
     error("Requres at least at least Qt 5.9")
 }
 
+DEFINES += TB_NO_HELPER_API
+
 include(atomic.pri)
 include(zlib.pri)
 PROTOS += $$PWD/proto/net.proto
@@ -42,6 +44,7 @@ HEADERS += \
     $$PWD/searchengine.h \
     $$PWD/settings.h \
     $$PWD/square.h \
+    $$PWD/tb.h \
     $$PWD/treeiterator.h \
     $$PWD/treeutils.h \
     $$PWD/uciengine.h \
@@ -56,7 +59,10 @@ HEADERS += \
     $$PWD/neural/weights_adapter.h \
     $$PWD/neural/cuda/cuda_common.h \
     $$PWD/neural/cuda/kernels.h \
-    $$PWD/neural/cuda/layers.h
+    $$PWD/neural/cuda/layers.h \
+    $$PWD/fathom/tbconfig.h \
+    $$PWD/fathom/tbcore.h \
+    $$PWD/fathom/tbprobe.h
 
 SOURCES += \
     $$PWD/bitboard.cpp \
@@ -75,6 +81,7 @@ SOURCES += \
     $$PWD/searchengine.cpp \
     $$PWD/settings.cpp \
     $$PWD/square.cpp \
+    $$PWD/tb.cpp \
     $$PWD/uciengine.cpp \
     $$PWD/zobrist.cpp \
     $$PWD/neural/cuda/layers.cpp \
@@ -82,4 +89,5 @@ SOURCES += \
     $$PWD/neural/network_legacy.cpp \
     $$PWD/neural/loader.cpp \
     $$PWD/neural/nn_policy.cpp \
-    $$PWD/neural/weights_adapter.cpp
+    $$PWD/neural/weights_adapter.cpp \
+    $$PWD/fathom/tbprobe.c

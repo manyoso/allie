@@ -144,6 +144,7 @@ private:
     bool m_hasWhiteQueenCastle : 1;
     bool m_hasBlackQueenCastle : 1;
     Chess::Army m_activeArmy;
+    friend class TB;
 };
 
 inline BitBoard Game::board(Chess::PieceType piece) const

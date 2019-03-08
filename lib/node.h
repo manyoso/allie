@@ -155,7 +155,7 @@ public:
 
     // children and potential generation
     bool hasNoisyChildren() const;
-    void generatePotentials();
+    bool generatePotentials();
     void generatePotential(const Move &move);
     Node *generateChild(PotentialNode *potential);
 

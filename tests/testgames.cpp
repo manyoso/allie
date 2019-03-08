@@ -176,7 +176,9 @@ void TestGames::testSearchForMateInOne()
         engine.readyRead(QLatin1String("stop"));
     }
     QVERIFY(receivedSignal);
-    QVERIFY(handler.lastBestMove() == QLatin1String("g2h3") || handler.lastBestMove() == QLatin1String("g2g5"));
+    QVERIFY2(handler.lastBestMove() == QLatin1String("g2h3")
+        || handler.lastBestMove() == QLatin1String("g2g5"), QString("Result is %1")
+        .arg(handler.lastBestMove()).toLatin1().constData());
     QCOMPARE(handler.lastInfo().score, QLatin1String("mate 1"));
 }
 

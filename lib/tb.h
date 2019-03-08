@@ -18,28 +18,35 @@
   Additional permission under GNU GPL version 3 section 7
 */
 
-#include <QtCore>
-#include <QtTest/QtTest>
+#ifndef TB_H
+#define TB_H
 
-#include "hash.h"
-#include "movegen.h"
-#include "nn.h"
-#include "options.h"
-#include "testgames.h"
-#include "zobrist.h"
+#include <QtGlobal>
 
-#define APP_NAME "Allie"
+#include "game.h"
 
-int main(int argc, char* argv[])
-{
-    QCoreApplication app(argc, argv);
-    app.setApplicationName(APP_NAME);
+class TB {
+public:
+    enum Probe {
+        NotFound,
+        Win,
+        Loss,
+        Draw
+    };
 
-    Options::globalInstance()->setOption("SyzygyPath", QCoreApplication::applicationDirPath() + QDir::separator() + "../../syzygy/");
+    static TB *globalInstance();
 
-    int rc = 0;
-    TestGames test1;
-    rc = QTest::qExec(&test1, argc, argv) == 0 ? rc : -1;
+    void reset();
 
-    return rc;
-}
+    bool isEnabled() const { return m_enabled; }
+
+    Probe probe(const Game &game) const;
+
+private:
+    TB();
+    ~TB();
+    bool m_enabled;
+    friend class MyTB;
+};
+
+#endif // TB_H

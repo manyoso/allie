@@ -23,6 +23,7 @@
 #include "history.h"
 #include "notation.h"
 #include "neural/nn_policy.h"
+#include "tb.h"
 
 int scoreToCP(float score)
 {
@@ -443,25 +444,43 @@ bool Node::hasNoisyChildren() const
     return false;
 }
 
-void Node::generatePotentials()
+bool Node::generatePotentials()
 {
     Q_ASSERT(!hasPotentials());
     if (hasPotentials())
-        return;
+        return false;
 
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
         m_rawQValue = 0.0f;
         m_isExact = true;
-        return;
+        return false;
     } else if (Q_UNLIKELY(m_game.isDeadPosition())) {
         m_rawQValue = 0.0f;
         m_isExact = true;
-        return;
+        return false;
     } else if (Q_UNLIKELY(isThreeFold())) {
         m_rawQValue = 0.0f;
         m_isExact = true;
-        return;
+        return false;
+    }
+
+    const TB::Probe result = isRootNode() ? TB::NotFound : TB::globalInstance()->probe(m_game);
+    switch (result) {
+    case TB::NotFound:
+        break;
+    case TB::Win:
+        m_rawQValue = 1.0f;
+        m_isExact = true;
+        return true;
+    case TB::Loss:
+        m_rawQValue = -1.0f;
+        m_isExact = true;
+        return true;
+    case TB::Draw:
+        m_rawQValue = 0.0f;
+        m_isExact = true;
+        return true;
     }
 
     // Otherwise try and generate potential moves
@@ -481,6 +500,7 @@ void Node::generatePotentials()
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
     }
+    return false;
 }
 
 void Node::generatePotential(const Move &move)
@@ -514,7 +534,7 @@ QString Node::toString(Chess::NotationType notation) const
 {
     QString string;
     QTextStream stream(&string);
-    QVector<Game> games = previousMoves(true /*fullHistory*/);
+    QVector<Game> games = previousMoves(false /*fullHistory*/);
     games << m_game;
     QVector<Game>::const_iterator it = games.begin();
     for (int i = 0; it != games.end(); ++it, ++i) {
@@ -567,7 +587,7 @@ QString Node::printTree(int depth) /*const*/
 
 QDebug operator<<(QDebug debug, const Node &node)
 {
-    QVector<Game> games = node.previousMoves(true /*fullHistory*/);
+    QVector<Game> games = node.previousMoves(false /*fullHistory*/);
     games << node.game();
     debug.nospace() << "Node(\"";
     debug.noquote() << node.toString();

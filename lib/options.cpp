@@ -22,6 +22,7 @@
 
 #include "hash.h"
 #include "nn.h"
+#include "tb.h"
 
 class MyOptions : public Options { };
 Q_GLOBAL_STATIC(MyOptions, OptionsInstance)
@@ -107,6 +108,14 @@ Options::Options()
     maxBatchSize.m_max = QLatin1Literal("65536");
     maxBatchSize.m_description = QLatin1String("Largest batch to send to GPU");
     insertOption(maxBatchSize);
+
+    UciOption tb;
+    tb.m_name = QLatin1Literal("SyzygyPath");
+    tb.m_type = UciOption::String;
+    tb.m_default = QLatin1Literal("");
+    tb.m_value = tb.m_default;
+    tb.m_description = QLatin1String("Path to the syzygy tablebase");
+    insertOption(tb);
 }
 
 Options::~Options()

@@ -177,6 +177,9 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     // then let's just *reset* (which is noop since it is exact) the value, increment and propagate
     // which is *not* noop
     if (playout->isExact()) {
+#if defined(DEBUG_PLAYOUT_MCTS)
+        qDebug() << "adding exact playout" << playout->toString();
+#endif
         QMutexLocker locker(&m_tree->mutex);
         playout->setQValueAndPropagate();
         return false;
@@ -197,12 +200,17 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 
     // Generate potential moves of the node if possible
     m_tree->mutex.lock();
-    playout->generatePotentials();
+    const bool isTbHit = playout->generatePotentials();
+    if (isTbHit)
+        info->nodesTBHits += 1;
     m_tree->mutex.unlock();
 
     // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
     // then let's just set the value and propagate
     if (playout->isExact()) {
+#if defined(DEBUG_PLAYOUT_MCTS)
+        qDebug() << "adding exact playout 2" << playout->toString();
+#endif
         QMutexLocker locker(&m_tree->mutex);
         playout->setQValueAndPropagate();
         return false;
@@ -488,6 +496,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.workerInfo.nodesEvaluated += info.nodesEvaluated;
     m_currentInfo.workerInfo.nodesCreated += info.nodesCreated;
     m_currentInfo.workerInfo.numberOfBatches += info.numberOfBatches;
+    m_currentInfo.workerInfo.nodesTBHits += info.nodesTBHits;
     m_currentInfo.workerInfo.nodesCacheHits += info.nodesCacheHits;
 
     // Update our depth info

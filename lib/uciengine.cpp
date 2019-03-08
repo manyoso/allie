@@ -39,6 +39,7 @@
 #include "notation.h"
 #include "options.h"
 #include "searchengine.h"
+#include "tb.h"
 
 #define LOG
 //#define AVERAGES
@@ -415,7 +416,6 @@ void UciEngine::calculateRollingAverage(const SearchInfo &info)
     m_averageInfo.nodes             = rollingAverage(m_averageInfo.nodes, info.nodes, n);
     m_averageInfo.nps               = rollingAverage(m_averageInfo.nps, info.nps, n);
     m_averageInfo.batchSize         = rollingAverage(m_averageInfo.batchSize, info.batchSize, n);
-    m_averageInfo.tbhits            = rollingAverage(m_averageInfo.tbhits, info.tbhits, n);
     m_averageInfo.rawnps            = rollingAverage(m_averageInfo.rawnps, info.rawnps, n);
 
     WorkerInfo &avgW = m_averageInfo.workerInfo;
@@ -423,6 +423,7 @@ void UciEngine::calculateRollingAverage(const SearchInfo &info)
     avgW.nodesSearched     = rollingAverage(avgW.nodesSearched, newW.nodesSearched, n);
     avgW.nodesEvaluated    = rollingAverage(avgW.nodesEvaluated, newW.nodesEvaluated, n);
     avgW.nodesCreated    = rollingAverage(avgW.nodesCreated, newW.nodesCreated, n);
+    avgW.nodesTBHits    = rollingAverage(avgW.nodesTBHits, newW.nodesTBHits, n);
     avgW.nodesCacheHits    = rollingAverage(avgW.nodesCacheHits, newW.nodesCacheHits, n);
 }
 
@@ -542,7 +543,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
            << " score " << m_lastInfo.score
            << " time " << m_lastInfo.time
            << " hashfull " << qRound(Hash::globalInstance()->percentFull(g.halfMoveNumber()) * 1000.0f)
-           << " tbhits " << m_lastInfo.tbhits
+           << " tbhits " << m_lastInfo.workerInfo.nodesTBHits
            << " pv " << m_lastInfo.pv
            << endl;
 
@@ -563,12 +564,12 @@ void UciEngine::sendAverages()
            << " nodes " << m_averageInfo.nodes
            << " nps " << m_averageInfo.nps
            << " batchSize " << m_averageInfo.batchSize
-           << " tbhits " << m_averageInfo.tbhits
            << " rawnps " << m_averageInfo.rawnps
            << " efficiency " << m_averageInfo.workerInfo.nodesSearched / float(m_averageInfo.workerInfo.nodesEvaluated)
            << " nodesSearched " << m_averageInfo.workerInfo.nodesSearched
            << " nodesEvaluated " << m_averageInfo.workerInfo.nodesEvaluated
            << " nodesCreated " << m_averageInfo.workerInfo.nodesCreated
+           << " nodesTBHits " << m_averageInfo.workerInfo.nodesTBHits
            << " nodesCacheHits " << m_averageInfo.workerInfo.nodesCacheHits
            << endl;
     output(out);
@@ -591,6 +592,7 @@ void UciEngine::uciNewGame()
 
     Hash::globalInstance()->reset();
     NeuralNet::globalInstance()->reset();
+    TB::globalInstance()->reset();
     m_searchEngine->reset();
 
     m_averageInfo = SearchInfo();
