@@ -67,12 +67,12 @@ static const quint64 BishopMagics[64] = {
     0x0400000260142410ull, 0x0800633408100500ull, 0xFC087E8E4BB2F736ull, 0x43FF9E4EF4CA2C89ull
 };
 
-static int sliderIndex(const BitBoard &occupied, const Magic *table)
+inline quint64 sliderIndex(const BitBoard &occupied, const Magic *table)
 {
 #ifdef USE_PEXT
-    return _pext_u64(occupied, table->mask);
+    return _pext_u64(occupied.data(), table->mask);
 #else
-    return int(((occupied.data() & table->mask) * table->magic) >> table->shift);
+    return (((occupied.data() & table->mask) * table->magic) >> table->shift);
 #endif
 }
 
@@ -141,7 +141,7 @@ static void initSliderMoves(const Square &square, Magic *table, quint64 magic, c
         table[sq+1].offset = table[sq].offset + (quint64(1) << BitBoard(table[sq].mask).count());
 
     do {
-        int index = sliderIndex(occupied, &table[sq]);
+        quint64 index = sliderIndex(occupied, &table[sq]);
         table[sq].offset[index] = sliderMoves(square, occupied, delta).data();
         occupied = (occupied - table[sq].mask) & table[sq].mask;
     } while (occupied);
