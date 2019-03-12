@@ -14,20 +14,42 @@ Not exactly. AF and the Stein are (apparently quite successful) experiments with
 
 ## Ok, so details. How is she different?
 
-Well, I was inspired during the original CCC to see if you could pair traditional AlphaBeta search with an NN. This is still her main purpose and the focus going forward. However, the initial pre-release version is using much the same MCTS algorithm as Lc0 with a few differences. Here is a non-exhaustive list of some of the other differences:
-- The threading model is different
-- She does not have fpu-reduction
-- Optimized magic bitboard move generation
-- Her time mgmt. is completely custom
-- She will show mate distance for her eval at the end of the game if she finds it
+Well, I was inspired during the original CCC to see if you could pair traditional AlphaBeta search with an NN. This is still her main purpose and the focus going forward. However, the initial versions are using a similar MCTS algorithm as Lc0 and AlphaZero.
+
+Here is a non-exhaustive list of differences:
+- UCI protocol code
+- Input/Output
+- Time managment
+- Board representation
+- Move generation
+- Zobrist keys
+- Hash implementation
+- The threading model
+- Search algorithm
+- Tree structure
+- The multi-gpu scaling code
+- Fpu-reduction
+- Mate distance eval
+- Testing framework and tests
+- Debugging code
+
+## What bits are used from the Lc0 project?
+
+Here is what Allie uses from the Lc0 codebase:
+
+- Protocol buffers for an NN weights file
+- Code for discovering/loading the NN weights file
+- Backend code for GPU to get evaluations given an NN weights file
 
 ## All right, brass tacks how strong is she?
 
-Depends. First, her ELO will obviously depend upon which network is used. However, head-to-head using the same network on my limited hardware setup she is 50-100 elo behind.
+Depends. First, her ELO will obviously depend upon which network is used. However, head-to-head using the same network on my limited hardware setup she is currently 50-100 elo behind.
 
 ## Why did you develop her rather than just help out Leela?
 
 A couple reasons. First, my original inspiration was to see if I could implement an alternative search using AlphaBeta rather than MCTS. Second, I wanted to teach myself the AlphaZero concepts and algorithms and this was the best way to do it. In the future, I expect Allie to have an AB search and leave MCTS to Leela, but it is not ready yet. I've done a lot of experiments with AB and Lc0 networks and think I've hit upon what might work, but getting the NPS to scale and utilizing the policy values optimally is challenging. Stay tuned.
+
+Also, I am contributing back some patches to Leela where appropriate.
 
 ## Ok, so she uses Lc0's networks. Why don't you make your own?
 
