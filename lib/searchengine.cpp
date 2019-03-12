@@ -423,6 +423,15 @@ bool SearchEngine::tryResumeSearch(const Search &s)
     return false;
 }
 
+QString mateDistanceOrScore(float score, int pvDepth) {
+    QString s = QString("cp %0").arg(scoreToCP(score));
+    if (score > 1.0f || qFuzzyCompare(score, 1.0f))
+        s = QString("mate %0").arg(qCeil(qreal(pvDepth - 1) / 2));
+    else if (score < -1.0f || qFuzzyCompare(score, -1.0f))
+        s = QString("mate -%0").arg(qCeil(qreal(pvDepth - 1) / 2));
+    return s;
+}
+
 void SearchEngine::startSearch(const Search &s)
 {
     QMutexLocker locker(&m_mutex);
@@ -440,8 +449,28 @@ void SearchEngine::startSearch(const Search &s)
     m_stop = false;
 
     if (m_tree->root) {
-        // If we have a bestmove candidate, set it now
-        if (Node *best = m_tree->root->bestChild(Node::MCTS)) {
+        // Check the DTZ and if found just use it and stop the search
+        int dtz = 0;
+        if (m_tree->root->checkAndGenerateDTZ(&dtz)) {
+            // We found a dtz move
+            const int depth = dtz;
+            m_currentInfo.isDTZ = true;
+            m_currentInfo.depth = depth;
+            m_currentInfo.seldepth = depth;
+            m_currentInfo.nodes = depth;
+            m_currentInfo.workerInfo.nodesSearched += 1;
+            m_currentInfo.workerInfo.nodesSearchedTotal += 1;
+            m_currentInfo.workerInfo.sumDepths = depth;
+            m_currentInfo.workerInfo.maxDepth = depth;
+            Node *dtzNode = m_tree->root->leftChild();
+            Q_ASSERT(dtzNode);
+            m_currentInfo.bestMove = Notation::moveToString(dtzNode->m_game.lastMove(), Chess::Computer);
+            m_currentInfo.pv = m_currentInfo.bestMove;
+            m_currentInfo.score = mateDistanceOrScore(-dtzNode->qValue(), depth + 1);
+            emit sendInfo(m_currentInfo, false /*isPartial*/);
+            return; // We are all done
+        } else if (Node *best = m_tree->root->bestChild(Node::MCTS)) {
+            // If we have a bestmove candidate, set it now
             m_currentInfo.isResume = true;
             m_currentInfo.bestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
             if (Node *ponder = best->bestChild(Node::MCTS))
@@ -459,6 +488,9 @@ void SearchEngine::stopSearch()
 {
     // First, change our state to stop using thread safe atomic
     m_stop = true;
+
+    if (!m_startedWorkers)
+        return;
 
     // Now lock a mutex and stop the workers until all of them signal stopped
     QMutexLocker locker(&m_mutex);
@@ -541,11 +573,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     // Unlock for read
     m_tree->mutex.unlock();
 
-    m_currentInfo.score = QString("cp %0").arg(scoreToCP(score));
-    if (score > 1.0f || qFuzzyCompare(score, 1.0f))
-        m_currentInfo.score = QString("mate %0").arg(qCeil(qreal(pvDepth - 1) / 2));
-    else if (score < -1.0f || qFuzzyCompare(score, -1.0f))
-        m_currentInfo.score = QString("mate -%0").arg(qCeil(qreal(pvDepth - 1) / 2));
+    m_currentInfo.score = mateDistanceOrScore(score, pvDepth);
 
     // Update our trend
     Trend t;

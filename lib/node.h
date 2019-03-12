@@ -155,6 +155,7 @@ public:
 
     // children and potential generation
     bool hasNoisyChildren() const;
+    bool checkAndGenerateDTZ(int *dtz);
     bool generatePotentials();
     void generatePotential(const Move &move);
     Node *generateChild(PotentialNode *potential);

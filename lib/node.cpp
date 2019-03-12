@@ -444,6 +444,60 @@ bool Node::hasNoisyChildren() const
     return false;
 }
 
+bool Node::checkAndGenerateDTZ(int *dtz)
+{
+    Q_ASSERT(isRootNode());
+    Move move;
+    TB::Probe result = TB::globalInstance()->probeDTZ(m_game, &move, dtz);
+    if (result == TB::NotFound)
+        return false;
+
+    // Check move is valid
+    Game g = m_game;
+    const bool success = g.makeMove(move);
+    Q_ASSERT(success);
+    if (!success)
+        return false;
+
+    // Check move is legal
+    const bool isIllegal = g.isChecked(m_game.activeArmy());
+    Q_ASSERT(!isIllegal);
+    if (isIllegal)
+        return false;
+
+    // Check that we enpassant is correct
+    Q_ASSERT(g.lastMove().isEnPassant() == move.isEnPassant());
+
+    // Is this checkmate?
+    if (g.isChecked(g.activeArmy()))
+        g.setCheckMate(true);
+
+    // If the move is good, then we generate a real child and set it to dtz
+    Node *child = new Node(this, g);
+    child->setPValue(1.0f);
+
+    switch (result) {
+    case TB::Win:
+        child->m_rawQValue = 1.0f;
+        child->m_isExact = true;
+        break;
+    case TB::Loss:
+        child->m_rawQValue = -1.0f;
+        child->m_isExact = true;
+        break;
+    case TB::Draw:
+        child->m_rawQValue = 0.0f;
+        child->m_isExact = true;
+        break;
+    default:
+        Q_UNREACHABLE();
+        break;
+    }
+
+    m_children.append(child);
+    return true;
+}
+
 bool Node::generatePotentials()
 {
     Q_ASSERT(!hasPotentials());

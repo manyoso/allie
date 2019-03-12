@@ -50,6 +50,47 @@ void TB::reset()
         fprintf(stderr, "Using %d-man tablebase: %s\n", TB_LARGEST, path.toLatin1().constData());
 }
 
+TB::Probe wdlToProbeResult(unsigned wdl)
+{
+    switch (wdl) {
+    case TB_RESULT_FAILED:
+        return TB::NotFound;
+    case TB_LOSS:
+        return TB::Loss;
+    case TB_WIN:
+        return TB::Win;
+    case TB_CURSED_WIN:
+    case TB_BLESSED_LOSS:
+    case TB_DRAW:
+        return TB::Draw;
+    default:
+        Q_UNREACHABLE();
+        return TB::NotFound;
+    }
+}
+
+Move dtzToMoveRepresentation(unsigned result)
+{
+    Move mv;
+    mv.setStart(TB_GET_FROM(result));
+    mv.setEnd(TB_GET_TO(result));
+
+    switch (TB_GET_PROMOTES(result)) {
+    case TB_PROMOTES_NONE:
+        mv.setPiece(Chess::Unknown); break;
+    case TB_PROMOTES_QUEEN:
+        mv.setPiece(Chess::Queen); break;
+    case TB_PROMOTES_ROOK:
+        mv.setPiece(Chess::Rook); break;
+    case TB_PROMOTES_BISHOP:
+        mv.setPiece(Chess::Bishop); break;
+    case TB_PROMOTES_KNIGHT:
+        mv.setPiece(Chess::Knight); break;
+    }
+    mv.setEnPassant(TB_GET_EP(result));
+    return mv;
+}
+
 TB::Probe TB::probe(const Game &game) const
 {
     if (!m_enabled)
@@ -80,24 +121,46 @@ TB::Probe TB::probe(const Game &game) const
         0 /*castling rights*/,
         enpassant,
         game.m_activeArmy == Chess::White);
+    return wdlToProbeResult(result);
+}
+
+TB::Probe TB::probeDTZ(const Game &game, Move *suggestedMove, int *dtz) const
+{
+    if (!m_enabled)
+        return NotFound;
+
+    if (game.m_hasWhiteKingCastle || game.m_hasBlackKingCastle
+        || game.m_hasWhiteQueenCastle || game.m_hasBlackQueenCastle)
+        return NotFound;
+
+    if (unsigned(BitBoard(game.m_whitePositionBoard | game.m_blackPositionBoard).count()) > TB_LARGEST)
+        return NotFound;
+
+    const quint8 enpassant = !game.m_enPassantTarget.isValid() ? 0 : game.m_enPassantTarget.data();
+
+    const unsigned result = tb_probe_root(
+        game.m_whitePositionBoard.data(),
+        game.m_blackPositionBoard.data(),
+        game.m_kingsBoard.data(),
+        game.m_queensBoard.data(),
+        game.m_rooksBoard.data(),
+        game.m_bishopsBoard.data(),
+        game.m_knightsBoard.data(),
+        game.m_pawnsBoard.data(),
+        unsigned(game.halfMoveClock()),
+        0 /*castling rights*/,
+        enpassant,
+        game.m_activeArmy == Chess::White,
+        nullptr /*alternative results*/);
 
     switch (result) {
     case TB_RESULT_FAILED:
-        return NotFound;
-    case TB_LOSS:
-//        qDebug() << "tb says loss" << game.stateOfGameToFen();
-        return Loss;
-    case TB_WIN:
-//        qDebug() << "tb says win" << game.stateOfGameToFen();
-        return Win;
-    case TB_CURSED_WIN:
-    case TB_BLESSED_LOSS:
-    case TB_DRAW:
-//        qDebug() << "tb says draw" << game.stateOfGameToFen();
-        return Draw;
-    default:
-        Q_UNREACHABLE();
+    case TB_RESULT_CHECKMATE:
+    case TB_RESULT_STALEMATE:
         return NotFound;
     }
-}
 
+    *dtz = TB_GET_DTZ(result);
+    *suggestedMove = dtzToMoveRepresentation(result);
+    return wdlToProbeResult(TB_GET_WDL(result));
+}

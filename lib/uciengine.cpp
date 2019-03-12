@@ -422,8 +422,8 @@ void UciEngine::calculateRollingAverage(const SearchInfo &info)
     const WorkerInfo &newW = info.workerInfo;
     avgW.nodesSearched     = rollingAverage(avgW.nodesSearched, newW.nodesSearched, n);
     avgW.nodesEvaluated    = rollingAverage(avgW.nodesEvaluated, newW.nodesEvaluated, n);
-    avgW.nodesCreated    = rollingAverage(avgW.nodesCreated, newW.nodesCreated, n);
-    avgW.nodesTBHits    = rollingAverage(avgW.nodesTBHits, newW.nodesTBHits, n);
+    avgW.nodesCreated      = rollingAverage(avgW.nodesCreated, newW.nodesCreated, n);
+    avgW.nodesTBHits       = rollingAverage(avgW.nodesTBHits, newW.nodesTBHits, n);
     avgW.nodesCacheHits    = rollingAverage(avgW.nodesCacheHits, newW.nodesCacheHits, n);
 }
 
@@ -549,8 +549,8 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     output(out);
 
-    // Stop at specific depth if requested
-    if (m_depthTargeted != -1 && m_lastInfo.depth >= m_depthTargeted)
+    // Stop at specific depth if requested or if we have a dtz move
+    if ((m_depthTargeted != -1 && m_lastInfo.depth >= m_depthTargeted) || info.isDTZ)
         sendBestMove(true /*force*/);
 }
 

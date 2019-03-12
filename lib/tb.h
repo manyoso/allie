@@ -41,6 +41,7 @@ public:
     bool isEnabled() const { return m_enabled; }
 
     Probe probe(const Game &game) const;
+    Probe probeDTZ(const Game &game, Move *suggestedMove, int *dtz) const;
 
 private:
     TB();

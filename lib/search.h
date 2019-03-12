@@ -78,6 +78,7 @@ struct SearchInfo {
     QString bestMove;
     QString ponderMove;
     bool isResume = false;
+    bool isDTZ = false;
     WorkerInfo workerInfo;
 };
 

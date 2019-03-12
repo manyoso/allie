@@ -168,8 +168,8 @@ void TestGames::testSearchForMateInOne()
 
     QSignalSpy bestMoveSpy(&handler, &UCIIOHandler::receivedBestMove);
     engine.readyRead(mateInOneMoves);
-    engine.readyRead(QLatin1String("go depth 2"));
-    bool receivedSignal = bestMoveSpy.wait();
+    engine.readyRead(QLatin1String("go depth 1"));
+    const bool receivedSignal = bestMoveSpy.isEmpty() ? bestMoveSpy.wait() : true;
     if (!receivedSignal) {
         QString message = QString("Did not receive signal for %1").arg(mateInOneMoves);
         QWARN(message.toLatin1().constData());
@@ -317,8 +317,8 @@ void TestGames::checkGame(const QString &fen, const QVector<QString> &mv)
         }
 
         engineHandler.clear();
-        engine.readyRead(QLatin1String("go wtime 2000 btime 100"));
-        bool receivedSignal = bestMoveSpy.wait();
+        engine.readyRead(QLatin1String("go depth 1"));
+        const bool receivedSignal = bestMoveSpy.isEmpty() ? bestMoveSpy.wait() : true;
         if (!receivedSignal) {
             QString message = QString("Did not receive signal for %1").arg(position);
             QWARN(message.toLatin1().constData());
