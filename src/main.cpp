@@ -33,7 +33,7 @@
 #include "zobrist.h"
 
 #define APP_NAME "Allie"
-#define APP_VERSION "0.1"
+#define APP_VERSION "0.2"
 
 int main(int argc, char *argv[])
 {
