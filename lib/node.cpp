@@ -45,6 +45,7 @@ Node::Node(Node *parent, const Game &game)
     m_qValue(-2.0f),
     m_rawQValue(-2.0f),
     m_pValue(-2.0f),
+    m_policySum(0),
     m_uCoeff(-2.0f),
     m_isExact(false),
     m_isPrefetch(false)
@@ -210,6 +211,8 @@ void Node::backPropagateValueFull()
 void Node::setQValueAndPropagate()
 {
     Q_ASSERT(hasRawQValue());
+    if (m_parent)
+        m_parent->m_policySum += pValue();
     incrementVisited();
     setQValueFromRaw();
 #if defined(DEBUG_FETCHANDBP)

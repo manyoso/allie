@@ -32,7 +32,7 @@
 #include "treeutils.h"
 
 #define MAX_DEPTH 127
-//#define USE_PARENT_QVALUE
+#define USE_PARENT_QVALUE
 
 //#define DEBUG_FETCHANDBP
 //#define DEBUG_PLAYOUT_MCTS
@@ -182,6 +182,7 @@ private:
     float m_qValue;
     float m_rawQValue;
     float m_pValue;
+    float m_policySum;
     mutable float m_uCoeff;
     bool m_isExact: 1;
     bool m_isPrefetch: 1;
@@ -308,7 +309,8 @@ inline Node *Node::nextAncestorSibling() const
 inline float Node::qValueDefault() const
 {
 #if defined(USE_PARENT_QVALUE)
-    return -qValue();
+    static const float fpu_reduce = 1.2f;
+    return -qValue() - fpu_reduce * float(qSqrt(qreal(m_policySum)));
 #else
     return -1.0f;
 #endif
@@ -318,6 +320,7 @@ inline float Node::qValue() const
 {
     if (isRootNode() || m_visited > 0)
         return m_qValue;
+
     return m_parent->qValueDefault();
 }
 
