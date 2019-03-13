@@ -238,6 +238,15 @@ public:
     bool isPotential() const { return m_potential; }
     bool isNull() const { return !m_node && !m_potential; }
 
+    QString toString() const
+    {
+        if (isNull())
+            return QLatin1String("Null");
+        if (isPotential())
+            return m_potential->toString();
+        return m_node->toString();
+    }
+
     float uCoeff() const
     {
         if (isPotential())

@@ -28,6 +28,7 @@
 
 #include "game.h"
 #include "move.h"
+#include "notation.h"
 #include "treeutils.h"
 
 #define MAX_DEPTH 127
@@ -61,6 +62,11 @@ public:
     float pValue() const { return m_pValue; }
     void setPValue(float pValue) { m_pValue = pValue; }
     Move move() const { return m_move; }
+
+    QString toString() const
+    {
+        return Notation::moveToString(m_move, Chess::Computer);
+    }
 
 private:
     Move m_move;
