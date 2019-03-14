@@ -660,7 +660,7 @@ int getNextIntAfterSearch(const QList<QString> strings, QString search)
     int result = -1;
     int index = -1;
     if ((index = strings.indexOf(search)) != -1) {
-        if (index++ < strings.count()) {
+        if (++index < strings.count()) {
             bool ok;
             int num = strings.at(index).toInt(&ok);
             if (ok)
