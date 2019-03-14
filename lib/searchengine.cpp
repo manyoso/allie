@@ -89,20 +89,22 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         return;
     }
 
-    for (int index = 0; index < batch.count(); ++index) {
-        Node *node = batch.at(index);
-        Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
+    {
+        QMutexLocker locker(&tree->mutex);
+        for (int index = 0; index < batch.count(); ++index) {
+            Node *node = batch.at(index);
+            Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
 
-        {
-            QMutexLocker locker(&tree->mutex);
-            node->setRawQValue(-computation.qVal(index));
-            if (node->hasPotentials()) {
-                computation.setPVals(index, node);
+            {
+                node->setRawQValue(-computation.qVal(index));
+                if (node->hasPotentials()) {
+                    computation.setPVals(index, node);
+                }
+                if (!node->isPrefetch()) {
+                    node->setQValueAndPropagate();
+                }
+                Hash::globalInstance()->insert(node);
             }
-            if (!node->isPrefetch()) {
-                node->setQValueAndPropagate();
-            }
-            Hash::globalInstance()->insert(node);
         }
     }
 
