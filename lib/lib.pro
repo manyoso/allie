@@ -14,9 +14,12 @@ lessThan(QT_MINOR_VERSION, 9) {
     error("Requres at least at least Qt 5.9")
 }
 
-QMAKE_CXXFLAGS += -march=native -msse
+!win32 {
+    QMAKE_CXXFLAGS += -march=native -msse
+    DEFINES += USE_PEXT
+}
 
-DEFINES += TB_NO_HELPER_API USE_PEXT
+DEFINES += TB_NO_HELPER_API
 
 include(atomic.pri)
 include(zlib.pri)
