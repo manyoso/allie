@@ -32,10 +32,10 @@ struct Search {
     qint64 btime = -1;
     qint64 winc = -1;
     qint64 binc = -1;
-    int movestogo = -1;
-    int depth = -1;
-    int nodes = -1;
-    int mate = -1;
+    qint64 movestogo = -1;
+    qint64 depth = -1;
+    qint64 nodes = -1;
+    qint64 mate = -1;
     qint64 movetime = -1;
     bool infinite = false;
     Game game;

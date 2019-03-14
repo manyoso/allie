@@ -253,6 +253,7 @@ UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     m_searchEngine(nullptr),
     m_timeAtLastProgress(0),
     m_depthTargeted(-1),
+    m_nodesTargeted(-1),
     m_clock(new Clock(this)),
     m_ioHandler(nullptr)
 {
@@ -493,7 +494,11 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     m_lastInfo.time = msecs;
     m_clock->updateDeadline(m_lastInfo, isPartial);
 
-    if (isPartial && (msecs - m_timeAtLastProgress) < 2500)
+    const bool targetReached = (m_depthTargeted != -1 && m_lastInfo.depth >= m_depthTargeted)
+        || (m_nodesTargeted != -1 && m_lastInfo.nodes >= m_nodesTargeted)
+        || info.isDTZ;
+
+    if (!targetReached && (isPartial && (msecs - m_timeAtLastProgress) < 2500))
         return;
 
     m_timeAtLastProgress = msecs;
@@ -549,8 +554,8 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     output(out);
 
-    // Stop at specific depth if requested or if we have a dtz move
-    if ((m_depthTargeted != -1 && m_lastInfo.depth >= m_depthTargeted) || info.isDTZ)
+    // Stop at specific targets if requested or if we have a dtz move
+    if (targetReached)
         sendBestMove(true /*force*/);
 }
 
@@ -742,6 +747,7 @@ void UciEngine::go(const Search& s)
     m_clock->startDeadline(s.game.activeArmy());
     m_timeAtLastProgress = 0;
     m_depthTargeted = s.depth;
+    m_nodesTargeted = s.nodes;
     m_lastInfo = SearchInfo();
 
     startSearch(s);

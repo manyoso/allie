@@ -155,7 +155,8 @@ private:
     SearchEngine *m_searchEngine;
     QThread m_inputThread;
     qint64 m_timeAtLastProgress;
-    int m_depthTargeted;
+    qint64 m_depthTargeted;
+    qint64 m_nodesTargeted;
     Clock *m_clock;
     IOHandler *m_ioHandler;
 };
