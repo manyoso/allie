@@ -138,7 +138,8 @@ NeuralNet *NeuralNet::globalInstance()
 
 NeuralNet::NeuralNet()
     : m_weightsValid(false),
-    m_usingFP16(false)
+    m_usingFP16(false),
+    m_roundRobin(0)
 {
 }
 
@@ -190,19 +191,9 @@ void NeuralNet::setWeights(const QString &pathToWeights)
     }
 }
 
-Network *NeuralNet::acquireNetwork()
+Network *NeuralNet::nextNetwork() const
 {
-    QMutexLocker locker(&m_mutex);
-    while (m_availableNetworks.isEmpty())
-        m_condition.wait(locker.mutex());
-    return m_availableNetworks.takeFirst();
-}
-
-void NeuralNet::releaseNetwork(Network *network)
-{
-    QMutexLocker locker(&m_mutex);
-    m_availableNetworks.append(network);
-    m_condition.wakeAll();
+    return m_availableNetworks.at(++m_roundRobin % m_availableNetworks.count());
 }
 
 Computation::Computation(Network *network)
@@ -210,7 +201,6 @@ Computation::Computation(Network *network)
     m_network(network),
     m_computation(nullptr)
 {
-    m_acquired = m_network != nullptr;
 }
 
 Computation::~Computation()
@@ -221,9 +211,8 @@ Computation::~Computation()
 int Computation::addPositionToEvaluate(const Node *node)
 {
     if (!m_computation) {
-        Q_ASSERT(m_acquired == (m_network != nullptr));
         if (!m_network) {
-            m_network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
+            m_network = NeuralNet::globalInstance()->nextNetwork();
         }
         m_computation = m_network->NewComputation().release();
     }
@@ -249,8 +238,6 @@ void Computation::clear()
     m_positions = 0;
     delete m_computation;
     m_computation = nullptr;
-    if (!m_acquired)
-        NeuralNet::globalInstance()->releaseNetwork(m_network); // release back into the pool
     m_network = nullptr;
 }
 
