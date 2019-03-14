@@ -182,6 +182,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 #if defined(DEBUG_PLAYOUT_MCTS)
         qDebug() << "adding exact playout" << playout->toString();
 #endif
+        info->nodesCacheHits += 1;
         QMutexLocker locker(&m_tree->mutex);
         playout->setQValueAndPropagate();
         return false;
@@ -213,6 +214,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 #if defined(DEBUG_PLAYOUT_MCTS)
         qDebug() << "adding exact playout 2" << playout->toString();
 #endif
+        info->nodesCacheHits += 1;
         QMutexLocker locker(&m_tree->mutex);
         playout->setQValueAndPropagate();
         return false;
