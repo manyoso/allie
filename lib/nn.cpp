@@ -244,7 +244,12 @@ void Computation::clear()
 float Computation::qVal(int index) const
 {
     Q_ASSERT(index < m_positions);
-    return m_computation->GetQVal(index);
+    auto q = m_computation->GetQVal(index);
+    auto trade_penalty = .003;
+    auto penalty = trade_penalty * (bitboard>piececount - 30);
+    if(depth % 2 == 1)
+      penalty = -penalty;
+    return q + penalty;
 }
 
 void Computation::setPVals(int index, Node *node) const
