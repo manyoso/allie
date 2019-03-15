@@ -266,8 +266,11 @@ public:
 
     float qValue() const
     {
-        if (isPotential())
+        if (isPotential()) {
+            if (m_parent->isRootNode())
+                return 1.0f;
             return m_parent->qValueDefault();
+        }
         return m_node->qValue();
     }
 

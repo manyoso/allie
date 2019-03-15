@@ -321,6 +321,8 @@ inline float Node::qValue() const
     if (isRootNode() || m_visited > 0)
         return m_qValue;
 
+    if (m_parent->isRootNode())
+        return 1.0f;
     return m_parent->qValueDefault();
 }
 
