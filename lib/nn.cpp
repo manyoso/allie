@@ -245,11 +245,16 @@ float Computation::qVal(int index) const
 {
     Q_ASSERT(index < m_positions);
     auto q = m_computation->GetQVal(index);
-    auto trade_penalty = .003;
-    auto penalty = trade_penalty * (bitboard>piececount - 30);
-    if(depth % 2 == 1)
-      penalty = -penalty;
-    return q + penalty;
+    //Apply trade penalty if not very winning or losing.
+    //TODO: Try only if Allie losing
+    if (q < 0.7 && q > 0.3) {
+      auto trade_penalty = .003;
+      auto penalty = trade_penalty * (bitboard>piececount - 30);
+      if(depth % 2 == 1)
+        penalty = -penalty;
+      return q + penalty;
+    }
+    return q;
 }
 
 void Computation::setPVals(int index, Node *node) const
