@@ -98,7 +98,6 @@ InputPlanes gameToInputPlanes(const Node *node)
         result[base + 9].mask = (theirs & rooks).data();
         result[base + 10].mask = (theirs & queens).data();
         result[base + 11].mask = (theirs & kings).data();
-        result[base + 11].mask = (theirs & kings).data();
         if (g.repetitions() > 1)
             result[base + 12].SetAll();
     }
