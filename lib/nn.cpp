@@ -117,7 +117,7 @@ InputPlanes gameToInputPlanes(const Node *node)
     if (game.isCastleAvailable(us, QueenSide)) result[s_planeBase + 0].SetAll();
     if (game.isCastleAvailable(us, KingSide)) result[s_planeBase + 1].SetAll();
     if (game.isCastleAvailable(them, QueenSide)) result[s_planeBase + 2].SetAll();
-    if (game.isCastleAvailable(them, QueenSide)) result[s_planeBase + 3].SetAll();
+    if (game.isCastleAvailable(them, KingSide)) result[s_planeBase + 3].SetAll();
     if (us == Chess::Black) result[s_planeBase + 4].SetAll();
     result[s_planeBase + 5].Fill(game.halfMoveClock());
     // Plane s_planeBase + 6 used to be movecount plane, now it's all zeros.
