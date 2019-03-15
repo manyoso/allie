@@ -58,16 +58,18 @@ public:
 
     void reset();
     void setWeights(const QString &pathToWeights);
-    lczero::Network *nextNetwork() const;
+    lczero::Network *acquireNetwork(); // will block until a network is ready
+    void releaseNetwork(lczero::Network *network); // must be called when you are done
 
 private:
     NeuralNet();
     ~NeuralNet();
     lczero::Network *createNewNetwork(int id, bool fp16) const;
     QVector<lczero::Network*> m_availableNetworks;
+    QMutex m_mutex;
+    QWaitCondition m_condition;
     bool m_weightsValid;
     bool m_usingFP16;
-    mutable std::atomic<int> m_roundRobin;
     friend class Computation;
     friend class MyNeuralNet;
 };

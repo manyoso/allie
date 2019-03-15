@@ -30,7 +30,6 @@
 
 #include "clock.h"
 #include "node.h"
-#include "nn.h"
 #include "search.h"
 
 namespace lczero {
@@ -60,7 +59,7 @@ private Q_SLOTS:
 
 private:
     void fetchBatch(const QVector<Node*> &batch,
-        Computation &computation, Tree *tree, const WorkerInfo &info);
+        lczero::Network *network, Tree *tree, const WorkerInfo &info);
     void fetchFromNN(const QVector<Node*> &fetch, const WorkerInfo &info);
     bool fillOutTree();
 

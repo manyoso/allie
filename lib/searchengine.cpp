@@ -68,8 +68,9 @@ void SearchWorker::startSearch(Tree *tree)
 }
 
 void SearchWorker::fetchBatch(const QVector<Node*> &batch,
-    Computation &computation, Tree *tree, const WorkerInfo &info)
+    lczero::Network *network, Tree *tree, const WorkerInfo &info)
 {
+    Computation computation(network);
     for (int index = 0; index < batch.count(); ++index) {
         Node *node = batch.at(index);
         computation.addPositionToEvaluate(node);
@@ -79,6 +80,8 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
     qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
 #endif
     computation.evaluate();
+
+    NeuralNet::globalInstance()->releaseNetwork(network);
 
     Q_ASSERT(computation.positions() == batch.count());
     if (computation.positions() != batch.count()) {
@@ -134,11 +137,10 @@ void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, const WorkerI
         batches.append(nodesToFetch);
 
     for (QVector<Node*> batch : batches) {
-        lczero::Network *network = NeuralNet::globalInstance()->nextNetwork();
-        Computation c(network);
+        lczero::Network *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
         Q_ASSERT(network);
         std::function<void()> fetchBatch = std::bind(&SearchWorker::fetchBatch, this,
-            batch, c, m_tree, info);
+            batch, network, m_tree, info);
         m_futures.append(QtConcurrent::run(fetchBatch));
     }
 }
