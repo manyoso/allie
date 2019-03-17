@@ -100,6 +100,9 @@ InputPlanes gameToInputPlanes(const Node *node)
         result[base + 11].mask = (theirs & kings).data();
         if (g.repetitions() >= 1)
             result[base + 12].SetAll();
+
+        // FIXME: Encode enpassant target
+        // FIXME: Include fake history for fen positions like lc0
     }
 
 #if 0
