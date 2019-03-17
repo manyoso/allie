@@ -95,7 +95,7 @@ public:
     bool isSecondChild() const;
 
     int depth() const;
-    int treeDepth(Strategy strategy);
+    int treeDepth(Strategy strategy) const;
     bool isExact() const;
     float uCoeff() const;
     float uValue() const;
@@ -211,10 +211,10 @@ inline int Node::depth() const
     return d;
 }
 
-inline int Node::treeDepth(Strategy strategy)
+inline int Node::treeDepth(Strategy strategy) const
 {
     int d = 0;
-    Node *n = this;
+    const Node *n = this;
     while (n && n->hasChildren()) {
         QVector<Node*> children = n->m_children;
         sortByScore(children, true /*partialSortFirstOnly*/, strategy);

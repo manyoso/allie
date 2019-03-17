@@ -649,6 +649,26 @@ QString Node::printTree(int depth) /*const*/
             for (Node *child : children)
                 stream << child->printTree(depth);
         }
+#if 0
+        QVector<PotentialNode*> potentials = m_potentials;
+        if (!potentials.isEmpty()) {
+            std::stable_sort(potentials.begin(), potentials.end(),
+                [=](const PotentialNode *a, const PotentialNode *b) {
+                return a->pValue() > b->pValue();
+            });
+            for (PotentialNode *p : potentials) {
+                stream << "\n";
+                const int d = this->depth() + 1;
+                for (int i = 0; i < d; ++i)
+                    stream << qSetFieldWidth(7) << "      |";
+                stream << right << qSetFieldWidth(6) << p->toString()
+                    << qSetFieldWidth(2) << " ("
+                    << qSetFieldWidth(4) << moveToNNIndex(p->move())
+                    << qSetFieldWidth(1) << ")"
+                    << qSetFieldWidth(4) << left << " p: " << p->pValue() * 100 << qSetFieldWidth(1) << left << "%";
+            }
+        }
+#endif
     }
 
     return tree;
