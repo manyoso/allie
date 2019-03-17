@@ -893,6 +893,8 @@ bool Game::isSameGame(const Game &other) const
 
 bool Game::isSamePosition(const Game &other) const
 {
+    // FIXME: For purposes of 3-fold it does not matter if the queens rook and kings rook have
+    // swapped places, but it does matter for purposes of hash
     return m_activeArmy == other.m_activeArmy
         && m_fileOfKingsRook == other.m_fileOfKingsRook
         && m_fileOfQueensRook == other.m_fileOfQueensRook
