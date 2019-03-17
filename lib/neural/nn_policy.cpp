@@ -332,7 +332,7 @@ const quint16 kQueenCastleIndex =
 quint16 moveToNNIndex(const Move &move)
 {
     if (!move.isCastle()) return kMoveToIdx[moveToInt(move)];
-    if (move.start().rank() < move.end().rank()) return kKingCastleIndex;
+    if (move.start().file() < move.end().file()) return kKingCastleIndex;
     return kQueenCastleIndex;
 }
 
