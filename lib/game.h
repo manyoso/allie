@@ -93,6 +93,7 @@ public:
     bool isSameGame(const Game &other) const;
     bool isSamePosition(const Game &other) const;
     bool operator==(const Game &other) const { return isSamePosition(other); }
+    bool operator!=(const Game &other) const { return !isSamePosition(other); }
 
     quint64 hash() const;
 

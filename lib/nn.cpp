@@ -51,6 +51,13 @@ InputPlanes gameToInputPlanes(const Node *node)
     Q_ASSERT(!games.isEmpty());
     Q_ASSERT(games.count() <= s_moveHistory);
 
+    // Add fake history by repeating the position to fill it up as long as the last position in the
+    // real history is not the startpos
+    if (games.first() != Game()) {
+        while (games.count() < s_moveHistory)
+            games.prepend(games.first());
+    }
+
     InputPlanes result(s_planeBase + s_moveHistory);
 
     // *us* refers to the perspective of whoever is next to move
@@ -102,7 +109,6 @@ InputPlanes gameToInputPlanes(const Node *node)
             result[base + 12].SetAll();
 
         // FIXME: Encode enpassant target
-        // FIXME: Include fake history for fen positions like lc0
     }
 
 #if 0
