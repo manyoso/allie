@@ -77,6 +77,7 @@ private slots:
     void testMateWithKBNvK();
     void testMateWithKBBvK();
     void testMateWithKQQvK();
+    void testTB();
     void testHashInsertAndRetrieve();
 
 private:

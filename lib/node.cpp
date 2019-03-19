@@ -491,13 +491,14 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     Node *child = new Node(this, g);
     child->setPValue(1.0f);
 
+    // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->m_rawQValue = 1.0f;
+        child->m_rawQValue = 1.0f - cpToScore(1);
         child->m_isExact = true;
         break;
     case TB::Loss:
-        child->m_rawQValue = -1.0f;
+        child->m_rawQValue = -1.0f + cpToScore(1);
         child->m_isExact = true;
         break;
     case TB::Draw:
@@ -509,6 +510,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
         break;
     }
 
+    child->setQValueAndPropagate();
     m_children.append(child);
     return true;
 }
@@ -539,11 +541,11 @@ bool Node::generatePotentials()
     case TB::NotFound:
         break;
     case TB::Win:
-        m_rawQValue = 1.0f;
+        m_rawQValue = 1.0f - cpToScore(1);
         m_isExact = true;
         return true;
     case TB::Loss:
-        m_rawQValue = -1.0f;
+        m_rawQValue = -1.0f + cpToScore(1);
         m_isExact = true;
         return true;
     case TB::Draw:

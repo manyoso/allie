@@ -52,13 +52,15 @@ void TB::reset()
 
 TB::Probe wdlToProbeResult(unsigned wdl)
 {
+    // We invert the losses and wins because Allie's nodes are from perspective of non active army
+    // whereas fathom reports from the active army's perspective
     switch (wdl) {
     case TB_RESULT_FAILED:
         return TB::NotFound;
     case TB_LOSS:
-        return TB::Loss;
-    case TB_WIN:
         return TB::Win;
+    case TB_WIN:
+        return TB::Loss;
     case TB_CURSED_WIN:
     case TB_BLESSED_LOSS:
     case TB_DRAW:
@@ -77,15 +79,15 @@ Move dtzToMoveRepresentation(unsigned result)
 
     switch (TB_GET_PROMOTES(result)) {
     case TB_PROMOTES_NONE:
-        mv.setPiece(Chess::Unknown); break;
+        mv.setPromotion(Chess::Unknown); break;
     case TB_PROMOTES_QUEEN:
-        mv.setPiece(Chess::Queen); break;
+        mv.setPromotion(Chess::Queen); break;
     case TB_PROMOTES_ROOK:
-        mv.setPiece(Chess::Rook); break;
+        mv.setPromotion(Chess::Rook); break;
     case TB_PROMOTES_BISHOP:
-        mv.setPiece(Chess::Bishop); break;
+        mv.setPromotion(Chess::Bishop); break;
     case TB_PROMOTES_KNIGHT:
-        mv.setPiece(Chess::Knight); break;
+        mv.setPromotion(Chess::Knight); break;
     }
     mv.setEnPassant(TB_GET_EP(result));
     return mv;
