@@ -211,7 +211,7 @@ void Node::backPropagateValueFull()
 void Node::setQValueAndPropagate()
 {
     Q_ASSERT(hasRawQValue());
-    if (m_parent)
+    if (m_parent && !m_visited)
         m_parent->m_policySum += pValue();
     incrementVisited();
     setQValueFromRaw();
