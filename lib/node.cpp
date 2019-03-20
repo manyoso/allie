@@ -299,6 +299,16 @@ public:
         return m_node;
     }
 
+    bool operator==(const MCTSNode &other) const
+    {
+        return m_node == other.m_node && m_parent == other.m_parent && m_potential == other.m_potential;
+    }
+
+    bool operator!=(const MCTSNode &other) const
+    {
+        return m_node != other.m_node || m_parent != other.m_parent || m_potential != other.m_potential;
+    }
+
 private:
     Node *m_node;
     Node *m_parent;
@@ -322,7 +332,7 @@ int virtualLossDistance(float wec, const MCTSNode &a, const MCTSNode &b)
     else if (q > wec)
         return 9999;
     const float nf = -(q + p * uCoeff - wec) / (wec - q);
-    const int n = qMax(0, qCeil(qreal(nf)));
+    const int n = qMax(1, qCeil(qreal(nf)));
     return n;
 }
 
@@ -380,7 +390,7 @@ start_playout:
         // Otherwise calculate the virtualLossDistance to advance past this node
         Q_ASSERT(hasChildren() || hasPotentials());
 
-        MCTSNode firstNode = n->leftChild();
+        MCTSNode firstNode = nullptr;
         MCTSNode secondNode = nullptr;
         float bestScore = -1.0f;
         float secondBestScore = -1.0f;
@@ -399,6 +409,8 @@ start_playout:
                 secondBestScore = score;
             }
         }
+
+        Q_ASSERT(firstNode.isNull() || firstNode != secondNode);
 
         // Then look for potential children
         for (PotentialNode *potential : n->m_potentials) {
@@ -423,6 +435,7 @@ start_playout:
                 vld = vldNew;
             else
                 vld = qMin(vld, vldNew);
+            Q_ASSERT(vld >= 1);
         }
 
         // Retrieve the actual first node
