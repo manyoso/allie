@@ -63,6 +63,7 @@ private:
 class TestGames: public QObject {
     Q_OBJECT
 private slots:
+    void testConversionFormulas();
     void testBasicStructures();
     void testSizes();
     void testStartingPosition();
