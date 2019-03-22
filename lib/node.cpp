@@ -27,8 +27,9 @@
 
 int scoreToCP(float score)
 {
-    // Same formula as lc0
-    return qRound(290.680623072 * qTan(1.548090806 * double(score)));
+    // From https://www.chessprogramming.org/Pawn_Advantage,_Win_Percentage,_and_Elo
+    const qreal winPct = qreal((score + 1.f) / 2.f);
+    return qRound(4.0 * log10(winPct / (1.0 - winPct)) * 100);
 }
 
 float cpToScore(int cp)
