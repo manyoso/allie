@@ -6,6 +6,8 @@ DESTDIR=../bin
 QT -= gui network
 CONFIG += c++14 console
 
+include($$PWD/../lib/git.pri)
+
 CONFIG(release, debug|release) {
   CONFIG += optimize_full
 }
@@ -17,6 +19,9 @@ CONFIG(release, debug|release) {
 DEFINES += QT_DEPRECATED_WARNINGS
 
 INCLUDEPATH += $$PWD/../lib
+
+HEADERS += \
+    $$PWD/../lib/version.h
 
 SOURCES += \
     main.cpp

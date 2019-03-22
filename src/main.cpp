@@ -30,10 +30,10 @@
 #include "options.h"
 #include "searchengine.h"
 #include "uciengine.h"
+#include "version.h"
 #include "zobrist.h"
 
 #define APP_NAME "Allie"
-#define APP_VERSION "0.2"
 
 int main(int argc, char *argv[])
 {
@@ -41,7 +41,7 @@ int main(int argc, char *argv[])
 
     QCoreApplication a(argc, argv);
     a.setApplicationName(APP_NAME);
-    a.setApplicationVersion(APP_VERSION);
+    a.setApplicationVersion(versionString());
     a.setOrganizationName("Adam Treat");
 
     QCommandLineParser parser;
@@ -75,7 +75,10 @@ int main(int argc, char *argv[])
                                   " / _` | | | |/ _ \\\n"
                                   "| (_| | | | |  __/ \n"
                                   " \\__,_|_|_|_|\\___|");
-    fprintf(stderr, "%s %s uci chess engine\n", ascii.toLatin1().constData(), APP_VERSION);
+    fprintf(stderr, "%s %s built on %s at %s\n", ascii.toLatin1().constData(),
+        QString("%0").arg(a.applicationVersion()).toLatin1().constData(),
+        QString("%0").arg(__DATE__).toLatin1().constData(),
+        QString("%0").arg(__TIME__).toLatin1().constData());
 
     Zobrist::globalInstance();
     Movegen::globalInstance();

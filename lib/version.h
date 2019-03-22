@@ -18,31 +18,26 @@
   Additional permission under GNU GPL version 3 section 7
 */
 
-#include <QtCore>
-#include <QtTest/QtTest>
+#ifndef VERSION_H
+#define VERSION_H
 
-#include "hash.h"
-#include "movegen.h"
-#include "nn.h"
-#include "options.h"
-#include "testgames.h"
-#include "version.h"
-#include "zobrist.h"
+#include <QString>
 
-#define APP_NAME "AllieTests"
+static int s_majorVersion = 0;
+static int s_minorVersion = 2;
+static bool s_isDev = true;
 
-int main(int argc, char* argv[])
+static QString versionString()
 {
-    QCoreApplication a(argc, argv);
-    a.setApplicationName(APP_NAME);
-    a.setApplicationVersion(versionString());
-
-    Options::globalInstance()->setOption("SyzygyPath",
-        QCoreApplication::applicationDirPath() + QDir::separator() + "../../syzygy/");
-
-    int rc = 0;
-    TestGames test1;
-    rc = QTest::qExec(&test1, argc, argv) == 0 ? rc : -1;
-
-    return rc;
+    const QString maj = QString::number(s_majorVersion);
+    const QString min = QString::number(s_minorVersion);
+#if defined(GIT_SHA)
+    const QString git = QString("(%0)").arg(GIT_SHA);
+#else
+    const QString git = QString();
+#endif
+    const QString dev = s_isDev ? QLatin1String("-dev") : QLatin1String("");
+    return QString("v%0.%1%2 %3").arg(maj).arg(min).arg(dev).arg(git);
 }
+
+#endif // VERSION_H

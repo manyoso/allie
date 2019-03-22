@@ -7,6 +7,8 @@ QT += testlib
 QT -= gui network
 CONFIG += c++14 console
 
+include($$PWD/../lib/git.pri)
+
 CONFIG(release, debug|release) {
   CONFIG += optimize_full
 }
@@ -21,6 +23,7 @@ INCLUDEPATH += $$PWD/../lib
 
 HEADERS += \
     testgames.h
+    $$PWD/../lib/version.h
 
 SOURCES += \
     main.cpp \
