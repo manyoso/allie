@@ -263,7 +263,7 @@ const QString kIdxToSAN[] = {
 
 // To match lc0
 namespace lc0 {
-    enum Promotion {
+    enum Promotion : quint16 {
         None,
         Queen,
         Rook,
@@ -304,8 +304,18 @@ quint16 moveToInt(const Move &move)
     if (move.promotion() == Chess::Knight) {
         return quint16(startIndex * 64 + endIndex);
     } else {
-        return quint16(static_cast<quint16>(moveToPromotion(move)) * 64 * 64 + startIndex * 64 +
-                       endIndex);
+        // The encoding for moves in the NN only includes promotions for white so we need to flip
+        // the square indexes to align with the NN
+        quint16 promotion = static_cast<quint16>(moveToPromotion(move));
+        if (promotion > 0 && !move.end().rank()) {
+            Square start = move.start();
+            start.mirror();
+            Square end = move.end();
+            end.mirror();
+            startIndex = squareToNNIndex(start);
+            endIndex = squareToNNIndex(end);
+        }
+        return quint16(promotion * 64 * 64 + startIndex * 64 + endIndex);
     }
 }
 
@@ -315,7 +325,7 @@ QVector<quint16> BuildMoveIndices()
     for (quint16 i = 0; i < sizeof(kIdxToSAN) / sizeof(kIdxToSAN[0]); ++i) {
         Move mv = Notation::stringToMove(kIdxToSAN[i], Chess::Computer);
         quint16 index = moveToInt(mv);
-//        qDebug().noquote() << mv << "is " << index << " is " << i;
+//        qDebug().noquote() << Notation::moveToString(mv, Chess::Computer) << "is " << index << " is " << i;
         Q_ASSERT(index < res.count());
         res[index] = i;
     }
