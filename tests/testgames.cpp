@@ -31,66 +31,6 @@
 #include "treeiterator.h"
 #include "uciengine.h"
 
-void TestGames::testConversionFormulas()
-{
-#if 0
-    qDebug() << "0" << scoreToCP(0.0f);
-    qDebug() << ".1" << scoreToCP(.1f);
-    qDebug() << ".2" << scoreToCP(.2f);
-    qDebug() << ".3" << scoreToCP(.3f);
-    qDebug() << ".4" << scoreToCP(.4f);
-    qDebug() << ".5" << scoreToCP(.5f);
-    qDebug() << ".6" << scoreToCP(.6f);
-    qDebug() << ".7" << scoreToCP(.7f);
-    qDebug() << ".8" << scoreToCP(.8f);
-    qDebug() << ".9" << scoreToCP(.9f);
-    qDebug() << ".91" << scoreToCP(.91f);
-    qDebug() << ".92" << scoreToCP(.92f);
-    qDebug() << ".93" << scoreToCP(.93f);
-    qDebug() << ".94" << scoreToCP(.94f);
-    qDebug() << ".95" << scoreToCP(.95f);
-    qDebug() << ".96" << scoreToCP(.96f);
-    qDebug() << ".97" << scoreToCP(.97f);
-    qDebug() << ".98" << scoreToCP(.98f);
-    qDebug() << ".99" << scoreToCP(.99f);
-    qDebug() << ".999" << scoreToCP(.999f);
-    qDebug() << ".9999" << scoreToCP(.9999f);
-    qDebug() << ".99999" << scoreToCP(.99999f);
-    qDebug() << ".999999" << scoreToCP(.999999f);
-    qDebug() << "1" << scoreToCP(1);
-#endif
-
-    const float winPctFromOneCentipawn = cpToScore(1);
-    const float oneCentiPawnFromWinPct = scoreToCP(winPctFromOneCentipawn);
-    QVERIFY2(qFuzzyCompare(1, oneCentiPawnFromWinPct),
-        QString("%0 %1").arg(QString::number(double(winPctFromOneCentipawn)))
-            .arg(QString::number(double(oneCentiPawnFromWinPct))).toLatin1().constData());
-
-    const float winPctFromOnePawn = cpToScore(100);
-    const float onePawnFromWinPct = scoreToCP(winPctFromOnePawn);
-    QVERIFY2(qFuzzyCompare(100, onePawnFromWinPct),
-        QString("%0 %1").arg(QString::number(double(winPctFromOnePawn)))
-            .arg(QString::number(double(onePawnFromWinPct))).toLatin1().constData());
-
-    const int centiPawnFromDraw = scoreToCP(0.0f);
-    const float drawFromCentiPawn = cpToScore(centiPawnFromDraw);
-    QVERIFY2(qFuzzyCompare(0.0f, drawFromCentiPawn),
-        QString("%0 %1").arg(QString::number(double(centiPawnFromDraw)))
-            .arg(QString::number(double(drawFromCentiPawn))).toLatin1().constData());
-
-    const int centiPawnFromLoss = scoreToCP(-1.0f);
-    const float lossFromCentiPawn = cpToScore(centiPawnFromLoss);
-    QVERIFY2(qFuzzyCompare(-1.0f, lossFromCentiPawn),
-        QString("%0 %1").arg(QString::number(double(centiPawnFromLoss)))
-            .arg(QString::number(double(lossFromCentiPawn))).toLatin1().constData());
-
-    const int centiPawnFromWin = scoreToCP(1.0f);
-    const float winFromCentiPawn = cpToScore(centiPawnFromWin);
-    QVERIFY2(qFuzzyCompare(1.0f, winFromCentiPawn),
-        QString("%0 %1").arg(QString::number(double(centiPawnFromWin)))
-            .arg(QString::number(double(winFromCentiPawn))).toLatin1().constData());
-}
-
 void TestGames::testBasicStructures()
 {
     Square s;
@@ -240,7 +180,7 @@ void TestGames::testSearchForMateInOne()
         || handler.lastBestMove() == QLatin1String("g2g5"), QString("Result is %1")
         .arg(handler.lastBestMove()).toLatin1().constData());
     QVERIFY(handler.lastInfo().score == QLatin1String("mate 1")
-        || handler.lastInfo().score == QLatin1String("cp 2120"));
+        || handler.lastInfo().score == QLatin1String("cp 11115"));
 }
 
 void TestGames::testThreeFold()
@@ -461,7 +401,11 @@ void TestGames::testTB()
     QVERIFY(true);
 
     // 2K5/8/2P3q1/8/P4k2/7Q/8/8 w - - 3 110
-    QVERIFY(true);
+    // right now gives Qh7 which had a high policy value, but disastrous for the opposing side
+    // which makes it great for white and mcts converts this into a very high value for the parent
+    // node. Problem is, it never considers Qxh7 for black which is instant draw so white goes from
+    // completely winning to completely drawn
+    QVERIFY(false);
 }
 
 void TestGames::testHashInsertAndRetrieve()

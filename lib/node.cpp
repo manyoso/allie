@@ -27,25 +27,14 @@
 
 int scoreToCP(float score)
 {
-    // From https://www.chessprogramming.org/Pawn_Advantage,_Win_Percentage,_and_Elo
-    static int maximumMaterial = Game().materialScore(Chess::White);
-    if (qFuzzyCompare(qAbs(score), 1.0f))
-        return score > 0 ? maximumMaterial * 100 : -maximumMaterial * 100;
-
-    const qreal winPct = qreal((score + 1.f) / 2.f);
-    return qRound(4.0 * log10(winPct / (1.0 - winPct)) * 100);
+    // Same formula as lc0
+    return qRound(290.680623072 * qTan(1.548090806 * double(score)));
 }
 
 float cpToScore(int cp)
 {
     // Inverse of the above
-    static int maximumMaterial = Game().materialScore(Chess::White);
-    if (qAbs(cp) >= maximumMaterial * 100)
-        return cp > 0 ? 1.0f : -1.0f;
-
-    const qreal p = cp / 100.0;
-    const qreal winPct = qPow(M_E, 0.575646 * p) / (qPow(M_E, 0.575646 * p) + 1);
-    return (float(winPct) * 2.f) - 1.0f;
+    return float(qAtan(double(cp) / 290.680623072) / 1.548090806);
 }
 
 Node::Node(Node *parent, const Game &game)
@@ -518,11 +507,11 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->m_rawQValue = .99999f;
+        child->m_rawQValue = 1.0f - cpToScore(1);
         child->m_isExact = true;
         break;
     case TB::Loss:
-        child->m_rawQValue = -.99999f;
+        child->m_rawQValue = -1.0f + cpToScore(1);
         child->m_isExact = true;
         break;
     case TB::Draw:
@@ -565,11 +554,11 @@ bool Node::generatePotentials()
     case TB::NotFound:
         break;
     case TB::Win:
-        m_rawQValue = .99999f;
+        m_rawQValue = 1.0f - cpToScore(1);
         m_isExact = true;
         return true;
     case TB::Loss:
-        m_rawQValue = -.99999f;
+        m_rawQValue = -1.0f + cpToScore(1);
         m_isExact = true;
         return true;
     case TB::Draw:
