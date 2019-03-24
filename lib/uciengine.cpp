@@ -197,23 +197,37 @@ IOWorker::IOWorker(const QString &debugFile, QObject *parent)
 
 void IOWorker::startDebug()
 {
+    if (m_debugLines.isEmpty())
+        readyRead();
+
+    QVector<QString> input;
+
+    // Either we are out of lines or first line should be input
+    bool isInputMode = m_debugLines.isEmpty() || m_debugLines.first().startsWith(QLatin1String("Input: "));
     while (!m_debugLines.isEmpty()) {
+        QString peek = m_debugLines.first();
+        if (!isInputMode && !input.isEmpty() && peek.startsWith(QLatin1String("Input: ")))
+            break;
+
         QString line = m_debugLines.dequeue();
-        if (line == "Input:" && !m_debugLines.isEmpty()) {
-            QString input = m_debugLines.dequeue();
-            QString lastLine;
-            QQueue<QString>::const_iterator it = m_debugLines.begin();
-            for (; it != m_debugLines.end(); ++it) {
-                if (*it == "Input:")
-                    break;
-                lastLine = *it;
-            }
-            m_waitingOnOutput = lastLine;
-            fprintf(stderr, "%s\n", input.toLatin1().constData());
-            emit standardInput(input);
-            if (!m_waitingOnOutput.isEmpty())
-                return;
+        if (line.startsWith(QLatin1String("Output: "))) {
+            line.remove(0, 8);
+            isInputMode = false;
+        } else if (line.startsWith(QLatin1String("Input: "))) {
+            line.remove(0, 7);
+            isInputMode = true;
         }
+
+        if (isInputMode)
+            input.append(line);
+        else
+            m_waitingOnOutput = line;
+    }
+
+
+    for (QString line : input) {
+        fprintf(stderr, "%s\n", line.toLatin1().constData());
+        emit standardInput(line);
     }
 }
 
