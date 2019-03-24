@@ -291,7 +291,7 @@ void SearchWorker::search()
 
         // Fill out the tree
         const bool didWork = fillOutTree();
-        if (!didWork) {
+        if (!didWork && m_id > 0) {
 #if defined(DEBUG_EVAL)
             qDebug() << QThread::currentThread()->objectName() << "sleeping";
 #endif
