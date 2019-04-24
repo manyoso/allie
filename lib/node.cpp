@@ -315,7 +315,7 @@ private:
     PotentialNode *m_potential;
 };
 
-int virtualLossDistance(float wec, const MCTSNode &a, const MCTSNode &b)
+inline int virtualLossDistance(float wec, const MCTSNode &a, const MCTSNode &b)
 {
     Q_UNUSED(a);
     // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
