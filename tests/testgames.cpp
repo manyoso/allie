@@ -183,6 +183,27 @@ void TestGames::testSearchForMateInOne()
         || handler.lastInfo().score == QLatin1String("cp 11115"));
 }
 
+void TestGames::testInstaMove()
+{
+    const QLatin1String oneLegalMove = QLatin1String("position fen rnbqk2r/pppp1p1p/4pn1p/8/1bPP4/N7/PP2PPPP/R2QKBNR w KQkq - 3 5");
+    UciEngine engine(this, QString());
+    UCIIOHandler handler(this);
+    engine.installIOHandler(&handler);
+
+    QSignalSpy bestMoveSpy(&handler, &UCIIOHandler::receivedBestMove);
+    engine.readyRead(oneLegalMove);
+    engine.readyRead(QLatin1String("go wtime 1000000 btime 1000000"));
+    const bool receivedSignal = bestMoveSpy.isEmpty() ? bestMoveSpy.wait(1000000) : true;
+    if (!receivedSignal) {
+        QString message = QString("Did not receive signal for %1").arg(oneLegalMove);
+        QWARN(message.toLatin1().constData());
+        engine.readyRead(QLatin1String("stop"));
+    }
+    QVERIFY(receivedSignal);
+    QVERIFY2(handler.lastBestMove() == QLatin1String("d1d2"), QString("Result is %1")
+        .arg(handler.lastBestMove()).toLatin1().constData());
+}
+
 void TestGames::testThreeFold()
 {
     History::globalInstance()->clear();
@@ -318,6 +339,7 @@ void TestGames::checkGame(const QString &fen, const QVector<QString> &mv)
         }
 
         engineHandler.clear();
+        bestMoveSpy.clear();
         engine.readyRead(QLatin1String("go depth 1"));
         const bool receivedSignal = bestMoveSpy.isEmpty() ? bestMoveSpy.wait() : true;
         if (!receivedSignal) {

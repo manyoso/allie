@@ -112,6 +112,7 @@ public Q_SLOTS:
 
 Q_SIGNALS:
     void sendInfo(const SearchInfo &info, bool isPartial);
+    void requestStop();
 
 private:
     static void gcNode(Node *node);

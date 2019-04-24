@@ -38,6 +38,7 @@ public:
 
     void handleBestMove(const QString &bestMove) override
     {
+        Q_ASSERT(!bestMove.isEmpty());
         m_lastBestMove = bestMove;
         emit receivedBestMove();
     }
@@ -68,6 +69,7 @@ private slots:
     void testStartingPosition();
     void testStartingPositionBlack();
     void testSearchForMateInOne();
+    void testInstaMove();
     void testThreeFold();
     void testThreeFold2();
     void testThreeFold3();

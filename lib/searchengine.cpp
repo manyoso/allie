@@ -479,7 +479,10 @@ void SearchEngine::startSearch(const Search &s)
             m_currentInfo.bestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
             if (Node *ponder = best->bestChild(Node::MCTS))
                 m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
-            emit sendInfo(m_currentInfo, true /*isPartial*/);
+            const bool onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
+            emit sendInfo(m_currentInfo, !onlyLegalMove /*isPartial*/);
+            if (onlyLegalMove)
+                requestStop();
         }
     }
 
@@ -574,6 +577,8 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
 
     float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
 
+    const bool onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
+
     // Unlock for read
     m_tree->mutex.unlock();
 
@@ -596,6 +601,8 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.trendDegree = m_trendDegree;
 
     emit sendInfo(m_currentInfo, isPartial);
+    if (onlyLegalMove)
+        emit requestStop();
 }
 
 void SearchEngine::workerReachedMaxBatchSize()

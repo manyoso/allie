@@ -273,6 +273,7 @@ UciEngine::UciEngine(QObject *parent, const QString &debugFile)
 {
     m_searchEngine = new SearchEngine(this);
     connect(m_searchEngine, &SearchEngine::sendInfo, this, &UciEngine::sendInfo);
+    connect(m_searchEngine, &SearchEngine::requestStop, this, &UciEngine::stop);
     connect(m_clock, &Clock::timeout, this, [&](){ sendBestMove(false /*force*/); });
 }
 
