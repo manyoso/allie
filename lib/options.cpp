@@ -116,6 +116,14 @@ Options::Options()
     tb.m_value = tb.m_default;
     tb.m_description = QLatin1String("Path to the syzygy tablebase");
     insertOption(tb);
+
+    UciOption ninesixty;
+    ninesixty.m_name = QLatin1Literal("UCI_Chess960");
+    ninesixty.m_type = UciOption::Check;
+    ninesixty.m_default = QLatin1Literal("false");
+    ninesixty.m_value = ninesixty.m_default;
+    ninesixty.m_description = QLatin1String("Play Chess960");
+    insertOption(ninesixty);
 }
 
 Options::~Options()

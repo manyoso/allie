@@ -28,7 +28,7 @@
 #include "movegen.h"
 #include "node.h"
 #include "notation.h"
-#include "settings.h"
+#include "options.h"
 #include "zobrist.h"
 
 using namespace Chess;
@@ -377,50 +377,52 @@ void Game::setFen(const QString &fen)
 
     m_activeArmy = list.at(1) == QLatin1String("w") ? White : Black;
 
+    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true");
+
     //Should work for regular fen and UCI fen for chess960...
     QString castling = list.at(2);
     if (castling != "-") {
         QVector<QChar> whiteKingSide;
         whiteKingSide << 'K';
-        if (Settings::globalInstance()->isChess960()) whiteKingSide << 'E' << 'F' << 'G' << 'H';
+        if (isChess960) whiteKingSide << 'E' << 'F' << 'G' << 'H';
         m_hasWhiteKingCastle = false;
         for (QChar c : whiteKingSide) {
             if (castling.contains(c)) {
                 m_hasWhiteKingCastle = true;
-                m_fileOfKingsRook = Settings::globalInstance()->isChess960() ? quint8(castling.indexOf(c)) + 3 : 7;
+                m_fileOfKingsRook = isChess960 ? quint8(whiteKingSide.indexOf(c)) + 3 : 7;
             }
         }
 
         QVector<QChar> whiteQueenSide;
         whiteQueenSide << 'Q';
-        if (Settings::globalInstance()->isChess960()) whiteQueenSide << 'A' << 'B' << 'C' << 'D';
+        if (isChess960) whiteQueenSide << 'A' << 'B' << 'C' << 'D';
         m_hasWhiteQueenCastle = false;
         for (QChar c : whiteQueenSide) {
             if (castling.contains(c)) {
                 m_hasWhiteQueenCastle = true;
-                m_fileOfQueensRook = Settings::globalInstance()->isChess960() ? quint8(castling.indexOf(c)) : 0;
+                m_fileOfQueensRook = isChess960 ? quint8(whiteQueenSide.indexOf(c) - 1) : 0;
             }
         }
 
         QVector<QChar> blackKingSide;
         blackKingSide << 'k';
-        if (Settings::globalInstance()->isChess960()) blackKingSide << 'e' << 'f' << 'g' << 'h';
+        if (isChess960) blackKingSide << 'e' << 'f' << 'g' << 'h';
         m_hasBlackKingCastle = false;
         for (QChar c : blackKingSide) {
             if (castling.contains(c)) {
                 m_hasBlackKingCastle = true;
-                m_fileOfKingsRook = Settings::globalInstance()->isChess960() ? quint8(castling.indexOf(c)) + 3 : 7;
+                m_fileOfKingsRook = isChess960 ? quint8(blackKingSide.indexOf(c)) + 3 : 7;
             }
         }
 
         QVector<QChar> blackQueenSide;
         blackQueenSide << 'q';
-        if (Settings::globalInstance()->isChess960()) blackQueenSide << 'a' << 'b' << 'c' << 'd';
+        if (isChess960) blackQueenSide << 'a' << 'b' << 'c' << 'd';
         m_hasBlackQueenCastle = false;
         for (QChar c : blackQueenSide) {
             if (castling.contains(c)) {
                 m_hasBlackQueenCastle = true;
-                m_fileOfQueensRook = Settings::globalInstance()->isChess960() ? quint8(castling.indexOf(c)) : 0;
+                m_fileOfQueensRook = isChess960 ? quint8(blackQueenSide.indexOf(c) - 1) : 0;
             }
         }
     }
@@ -483,15 +485,16 @@ QString Game::stateOfGameToFen(bool includeMoveNumbers) const
     QString ranks = rankList.join("/");
     QString activeArmy = (m_activeArmy == White ? QLatin1String("w") : QLatin1String("b"));
 
+    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true");
     QString castling;
     if (isCastleAvailable(White, KingSide))
-        Settings::globalInstance()->isChess960() ? castling.append(Notation::fileToChar(m_fileOfKingsRook).toUpper()) : castling.append("K");
+        isChess960 ? castling.append(Notation::fileToChar(m_fileOfKingsRook).toUpper()) : castling.append("K");
     if (isCastleAvailable(White, QueenSide))
-        Settings::globalInstance()->isChess960() ? castling.append(Notation::fileToChar(m_fileOfQueensRook).toUpper()) : castling.append("Q");
+        isChess960 ? castling.append(Notation::fileToChar(m_fileOfQueensRook).toUpper()) : castling.append("Q");
     if (isCastleAvailable(Black, KingSide))
-        Settings::globalInstance()->isChess960() ? castling.append(Notation::fileToChar(m_fileOfKingsRook)) : castling.append("k");
+        isChess960 ? castling.append(Notation::fileToChar(m_fileOfKingsRook)) : castling.append("k");
     if (isCastleAvailable(Black, QueenSide))
-        Settings::globalInstance()->isChess960() ? castling.append(Notation::fileToChar(m_fileOfQueensRook)) : castling.append("q");
+        isChess960 ? castling.append(Notation::fileToChar(m_fileOfQueensRook)) : castling.append("q");
     if (castling.isEmpty())
         castling.append("-");
 

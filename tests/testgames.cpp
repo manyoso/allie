@@ -26,6 +26,7 @@
 #include "nn.h"
 #include "node.h"
 #include "notation.h"
+#include "options.h"
 #include "searchengine.h"
 #include "testgames.h"
 #include "treeiterator.h"
@@ -153,6 +154,15 @@ void TestGames::testStartingPositionBlack()
     for (; it != n->end<PreOrder>(); ++it)
         gc.append(*it);
     qDeleteAll(gc);
+}
+
+void TestGames::test960()
+{
+    Options::globalInstance()->setOption("UCI_Chess960", QLatin1Literal("true"));
+    Game g("qrknbbrn/pppppppp/8/8/8/8/PPPPPPPP/QRKNBBRN w GBgb - 0 1");
+    QCOMPARE(g.stateOfGameToFen(), QLatin1String("qrknbbrn/pppppppp/8/8/8/8/PPPPPPPP/QRKNBBRN w GBgb - 0 1"));
+    QCOMPARE(g.activeArmy(), Chess::White);
+    Options::globalInstance()->setOption("UCI_Chess960", QLatin1Literal("false"));
 }
 
 void TestGames::testSearchForMateInOne()
