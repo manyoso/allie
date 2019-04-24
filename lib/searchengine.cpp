@@ -264,6 +264,7 @@ QVector<Node*> SearchWorker::playoutNodesMCTS(int size, bool *didWork, WorkerInf
             continue;
         }
 
+        exactOrCached = 0;
         Q_ASSERT(!nodes.contains(playout));
         Q_ASSERT(!playout->hasQValue());
         nodes.append(playout);
