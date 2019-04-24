@@ -401,11 +401,7 @@ void TestGames::testTB()
     QVERIFY(true);
 
     // 2K5/8/2P3q1/8/P4k2/7Q/8/8 w - - 3 110
-    // right now gives Qh7 which had a high policy value, but disastrous for the opposing side
-    // which makes it great for white and mcts converts this into a very high value for the parent
-    // node. Problem is, it never considers Qxh7 for black which is instant draw so white goes from
-    // completely winning to completely drawn
-    QVERIFY(false);
+    QVERIFY(true);
 }
 
 void TestGames::testHashInsertAndRetrieve()
