@@ -360,7 +360,10 @@ start_playout:
 
         // Otherwise, increase virtual loss
         const bool alreadyPlayingOut = n->isAlreadyPlayingOut();
-        const qint64 increment = alreadyPlayingOut ? qint64(vld - 1) : 1;
+        if (n->isRootNode() && alreadyPlayingOut)
+            return nullptr;
+
+        const qint64 increment = alreadyPlayingOut ? vld : 1;
         n->m_virtualLoss += increment;
 #if defined(DEBUG_PLAYOUT_MCTS)
         qDebug() << "increment hit" << n->toString() << "n" << n->m_visited
