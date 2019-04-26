@@ -61,26 +61,16 @@ Node::~Node()
 
 QVector<Game> Node::previousMoves(bool fullHistory) const
 {
+    // This is slow because we build up a vector by prepending it
     const int previousMoveCount = 11;
     QVector<Game> result;
-    Node *parent = m_parent;
+    HistoryIterator it = HistoryIterator::begin(this);
+    ++it; // advance past this position
 
-    // Get our parents history
-    while (parent && (fullHistory || result.count() < previousMoveCount)) {
-        result.prepend(parent->game());
-        parent = parent->m_parent;
-    }
-
-    // Get history from the history list
-    if (fullHistory || result.count() < previousMoveCount) {
-        QVector<Game> h = History::globalInstance()->games();
-        if (!h.isEmpty())
-            h.takeLast(); // already captured current root
-
-        while (!h.isEmpty() && (fullHistory || result.count() < previousMoveCount)) {
-            Game g = h.takeLast();
-            result.prepend(g);
-        }
+    for (; it != HistoryIterator::end() &&
+         (fullHistory || result.count() < previousMoveCount);
+         ++it) {
+        result.prepend(*it);
     }
 
     return result;
@@ -149,9 +139,9 @@ int Node::repetitions() const
         return m_game.repetitions();
 
     qint8 r = 0;
-    const QVector<Game> previous = this->previousMoves(true /*fullHistory*/);
-    QVector<Game>::const_reverse_iterator it = previous.crbegin();
-    for (; it != previous.crend(); ++it) {
+    HistoryIterator it = HistoryIterator::begin(this);
+    ++it; // advance past this position
+    for (; it != HistoryIterator::end(); ++it) {
         if (m_game.isSamePosition(*it))
             ++r;
 

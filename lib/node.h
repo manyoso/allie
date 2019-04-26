@@ -84,7 +84,7 @@ public:
 
     Game game() const { return m_game; }
 
-    QVector<Game> previousMoves(bool fullHistory) const;
+    QVector<Game> previousMoves(bool fullHistory) const; // slow
 
     template<Traversal t>
     TreeIterator<t> begin() { return TreeIterator<t>(this); }

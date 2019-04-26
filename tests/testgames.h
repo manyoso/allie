@@ -71,6 +71,7 @@ private slots:
     void test960();
     void testSearchForMateInOne();
     void testInstaMove();
+    void testHistory();
     void testThreeFold();
     void testThreeFold2();
     void testThreeFold3();

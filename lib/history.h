@@ -24,6 +24,7 @@
 #include <QtGlobal>
 
 #include "game.h"
+#include "node.h"
 
 class History {
 public:
@@ -50,9 +51,89 @@ private:
     {
     }
 
+    Game at(int index) const
+    {
+        Q_ASSERT(index >= 0);
+        Q_ASSERT(index < m_history.count());
+        return m_history.at(index);
+    }
+
+    int count() const
+    {
+        return m_history.count();
+    }
+
     ~History() {}
     QVector<Game> m_history;
     friend class MyHistory;
+    friend class HistoryIterator;
 };
+
+class HistoryIterator {
+public:
+    bool operator!=(const HistoryIterator& other) const;
+    Game operator*();
+    void operator++();
+
+    static HistoryIterator begin(const Node *data);
+    static HistoryIterator end();
+
+private:
+    HistoryIterator(const Node *data);
+    HistoryIterator();
+    const Node *node;
+    int historyPosition;
+};
+
+inline HistoryIterator::HistoryIterator()
+{
+    node = nullptr;
+    historyPosition = -1;
+}
+
+inline HistoryIterator::HistoryIterator(const Node *data)
+{
+    node = data;
+    historyPosition = -1;
+}
+
+inline HistoryIterator HistoryIterator::begin(const Node *data)
+{
+    return HistoryIterator(data);
+}
+
+inline HistoryIterator HistoryIterator::end()
+{
+    return HistoryIterator();
+}
+
+inline bool HistoryIterator::operator!=(const HistoryIterator& other) const
+{
+    return node != other.node || historyPosition != other.historyPosition;
+}
+
+inline Game HistoryIterator::operator*()
+{
+    if (node)
+        return node->game();
+    else if (historyPosition != -1)
+        return History::globalInstance()->at(historyPosition);
+    return Game();
+}
+
+inline void HistoryIterator::operator++()
+{
+    if (node) {
+        if (node->parent()) {
+            node = node->parent();
+            return;
+        } else {
+            node = nullptr;
+            historyPosition = qMax(-1, History::globalInstance()->count() - 2);
+        }
+    } else if (historyPosition >= 0) {
+        --historyPosition;
+    }
+}
 
 #endif // HISTORY_H

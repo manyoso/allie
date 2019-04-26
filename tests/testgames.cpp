@@ -214,6 +214,58 @@ void TestGames::testInstaMove()
         .arg(handler.lastBestMove()).toLatin1().constData());
 }
 
+void TestGames::testHistory()
+{
+    QLatin1String fen = QLatin1String("4k3/8/8/8/8/1R6/8/4K3 b - - 0 40");
+    QVector<QString> moves = QString("e8d7 e1f1 d7d6 b3b2 d6c6 b2b8 c6d6 b8b7 d6c6 b7b3 c6d7 b3a3 d7c7 a3a6 c7c8").split(" ").toVector();
+
+    History::globalInstance()->clear();
+
+    Game game(fen);
+    for (QString move : moves) {
+        Move mv = Notation::stringToMove(move, Chess::Computer);
+        bool success = game.makeMove(mv);
+        History::globalInstance()->addGame(game);
+        QVERIFY(success);
+    }
+
+    Game g = History::globalInstance()->currentGame();
+    Node *root = new Node(nullptr, g);
+
+    Node *lastNode = root;
+    QVector<QString> nodeMoves = QString("a6a1 c8d7 f1g1 d7c6 a1a8 c6b7 a8d8 b7a7").split(" ").toVector();
+    for (QString move : nodeMoves) {
+        Move mv = Notation::stringToMove(move, Chess::Computer);
+        bool success = game.makeMove(mv);
+        QVERIFY(success);
+        Node *n = new Node(lastNode, game);
+        lastNode = n;
+    }
+
+    QString string;
+    {
+        QTextStream stream(&string);
+        HistoryIterator it = HistoryIterator::begin(lastNode);
+        for (; it != HistoryIterator::end(); ++it) {
+            stream << (*it).toString(Chess::Computer);
+            stream << QLatin1String(" ");
+        }
+        string = string.trimmed();
+    }
+
+    // The moves in reverse order...
+    QCOMPARE(string, QLatin1String("b7a7 a8d8 c6b7 a1a8 d7c6 f1g1 c8d7 a6a1 c7c8 a3a6 d7c7 b3a3 c6d7 b7b3 d6c6 b8b7 c6d6 b2b8 d6c6 b3b2 d7d6 e1f1 e8d7"));
+
+    // The toString method is slower, but uses history here to display the last 12 moves from the node
+    QCOMPARE(lastNode->toString(), QLatin1String("b3a3 d7c7 a3a6 c7c8 a6a1 c8d7 f1g1 d7c6 a1a8 c6b7 a8d8 b7a7"));
+
+    QVector<Node*> gc;
+    TreeIterator<PreOrder> it = root->begin<PreOrder>();
+    for (; it != root->end<PreOrder>(); ++it)
+        gc.append(*it);
+    qDeleteAll(gc);
+}
+
 void TestGames::testThreeFold()
 {
     History::globalInstance()->clear();
