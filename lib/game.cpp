@@ -594,9 +594,11 @@ BitBoard Game::attackBoard(Chess::PieceType piece, Chess::Army army) const
             return bits;
         }
     case Unknown:
-        Q_UNREACHABLE();
-        return bits;
+        break;
     }
+
+    Q_UNREACHABLE();
+    return bits;
 }
 
 void Game::pseudoLegalMoves(Node *parent) const
