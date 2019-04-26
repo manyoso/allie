@@ -177,9 +177,10 @@ void Node::setRawQValue(float qValue)
 
 void Node::backPropagateValue(float v)
 {
-    const float currentQValue = hasQValue() ? m_qValue : 0.0f;
-    const float n = qMax(quint32(1), m_visited);
-    m_qValue = (n * currentQValue + v) / (n + 1.f);
+    Q_ASSERT(hasQValue());
+    Q_ASSERT(m_visited);
+    const float currentQValue = m_qValue;
+    m_qValue = (m_visited * currentQValue + v) / float(m_visited + 1);
     incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "bp " << toString() << " n:" << n
@@ -511,6 +512,13 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     default:
         Q_UNREACHABLE();
         break;
+    }
+
+    // If this root has never been scored, then do so now to prevent asserts in back propagation
+    if (!hasQValue()) {
+        setRawQValue(0.0f);
+        setQValueFromRaw();
+        ++m_visited;
     }
 
     child->setQValueAndPropagate();
