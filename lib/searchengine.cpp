@@ -35,6 +35,7 @@
 #include "treeiterator.h"
 
 //#define DEBUG_EVAL
+//#define USE_DUMMY_NODES
 
 SearchWorker::SearchWorker(int id, QObject *parent)
     : QObject(parent),
@@ -248,7 +249,27 @@ QVector<Node*> SearchWorker::playoutNodesMCTS(int size, bool *didWork, WorkerInf
 
         m_tree->mutex.lock();
         bool createdNode = false;
+#if defined(USE_DUMMY_NODES)
+        static Node* currentLeaf = m_tree->root;
+        static int currentLeafDepth = 0;
+        Node *playout = nullptr;
+        if (!currentLeaf->setScoringOrScored()) {
+            playout = currentLeaf;
+        } else {
+            playout = new Node(currentLeaf, Game());
+            playout->setScoringOrScored();
+            currentLeaf->m_children.append(playout);
+            createdNode = true;
+            depth = currentLeafDepth + 1;
+        }
+        ++playout->m_virtualLoss;
+        if (currentLeaf->m_children.count() > 20) {
+            currentLeaf = playout;
+            currentLeafDepth = depth;
+        }
+#else
         Node *playout = m_tree->root->playout(&depth, &createdNode);
+#endif
         if (createdNode)
             info->nodesCreated += 1;
         m_tree->mutex.unlock();
