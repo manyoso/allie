@@ -151,8 +151,6 @@ public:
     QString toString(Chess::NotationType = Chess::Computer) const;
     QString printTree(int depth) /*const*/; // recursive
 
-    bool isPrefetch() const { return m_isPrefetch; }
-    void setPrefetch(bool p) { m_isPrefetch = p; }
     bool isCheckMate() const { return m_game.lastMove().isCheckMate(); }
     bool isStaleMate() const { return m_game.lastMove().isStaleMate(); }
     int repetitions() const;
@@ -185,7 +183,6 @@ private:
     float m_policySum;
     mutable float m_uCoeff;
     bool m_isExact: 1;
-    bool m_isPrefetch: 1;
     std::atomic_flag m_scoringOrScored;
     template<Traversal t>
     friend class TreeIterator;

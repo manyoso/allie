@@ -47,8 +47,7 @@ Node::Node(Node *parent, const Game &game)
     m_pValue(-2.0f),
     m_policySum(0),
     m_uCoeff(-2.0f),
-    m_isExact(false),
-    m_isPrefetch(false)
+    m_isExact(false)
 {
     m_scoringOrScored.clear();
 }

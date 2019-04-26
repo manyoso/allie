@@ -95,17 +95,11 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
             Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
-
-            {
-                node->setRawQValue(-computation.qVal(index));
-                if (node->hasPotentials()) {
-                    computation.setPVals(index, node);
-                }
-                if (!node->isPrefetch()) {
-                    node->setQValueAndPropagate();
-                }
-                Hash::globalInstance()->insert(node);
-            }
+            node->setRawQValue(-computation.qVal(index));
+            if (node->hasPotentials())
+                computation.setPVals(index, node);
+            node->setQValueAndPropagate();
+            Hash::globalInstance()->insert(node);
         }
     }
 
@@ -190,14 +184,13 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     }
 
     // If we encounter a playout that already has a rawQValue perhaps from a resumed search,
-    // or from a prefetch, then all we need to do is back propagate the value and continue
+    // then all we need to do is back propagate the value and continue
     if (playout->hasRawQValue()) {
 #if defined(DEBUG_PLAYOUT_MCTS)
         qDebug() << "found resumed playout" << playout->toString();
 #endif
         info->nodesCacheHits += 1;
         QMutexLocker locker(&m_tree->mutex);
-        playout->setPrefetch(false);
         playout->setQValueAndPropagate();
         return false;
     }
