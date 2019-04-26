@@ -539,61 +539,64 @@ BitBoard Game::attackBoard(Chess::PieceType piece, Chess::Army army) const
     const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
     const Movegen *gen = Movegen::globalInstance();
 
-    if (piece == King) {
-        const BitBoard pieces(friends & board(King));
-        BitBoard::Iterator sq = pieces.begin();
-        for (int i = 0; sq != pieces.end(); ++sq, ++i) {
-            Q_ASSERT(i < 1);
-            bits = bits | gen->kingMoves(*sq, friends, enemies);
+    switch (piece) {
+    case King:
+        {
+            const BitBoard pieces(friends & board(King));
+            BitBoard::Iterator sq = pieces.begin();
+            for (int i = 0; sq != pieces.end(); ++sq, ++i) {
+                Q_ASSERT(i < 1);
+                bits = bits | gen->kingMoves(*sq, friends, enemies);
+            }
+            return bits;
         }
+    case Queen:
+        {
+            const BitBoard pieces(friends & board(Queen));
+            BitBoard::Iterator sq = pieces.begin();
+            for (; sq != pieces.end(); ++sq)
+                bits = bits | gen->queenMoves(*sq, friends, enemies);
+            return bits;
+        }
+    case Rook:
+        {
+            const BitBoard pieces(friends & board(Rook));
+            BitBoard::Iterator sq = pieces.begin();
+            for (; sq != pieces.end(); ++sq)
+                bits = bits | gen->rookMoves(*sq, friends, enemies);
+            return bits;
+        }
+    case Bishop:
+        {
+            const BitBoard pieces(friends & board(Bishop));
+            BitBoard::Iterator sq = pieces.begin();
+            for (; sq != pieces.end(); ++sq)
+                bits = bits | gen->bishopMoves(*sq, friends, enemies);
+            return bits;
+        }
+    case Knight:
+        {
+            const BitBoard pieces(friends & board(Knight));
+            BitBoard::Iterator sq = pieces.begin();
+            for (; sq != pieces.end(); ++sq)
+                bits = bits | gen->knightMoves(*sq, friends, enemies);
+            return bits;
+        }
+    case Pawn:
+        {
+            const BitBoard pieces(friends & board(Pawn));
+            BitBoard::Iterator sq = pieces.begin();
+            BitBoard enemiesPlusEnpassant = enemies;
+            if (m_enPassantTarget.isValid())
+                enemiesPlusEnpassant.setSquare(m_enPassantTarget);
+            for (; sq != pieces.end(); ++sq)
+                bits = bits | gen->pawnAttacks(army, *sq, friends, enemiesPlusEnpassant);
+            return bits;
+        }
+    case Unknown:
+        Q_UNREACHABLE();
         return bits;
     }
-
-    if (piece == Queen) {
-        const BitBoard pieces(friends & board(Queen));
-        BitBoard::Iterator sq = pieces.begin();
-        for (; sq != pieces.end(); ++sq)
-            bits = bits | gen->queenMoves(*sq, friends, enemies);
-        return bits;
-    }
-
-    if (piece == Rook) {
-        const BitBoard pieces(friends & board(Rook));
-        BitBoard::Iterator sq = pieces.begin();
-        for (; sq != pieces.end(); ++sq)
-            bits = bits | gen->rookMoves(*sq, friends, enemies);
-        return bits;
-    }
-
-    if (piece == Bishop) {
-        const BitBoard pieces(friends & board(Bishop));
-        BitBoard::Iterator sq = pieces.begin();
-        for (; sq != pieces.end(); ++sq)
-            bits = bits | gen->bishopMoves(*sq, friends, enemies);
-        return bits;
-    }
-
-    if (piece == Knight) {
-        const BitBoard pieces(friends & board(Knight));
-        BitBoard::Iterator sq = pieces.begin();
-        for (; sq != pieces.end(); ++sq)
-            bits = bits | gen->knightMoves(*sq, friends, enemies);
-        return bits;
-    }
-
-    if (piece == Pawn) {
-        const BitBoard pieces(friends & board(Pawn));
-        BitBoard::Iterator sq = pieces.begin();
-        BitBoard enemiesPlusEnpassant = enemies;
-        if (m_enPassantTarget.isValid())
-            enemiesPlusEnpassant.setSquare(m_enPassantTarget);
-        for (; sq != pieces.end(); ++sq)
-            bits = bits | gen->pawnAttacks(army, *sq, friends, enemiesPlusEnpassant);
-        return bits;
-    }
-
-    Q_UNREACHABLE();
-    return bits;
 }
 
 void Game::pseudoLegalMoves(Node *parent) const

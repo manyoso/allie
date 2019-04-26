@@ -92,7 +92,7 @@ public:
                  (m_data & 0xFF00FF00FF00FF00) >> 8;
     }
 
-    quint64 data() const { return m_data; }
+    inline quint64 data() const { return m_data; }
 
     int count() const;
 
