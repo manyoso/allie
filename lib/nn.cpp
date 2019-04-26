@@ -27,6 +27,7 @@
 #include "bitboard.h"
 #include "chess.h"
 #include "game.h"
+#include "history.h"
 #include "neural/loader.h"
 #include "neural/nn_policy.h"
 #include "node.h"
@@ -40,24 +41,54 @@ const int s_moveHistory = 8;
 const int s_planesPerPos = 13;
 const int s_planeBase = s_planesPerPos * s_moveHistory;
 
+void encodeGame(int i, const Game &g, InputPlanes *result, Chess::Army us, Chess::Army them,
+    bool nextMoveIsBlack)
+{
+    BitBoard ours = us == White ? g.board(White) : g.board(Black);
+    BitBoard theirs = them == White ? g.board(White) : g.board(Black);
+    BitBoard pawns = g.board(Pawn);
+    BitBoard knights = g.board(Knight);
+    BitBoard bishops = g.board(Bishop);
+    BitBoard rooks = g.board(Rook);
+    BitBoard queens = g.board(Queen);
+    BitBoard kings = g.board(King);
+
+    // If we are evaluating from black's perspective we need to flip the boards...
+    if (nextMoveIsBlack) {
+        ours.mirror();
+        theirs.mirror();
+        pawns.mirror();
+        knights.mirror();
+        bishops.mirror();
+        rooks.mirror();
+        queens.mirror();
+        kings.mirror();
+    }
+
+    const size_t base = size_t(i * s_planesPerPos);
+
+    (*result)[base + 0].mask = (ours & pawns).data();
+    (*result)[base + 1].mask = (ours & knights).data();
+    (*result)[base + 2].mask = (ours & bishops).data();
+    (*result)[base + 3].mask = (ours & rooks).data();
+    (*result)[base + 4].mask = (ours & queens).data();
+    (*result)[base + 5].mask = (ours & kings).data();
+
+    (*result)[base + 6].mask = (theirs & pawns).data();
+    (*result)[base + 7].mask = (theirs & knights).data();
+    (*result)[base + 8].mask = (theirs & bishops).data();
+    (*result)[base + 9].mask = (theirs & rooks).data();
+    (*result)[base + 10].mask = (theirs & queens).data();
+    (*result)[base + 11].mask = (theirs & kings).data();
+    if (g.repetitions() >= 1)
+        (*result)[base + 12].SetAll();
+
+    // FIXME: Encode enpassant target
+}
+
 InputPlanes gameToInputPlanes(const Node *node)
 {
     Game game = node->game();
-    QVector<Game> games = node->previousMoves(false /*fullHistory*/);
-    games << game; // add the current position
-
-    int index = qMax(0, games.count() - s_moveHistory);
-    games = games.mid(index);
-    Q_ASSERT(!games.isEmpty());
-    Q_ASSERT(games.count() <= s_moveHistory);
-
-    // Add fake history by repeating the position to fill it up as long as the last position in the
-    // real history is not the startpos
-    if (games.first() != Game()) {
-        while (games.count() < s_moveHistory)
-            games.prepend(games.first());
-    }
-
     InputPlanes result(s_planeBase + s_moveHistory);
 
     // *us* refers to the perspective of whoever is next to move
@@ -65,62 +96,22 @@ InputPlanes gameToInputPlanes(const Node *node)
     Chess::Army us = nextMoveIsBlack ? Black : White;
     Chess::Army them = nextMoveIsBlack ? White : Black;
 
-    QVector<Game>::const_reverse_iterator it = games.crbegin();
-    for (int i = 0; it != games.crend(); ++it, ++i) {
-
-        Game g = *it;
-        BitBoard ours = us == White ? g.board(White) : g.board(Black);
-        BitBoard theirs = them == White ? g.board(White) : g.board(Black);
-        BitBoard pawns = g.board(Pawn);
-        BitBoard knights = g.board(Knight);
-        BitBoard bishops = g.board(Bishop);
-        BitBoard rooks = g.board(Rook);
-        BitBoard queens = g.board(Queen);
-        BitBoard kings = g.board(King);
-
-        // If we are evaluating from black's perspective we need to flip the boards...
-        if (nextMoveIsBlack) {
-            ours.mirror();
-            theirs.mirror();
-            pawns.mirror();
-            knights.mirror();
-            bishops.mirror();
-            rooks.mirror();
-            queens.mirror();
-            kings.mirror();
-        }
-
-        const size_t base = size_t(i * s_planesPerPos);
-
-        result[base + 0].mask = (ours & pawns).data();
-        result[base + 1].mask = (ours & knights).data();
-        result[base + 2].mask = (ours & bishops).data();
-        result[base + 3].mask = (ours & rooks).data();
-        result[base + 4].mask = (ours & queens).data();
-        result[base + 5].mask = (ours & kings).data();
-
-        result[base + 6].mask = (theirs & pawns).data();
-        result[base + 7].mask = (theirs & knights).data();
-        result[base + 8].mask = (theirs & bishops).data();
-        result[base + 9].mask = (theirs & rooks).data();
-        result[base + 10].mask = (theirs & queens).data();
-        result[base + 11].mask = (theirs & kings).data();
-        if (g.repetitions() >= 1)
-            result[base + 12].SetAll();
-
-        // FIXME: Encode enpassant target
+    HistoryIterator it = HistoryIterator::begin(node);
+    int gamesEncoded = 0;
+    Game lastGameEncoded = game;
+    for (; it != HistoryIterator::end() && gamesEncoded < s_moveHistory; ++it, ++gamesEncoded) {
+        encodeGame(gamesEncoded, *it, &result, us, them, nextMoveIsBlack);
+        lastGameEncoded = *it;
     }
 
-#if 0
-    {
-        QVector<Move> moves;
-        QVector<Game>::const_iterator it = games.begin();
-        for (; it != games.end(); ++it) {
-            moves << (*it).lastMove();
+    // Add fake history by repeating the position to fill it up as long as the last position in the
+    // real history is not the startpos
+    if (lastGameEncoded != Game()) {
+        while (gamesEncoded < s_moveHistory) {
+            encodeGame(gamesEncoded, lastGameEncoded, &result, us, them, nextMoveIsBlack);
+            ++gamesEncoded;
         }
-        qDebug() << "generating eval for" << moves;
     }
-#endif
 
     if (game.isCastleAvailable(us, QueenSide)) result[s_planeBase + 0].SetAll();
     if (game.isCastleAvailable(us, KingSide)) result[s_planeBase + 1].SetAll();
