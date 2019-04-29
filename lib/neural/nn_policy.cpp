@@ -345,18 +345,3 @@ quint16 moveToNNIndex(const Move &move)
     if (move.start().file() < move.end().file()) return kKingCastleIndex;
     return kQueenCastleIndex;
 }
-
-void normalizeNNPolicies(const QMultiHash<float, PotentialNode*> &policies, float total)
-{
-    QMultiHash<float, PotentialNode*>::const_iterator it = policies.begin();
-    const float scale = 1.0f / total;
-    float normalizedTotal = 0;
-    for (; it != policies.end(); ++it) {
-        float normalizedP = scale * it.key();
-        it.value()->setPValue(normalizedP);
-        normalizedTotal += normalizedP;
-    }
-//    if (!qFuzzyCompare(normalizedTotal, 1.0f))
-//        qDebug() << normalizedTotal;
-//    Q_ASSERT(qFuzzyCompare(normalizedTotal, 1.0f));
-}

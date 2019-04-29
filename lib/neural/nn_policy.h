@@ -27,6 +27,5 @@
 #include "node.h"
 
 extern quint16 moveToNNIndex(const Move &move);
-extern void normalizeNNPolicies(const QMultiHash<float, PotentialNode*> &policies, float total);
 
 #endif // NN_POLICY_H

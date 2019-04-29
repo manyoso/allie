@@ -262,19 +262,27 @@ float Computation::qVal(int index) const
 void Computation::setPVals(int index, Node *node) const
 {
     Q_ASSERT(index < m_positions);
-    const float kPolicySoftmaxTemp = 2.2f; // default of lc0
+    const float kPolicySoftmaxTemp = 1 / 2.2f; // default of lc0
     Q_ASSERT(node->hasPotentials());
     QVector<PotentialNode*> potentials = node->potentials();
-    QMultiHash<float, PotentialNode*> policyValues;
+    QVector<QPair<float, PotentialNode*>> policyValues;
+    policyValues.reserve(potentials.size());
     float total = 0;
     for (PotentialNode *n : potentials) {
         Move mv = n->move();
         if (node->game().activeArmy() == Chess::Black)
             mv.mirror(); // nn index expects the board to be flipped
-        float p = powf(m_computation->GetPVal(index, moveToNNIndex(mv)), 1 / kPolicySoftmaxTemp);
+        const float p = powf(m_computation->GetPVal(index, moveToNNIndex(mv)), kPolicySoftmaxTemp);
         total += p;
-        policyValues.insert(p, n);
+        policyValues.append(qMakePair(p, n));
     }
 
-    return normalizeNNPolicies(policyValues, total);
+    QVector<QPair<float, PotentialNode*>>::const_iterator it = policyValues.begin();
+    const float scale = 1.0f / total;
+    float normalizedTotal = 0;
+    for (; it != policyValues.end(); ++it) {
+        float normalizedP = scale * it->first;
+        it->second->setPValue(normalizedP);
+        normalizedTotal += normalizedP;
+    }
 }
