@@ -469,6 +469,8 @@ void SearchEngine::startSearch(const Search &s)
     m_currentInfo = SearchInfo();
     m_stop = false;
 
+    bool onlyLegalMove = false;
+
     if (m_tree->root) {
         // Check the DTZ and if found just use it and stop the search
         int dtz = 0;
@@ -496,16 +498,18 @@ void SearchEngine::startSearch(const Search &s)
             m_currentInfo.bestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
             if (Node *ponder = best->bestChild(Node::MCTS))
                 m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
-            const bool onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
+            onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
             emit sendInfo(m_currentInfo, !onlyLegalMove /*isPartial*/);
-            if (onlyLegalMove)
-                requestStop();
         }
     }
 
-    Q_ASSERT(!m_workers.isEmpty());
-    m_workers.first()->startWorker(m_tree);
-    ++m_startedWorkers;
+    if (onlyLegalMove) {
+        requestStop();
+    } else {
+        Q_ASSERT(!m_workers.isEmpty());
+        m_workers.first()->startWorker(m_tree);
+        ++m_startedWorkers;
+    }
 }
 
 void SearchEngine::stopSearch()
