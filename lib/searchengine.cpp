@@ -178,6 +178,8 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
         qDebug() << "adding exact playout" << playout->toString();
 #endif
         info->nodesCacheHits += 1;
+        if (playout->m_isTB)
+            info->nodesTBHits += 1;
         QMutexLocker locker(&m_tree->mutex);
         playout->setQValueAndPropagate();
         return false;
@@ -197,8 +199,8 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 
     // Generate potential moves of the node if possible
     m_tree->mutex.lock();
-    const bool isTbHit = playout->generatePotentials();
-    if (isTbHit)
+    playout->generatePotentials();
+    if (playout->m_isTB)
         info->nodesTBHits += 1;
     m_tree->mutex.unlock();
 

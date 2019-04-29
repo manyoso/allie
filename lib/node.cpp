@@ -47,7 +47,8 @@ Node::Node(Node *parent, const Game &game)
     m_pValue(-2.0f),
     m_policySum(0),
     m_uCoeff(-2.0f),
-    m_isExact(false)
+    m_isExact(false),
+    m_isTB(false)
 {
     m_scoringOrScored.clear();
 }
@@ -499,14 +500,17 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     case TB::Win:
         child->m_rawQValue = 1.0f - cpToScore(1);
         child->m_isExact = true;
+        child->m_isTB = true;
         break;
     case TB::Loss:
         child->m_rawQValue = -1.0f + cpToScore(1);
         child->m_isExact = true;
+        child->m_isTB = true;
         break;
     case TB::Draw:
         child->m_rawQValue = 0.0f;
         child->m_isExact = true;
+        child->m_isTB = true;
         break;
     default:
         Q_UNREACHABLE();
@@ -525,25 +529,25 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     return true;
 }
 
-bool Node::generatePotentials()
+void Node::generatePotentials()
 {
     Q_ASSERT(!hasPotentials());
     if (hasPotentials())
-        return false;
+        return;
 
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
         m_rawQValue = 0.0f;
         m_isExact = true;
-        return false;
+        return;
     } else if (Q_UNLIKELY(m_game.isDeadPosition())) {
         m_rawQValue = 0.0f;
         m_isExact = true;
-        return false;
+        return;
     } else if (Q_UNLIKELY(isThreeFold())) {
         m_rawQValue = 0.0f;
         m_isExact = true;
-        return false;
+        return;
     }
 
     const TB::Probe result = isRootNode() ? TB::NotFound : TB::globalInstance()->probe(m_game);
@@ -553,15 +557,18 @@ bool Node::generatePotentials()
     case TB::Win:
         m_rawQValue = 1.0f - cpToScore(1);
         m_isExact = true;
-        return true;
+        m_isTB = true;
+        return;
     case TB::Loss:
         m_rawQValue = -1.0f + cpToScore(1);
         m_isExact = true;
-        return true;
+        m_isTB = true;
+        return;
     case TB::Draw:
         m_rawQValue = 0.0f;
         m_isExact = true;
-        return true;
+        m_isTB = true;
+        return;
     }
 
     // Otherwise try and generate potential moves
@@ -581,7 +588,7 @@ bool Node::generatePotentials()
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
     }
-    return false;
+    return;
 }
 
 void Node::generatePotential(const Move &move)

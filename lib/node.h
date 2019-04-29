@@ -160,7 +160,7 @@ public:
     // children and potential generation
     bool hasNoisyChildren() const;
     bool checkAndGenerateDTZ(int *dtz);
-    bool generatePotentials();
+    void generatePotentials();
     void generatePotential(const Move &move);
     Node *generateChild(PotentialNode *potential);
 
@@ -183,6 +183,7 @@ private:
     float m_policySum;
     mutable float m_uCoeff;
     bool m_isExact: 1;
+    bool m_isTB: 1;
     std::atomic_flag m_scoringOrScored;
     template<Traversal t>
     friend class TreeIterator;
