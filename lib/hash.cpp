@@ -136,6 +136,7 @@ bool fillOutNodeFromEntry(Node *node, const HashEntry &entry)
     Q_ASSERT(!qFuzzyCompare(entry.qValue, -2.0f));
     Q_ASSERT(!node->hasRawQValue());
     node->setRawQValue(entry.qValue);
+    Q_ASSERT(node->hasRawQValue());
     Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
     if (!node->hasPotentials())
         return true;
@@ -157,10 +158,10 @@ bool fillOutNodeFromEntry(Node *node, const HashEntry &entry)
 
 bool Hash::fillOut(Node *node) const
 {
-    Q_ASSERT(m_cache);
-    if (!m_cache)
+    if (!m_cache || !m_cache->maxCost())
         return false;
 
+    Q_ASSERT(m_cache);
     HashEntry *entry = m_cache->object(node->game().hash());
     if (!entry)
         return false;

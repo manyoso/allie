@@ -217,15 +217,16 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     }
 
     // If this playout is in cache, retrieve the values and back propagate and continue
-    if (Hash::globalInstance()->contains(playout)) {
-#if defined(DEBUG_PLAYOUT_MCTS)
-        qDebug() << "found cached playout" << playout->toString();
-#endif
-        info->nodesCacheHits += 1;
+    {
         QMutexLocker locker(&m_tree->mutex);
-        Hash::globalInstance()->fillOut(playout);
-        playout->setQValueAndPropagate();
-        return false;
+        if (Hash::globalInstance()->fillOut(playout)) {
+    #if defined(DEBUG_PLAYOUT_MCTS)
+            qDebug() << "found cached playout" << playout->toString();
+    #endif
+            info->nodesCacheHits += 1;
+            playout->setQValueAndPropagate();
+            return false;
+        }
     }
 
     return true; // Otherwise we should fetch from NN
