@@ -185,18 +185,6 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
         return false;
     }
 
-    // If we encounter a playout that already has a rawQValue perhaps from a resumed search,
-    // then all we need to do is back propagate the value and continue
-    if (playout->hasRawQValue()) {
-#if defined(DEBUG_PLAYOUT_MCTS)
-        qDebug() << "found resumed playout" << playout->toString();
-#endif
-        info->nodesCacheHits += 1;
-        QMutexLocker locker(&m_tree->mutex);
-        playout->setQValueAndPropagate();
-        return false;
-    }
-
     // Generate potential moves of the node if possible
     m_tree->mutex.lock();
     playout->generatePotentials();
