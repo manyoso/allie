@@ -532,12 +532,11 @@ BitBoard Game::board(Chess::Army army, Chess::Castle castle, bool kingsSquares) 
     return castleBoard(army, castle, kingsSquares) & BitBoard(army == White ? firstRank : eighthRank);
 }
 
-BitBoard Game::attackBoard(Chess::PieceType piece, Chess::Army army) const
+BitBoard Game::attackBoard(Chess::PieceType piece, Chess::Army army, const Movegen *gen) const
 {
     BitBoard bits;
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
-    const Movegen *gen = Movegen::globalInstance();
 
     switch (piece) {
     case King:
@@ -746,29 +745,30 @@ bool Game::isChecked(Chess::Army army)
     const Chess::Army friends = army == White ? White : Black;
     const Chess::Army enemies = army == Black ? White : Black;
     const BitBoard kingBoard(board(friends) & board(King));
+    const Movegen *gen = Movegen::globalInstance();
     {
-        const BitBoard b(kingBoard & attackBoard(Queen, enemies));
+        const BitBoard b(kingBoard & attackBoard(Queen, enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
         }
     }
     {
-        const BitBoard b(kingBoard & attackBoard(Rook, enemies));
+        const BitBoard b(kingBoard & attackBoard(Rook, enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
         }
     }
     {
-        const BitBoard b(kingBoard & attackBoard(Bishop, enemies));
+        const BitBoard b(kingBoard & attackBoard(Bishop, enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
         }
     }
     {
-        const BitBoard b(kingBoard & attackBoard(Knight, enemies));
+        const BitBoard b(kingBoard & attackBoard(Knight, enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
@@ -776,14 +776,14 @@ bool Game::isChecked(Chess::Army army)
     }
     {
         // Checks for illegality...
-        const BitBoard b(kingBoard & attackBoard(King, enemies));
+        const BitBoard b(kingBoard & attackBoard(King, enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
         }
     }
     {
-        const BitBoard b(kingBoard & attackBoard(Pawn, enemies));
+        const BitBoard b(kingBoard & attackBoard(Pawn, enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
@@ -838,8 +838,17 @@ bool Game::isCastleLegal(Chess::Army army, Chess::Castle castle) const
     // The board representing the squares involved in castling for given army
     castleBoard = board(army, castle, true /*kingsSquares*/);
 
+    const Movegen *gen = Movegen::globalInstance();
+    const Chess::Army attackArmy = army == White ? Black : White;
+    const BitBoard atb = attackBoard(Chess::King, attackArmy, gen) |
+        attackBoard(Chess::Queen, attackArmy, gen) |
+        attackBoard(Chess::Rook, attackArmy, gen) |
+        attackBoard(Chess::Bishop, attackArmy, gen) |
+        attackBoard(Chess::Knight, attackArmy, gen) |
+        attackBoard(Chess::Pawn, attackArmy, gen);
+
     //Check if any squares between king and kings castle position are under attack...
-    if (!BitBoard(castleBoard & attackBoard(army == White ? Black : White)).isClear()) {
+    if (!BitBoard(castleBoard & atb).isClear()) {
         //qDebug() << "king can't move through check!";
         return false;
     }

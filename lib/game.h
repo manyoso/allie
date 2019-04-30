@@ -27,6 +27,7 @@
 #include "piece.h"
 #include "square.h"
 
+class Movegen;
 class Node;
 class Game {
 public:
@@ -79,8 +80,7 @@ public:
 
     BitBoard board(Chess::Army army, Chess::Castle castle, bool kingsSquares = false) const;
     BitBoard board(Chess::Army army) const;
-    BitBoard attackBoard(Chess::Army army) const;
-    BitBoard attackBoard(Chess::PieceType piece, Chess::Army army) const;
+    BitBoard attackBoard(Chess::PieceType piece, Chess::Army army, const Movegen *gen) const;
     BitBoard board(Chess::PieceType piece) const;
 
     void pseudoLegalMoves(Node *parent) const;
@@ -166,17 +166,6 @@ inline BitBoard Game::board(Chess::PieceType piece) const
 inline BitBoard Game::board(Chess::Army army) const
 {
     return army == Chess::White ? m_whitePositionBoard : m_blackPositionBoard;
-}
-
-inline BitBoard Game::attackBoard(Chess::Army army) const
-{
-    // FIXME Should consider wrapping this in
-    return attackBoard(Chess::King, army) |
-        attackBoard(Chess::Queen, army) |
-        attackBoard(Chess::Rook, army) |
-        attackBoard(Chess::Bishop, army) |
-        attackBoard(Chess::Knight, army) |
-        attackBoard(Chess::Pawn, army);
 }
 
 inline bool Game::isCastleAvailable(Chess::Army army, Chess::Castle castle) const
