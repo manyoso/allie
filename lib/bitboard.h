@@ -59,8 +59,8 @@ public:
         return m_data == 0;
     }
 
-    Iterator begin() const { return Iterator(m_data); }
-    Iterator end() const { return Iterator(0); }
+    inline Iterator begin() const { return Iterator(m_data); }
+    inline Iterator end() const { return Iterator(0); }
 
     inline bool isSquareOccupied(const Square &square) const
     {

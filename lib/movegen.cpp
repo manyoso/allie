@@ -24,10 +24,6 @@
 #include "bitboard.h"
 #include "chess.h"
 
-#ifdef USE_PEXT
-#include <immintrin.h>
-#endif
-
 // Largely from ethereal's magic move generation courtesy of Andrew Grant
 static const quint64 RookMagics[64] = {
     0xA180022080400230ull, 0x0040100040022000ull, 0x0080088020001002ull, 0x0080080280841000ull,
@@ -66,15 +62,6 @@ static const quint64 BishopMagics[64] = {
     0xFFFFFCFCFD79EDFFull, 0xFC0863FCCB147576ull, 0x040C000022013020ull, 0x2000104000420600ull,
     0x0400000260142410ull, 0x0800633408100500ull, 0xFC087E8E4BB2F736ull, 0x43FF9E4EF4CA2C89ull
 };
-
-inline quint64 sliderIndex(const BitBoard &occupied, const Magic *table)
-{
-#ifdef USE_PEXT
-    return _pext_u64(occupied.data(), table->mask);
-#else
-    return (((occupied.data() & table->mask) * table->magic) >> table->shift);
-#endif
-}
 
 static const quint64 RANK_8 = 0xFF00000000000000ull;
 static const quint64 RANK_7 = 0x00FF000000000000ull;
@@ -190,47 +177,6 @@ Movegen::Movegen()
 
 Movegen::~Movegen()
 {
-}
-
-BitBoard Movegen::pawnMoves(Chess::Army army, const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
-{
-    return m_pawnMoves[army][sq.data()] & BitBoard(~enemies.data()) & BitBoard(~friends.data());
-}
-
-BitBoard Movegen::pawnAttacks(Chess::Army army, const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
-{
-    return (m_pawnAttacks[army][sq.data()] & enemies) & BitBoard(~friends.data());
-}
-
-BitBoard Movegen::knightMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
-{
-    Q_UNUSED(enemies);
-    return m_knightMoves[sq.data()] & BitBoard(~friends.data());
-}
-
-BitBoard Movegen::bishopMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
-{
-    const BitBoard occupied(friends | enemies);
-    const BitBoard destinations = ~occupied | enemies;
-    return m_bishopTable[sq.data()].offset[sliderIndex(occupied, &m_bishopTable[sq.data()])] & destinations;
-}
-
-BitBoard Movegen::rookMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
-{
-    const BitBoard occupied(friends | enemies);
-    const BitBoard destinations = ~occupied | enemies;
-    return m_rookTable[sq.data()].offset[sliderIndex(occupied, &m_rookTable[sq.data()])] & destinations;
-}
-
-BitBoard Movegen::queenMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
-{
-    return bishopMoves(sq, friends, enemies) | rookMoves(sq, friends, enemies);
-}
-
-BitBoard Movegen::kingMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
-{
-    Q_UNUSED(enemies);
-    return m_kingMoves[sq.data()] & BitBoard(~friends.data());
 }
 
 BitBoard Movegen::raysForKing(const Square &sq)
