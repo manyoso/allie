@@ -532,71 +532,80 @@ BitBoard Game::board(Chess::Army army, Chess::Castle castle, bool kingsSquares) 
     return castleBoard(army, castle, kingsSquares) & BitBoard(army == White ? firstRank : eighthRank);
 }
 
-BitBoard Game::attackBoard(Chess::PieceType piece, Chess::Army army, const Movegen *gen) const
+BitBoard Game::kingAttackBoard(Chess::Army army, const Movegen *gen) const
 {
     BitBoard bits;
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard pieces(friends & board(King));
+    BitBoard::Iterator sq = pieces.begin();
+    for (int i = 0; sq != pieces.end(); ++sq, ++i) {
+        Q_ASSERT(i < 1);
+        bits = bits | gen->kingMoves(*sq, friends, enemies);
+    }
+    return bits;
+}
 
-    switch (piece) {
-    case King:
-        {
-            const BitBoard pieces(friends & board(King));
-            BitBoard::Iterator sq = pieces.begin();
-            for (int i = 0; sq != pieces.end(); ++sq, ++i) {
-                Q_ASSERT(i < 1);
-                bits = bits | gen->kingMoves(*sq, friends, enemies);
-            }
-            return bits;
-        }
-    case Queen:
-        {
-            const BitBoard pieces(friends & board(Queen));
-            BitBoard::Iterator sq = pieces.begin();
-            for (; sq != pieces.end(); ++sq)
-                bits = bits | gen->queenMoves(*sq, friends, enemies);
-            return bits;
-        }
-    case Rook:
-        {
-            const BitBoard pieces(friends & board(Rook));
-            BitBoard::Iterator sq = pieces.begin();
-            for (; sq != pieces.end(); ++sq)
-                bits = bits | gen->rookMoves(*sq, friends, enemies);
-            return bits;
-        }
-    case Bishop:
-        {
+BitBoard Game::queenAttackBoard(Chess::Army army, const Movegen *gen) const
+{
+    BitBoard bits;
+    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard pieces(friends & board(Queen));
+    BitBoard::Iterator sq = pieces.begin();
+    for (; sq != pieces.end(); ++sq)
+        bits = bits | gen->queenMoves(*sq, friends, enemies);
+    return bits;
+}
+
+BitBoard Game::rookAttackBoard(Chess::Army army, const Movegen *gen) const
+{
+    BitBoard bits;
+    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard pieces(friends & board(Rook));
+    BitBoard::Iterator sq = pieces.begin();
+    for (; sq != pieces.end(); ++sq)
+        bits = bits | gen->rookMoves(*sq, friends, enemies);
+    return bits;
+}
+
+BitBoard Game::bishopAttackBoard(Chess::Army army, const Movegen *gen) const
+{
+    BitBoard bits;
+    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
             const BitBoard pieces(friends & board(Bishop));
             BitBoard::Iterator sq = pieces.begin();
             for (; sq != pieces.end(); ++sq)
                 bits = bits | gen->bishopMoves(*sq, friends, enemies);
             return bits;
-        }
-    case Knight:
-        {
-            const BitBoard pieces(friends & board(Knight));
-            BitBoard::Iterator sq = pieces.begin();
-            for (; sq != pieces.end(); ++sq)
-                bits = bits | gen->knightMoves(*sq, friends, enemies);
-            return bits;
-        }
-    case Pawn:
-        {
-            const BitBoard pieces(friends & board(Pawn));
-            BitBoard::Iterator sq = pieces.begin();
-            BitBoard enemiesPlusEnpassant = enemies;
-            if (m_enPassantTarget.isValid())
-                enemiesPlusEnpassant.setSquare(m_enPassantTarget);
-            for (; sq != pieces.end(); ++sq)
-                bits = bits | gen->pawnAttacks(army, *sq, friends, enemiesPlusEnpassant);
-            return bits;
-        }
-    case Unknown:
-        break;
-    }
+}
 
-    Q_UNREACHABLE();
+BitBoard Game::knightAttackBoard(Chess::Army army, const Movegen *gen) const
+{
+    BitBoard bits;
+    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard pieces(friends & board(Knight));
+    BitBoard::Iterator sq = pieces.begin();
+    for (; sq != pieces.end(); ++sq)
+        bits = bits | gen->knightMoves(*sq, friends, enemies);
+    return bits;
+}
+
+BitBoard Game::pawnAttackBoard(Chess::Army army, const Movegen *gen) const
+{
+    BitBoard bits;
+    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard pieces(friends & board(Pawn));
+    BitBoard::Iterator sq = pieces.begin();
+    BitBoard enemiesPlusEnpassant = enemies;
+    if (m_enPassantTarget.isValid())
+        enemiesPlusEnpassant.setSquare(m_enPassantTarget);
+    for (; sq != pieces.end(); ++sq)
+        bits = bits | gen->pawnAttacks(army, *sq, friends, enemiesPlusEnpassant);
     return bits;
 }
 
@@ -747,28 +756,28 @@ bool Game::isChecked(Chess::Army army)
     const BitBoard kingBoard(board(friends) & board(King));
     const Movegen *gen = Movegen::globalInstance();
     {
-        const BitBoard b(kingBoard & attackBoard(Queen, enemies, gen));
+        const BitBoard b(kingBoard & queenAttackBoard(enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
         }
     }
     {
-        const BitBoard b(kingBoard & attackBoard(Rook, enemies, gen));
+        const BitBoard b(kingBoard & rookAttackBoard(enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
         }
     }
     {
-        const BitBoard b(kingBoard & attackBoard(Bishop, enemies, gen));
+        const BitBoard b(kingBoard & bishopAttackBoard(enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
         }
     }
     {
-        const BitBoard b(kingBoard & attackBoard(Knight, enemies, gen));
+        const BitBoard b(kingBoard & knightAttackBoard(enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
@@ -776,14 +785,14 @@ bool Game::isChecked(Chess::Army army)
     }
     {
         // Checks for illegality...
-        const BitBoard b(kingBoard & attackBoard(King, enemies, gen));
+        const BitBoard b(kingBoard & kingAttackBoard(enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
         }
     }
     {
-        const BitBoard b(kingBoard & attackBoard(Pawn, enemies, gen));
+        const BitBoard b(kingBoard & pawnAttackBoard(enemies, gen));
         if (!b.isClear()) {
             m_lastMove.setCheck(true);
             return true;
@@ -840,12 +849,12 @@ bool Game::isCastleLegal(Chess::Army army, Chess::Castle castle) const
 
     const Movegen *gen = Movegen::globalInstance();
     const Chess::Army attackArmy = army == White ? Black : White;
-    const BitBoard atb = attackBoard(Chess::King, attackArmy, gen) |
-        attackBoard(Chess::Queen, attackArmy, gen) |
-        attackBoard(Chess::Rook, attackArmy, gen) |
-        attackBoard(Chess::Bishop, attackArmy, gen) |
-        attackBoard(Chess::Knight, attackArmy, gen) |
-        attackBoard(Chess::Pawn, attackArmy, gen);
+    const BitBoard atb = kingAttackBoard(attackArmy, gen) |
+        queenAttackBoard(attackArmy, gen) |
+        rookAttackBoard(attackArmy, gen) |
+        bishopAttackBoard(attackArmy, gen) |
+        knightAttackBoard(attackArmy, gen) |
+        pawnAttackBoard(attackArmy, gen);
 
     //Check if any squares between king and kings castle position are under attack...
     if (!BitBoard(castleBoard & atb).isClear()) {
