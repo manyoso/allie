@@ -365,9 +365,8 @@ SearchEngine::~SearchEngine()
 void SearchEngine::reset()
 {
     QMutexLocker locker(&m_mutex);
-    const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt();
     const int numberOfThreads = Options::globalInstance()->option("Threads").value().toInt();
-    const int numberOfSearchThreads = qMax(1, numberOfGPUCores * numberOfThreads);
+    const int numberOfSearchThreads = qMax(1, numberOfThreads);
     if (m_workers.count() != numberOfThreads) {
         qDeleteAll(m_workers);
         m_workers.clear();
