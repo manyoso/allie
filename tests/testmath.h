@@ -18,35 +18,11 @@
   Additional permission under GNU GPL version 3 section 7
 */
 
-#include <QtCore>
 #include <QtTest/QtTest>
 
-#include "hash.h"
-#include "movegen.h"
-#include "nn.h"
-#include "options.h"
-#include "testgames.h"
-#include "testmath.h"
-#include "version.h"
-#include "zobrist.h"
-
-#define APP_NAME "AllieTests"
-
-int main(int argc, char* argv[])
-{
-    QCoreApplication a(argc, argv);
-    a.setApplicationName(APP_NAME);
-    a.setApplicationVersion(versionString());
-
-    Options::globalInstance()->setOption("SyzygyPath",
-        QCoreApplication::applicationDirPath() + QDir::separator() + "../../syzygy/");
-
-    int rc = 0;
-    TestGames test1;
-    rc = QTest::qExec(&test1, argc, argv) == 0 ? rc : -1;
-
-    TestMath test2;
-    rc = QTest::qExec(&test2, argc, argv) == 0 ? rc : -1;
-
-    return rc;
-}
+class TestMath: public QObject {
+    Q_OBJECT
+private slots:
+    void testFastLog();
+    void testFastPow();
+};

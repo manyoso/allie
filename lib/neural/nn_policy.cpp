@@ -272,7 +272,7 @@ namespace lc0 {
     };
 }
 
-lc0::Promotion moveToPromotion(const Move &move)
+inline lc0::Promotion moveToPromotion(const Move &move)
 {
     switch (move.promotion()) {
     case Chess::Unknown:
@@ -292,12 +292,12 @@ lc0::Promotion moveToPromotion(const Move &move)
     return lc0::None;
 }
 
-int squareToNNIndex(const Square &sq)
+inline int squareToNNIndex(const Square &sq)
 {
     return sq.data();
 }
 
-quint16 moveToInt(const Move &move)
+inline quint16 moveToInt(const Move &move)
 {
     int startIndex = squareToNNIndex(move.start());
     int endIndex = squareToNNIndex(move.end());

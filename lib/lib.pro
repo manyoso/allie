@@ -15,7 +15,7 @@ lessThan(QT_MINOR_VERSION, 9) {
 }
 
 !win32 {
-    QMAKE_CXXFLAGS += -march=native -msse
+    QMAKE_CXXFLAGS += -march=native -ffast-math
     DEFINES += USE_PEXT
 }
 

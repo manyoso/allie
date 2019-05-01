@@ -33,6 +33,7 @@
 #include "node.h"
 #include "notation.h"
 #include "options.h"
+#include "fastapprox/fastpow.h"
 
 using namespace Chess;
 using namespace lczero;
@@ -272,7 +273,7 @@ void Computation::setPVals(int index, Node *node) const
         Move mv = n->move();
         if (node->game().activeArmy() == Chess::Black)
             mv.mirror(); // nn index expects the board to be flipped
-        const float p = powf(m_computation->GetPVal(index, moveToNNIndex(mv)), kPolicySoftmaxTemp);
+        const float p = fastpow(m_computation->GetPVal(index, moveToNNIndex(mv)), kPolicySoftmaxTemp);
         total += p;
         policyValues.append(qMakePair(p, n));
     }

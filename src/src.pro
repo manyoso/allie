@@ -8,6 +8,10 @@ CONFIG += c++14 console
 
 include($$PWD/../lib/git.pri)
 
+!win32 {
+    QMAKE_CXXFLAGS += -march=native -ffast-math
+}
+
 CONFIG(release, debug|release) {
   CONFIG += optimize_full
 }
