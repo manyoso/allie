@@ -26,6 +26,7 @@
 #include <QtMath>
 #include <QMutex>
 
+#include "fastapprox/fastlog.h"
 #include "game.h"
 #include "move.h"
 #include "notation.h"
@@ -33,13 +34,17 @@
 
 #define MAX_DEPTH 127
 #define USE_PARENT_QVALUE
+#define USE_CPUCT_SCALING
 
 //#define DEBUG_FETCHANDBP
 //#define DEBUG_PLAYOUT_MCTS
 
 extern int scoreToCP(float score);
 extern float cpToScore(int cp);
-static const float s_kpuct = 3.4f;
+
+// From Deepmind's A0 pseudocode
+static const float s_kpuctInit = 1.25f;
+static const float s_kpuctBase = 19652.0f;
 
 template<Traversal>
 class TreeIterator;
@@ -328,7 +333,14 @@ inline float Node::uCoeff() const
 {
     if (qFuzzyCompare(m_uCoeff, -2.0f)) {
         const quint32 N = qMax(quint32(1), m_visited);
-        m_uCoeff = s_kpuct * float(qSqrt(N));
+#if defined(USE_CPUCT_SCALING)
+        // From Deepmind's A0 paper
+        // log ((1 + N(s) + cbase)/cbase) + cini
+        const float growth = fastlog(1 + N + s_kpuctBase / s_kpuctBase);
+#else
+        const float growth = 0.0f;
+#endif
+        m_uCoeff = (s_kpuctInit + growth) * float(qSqrt(N));
     }
     return m_uCoeff;
 }

@@ -227,6 +227,7 @@ public:
         m_parent(nullptr),
         m_potential(nullptr)
     {
+        Q_ASSERT(!m_node || !m_node->isRootNode());
     }
 
     bool isPotential() const { return m_potential; }
@@ -244,8 +245,8 @@ public:
     float uCoeff() const
     {
         if (isPotential())
-            return s_kpuct;
-        return m_node->uCoeff();
+            return m_parent->uCoeff();
+        return m_node->parent()->uCoeff();
     }
 
     float pValue() const
