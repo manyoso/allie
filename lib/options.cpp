@@ -33,6 +33,24 @@ Options* Options::globalInstance()
 
 Options::Options()
 {
+    UciOption debugLog;
+    debugLog.m_name = QLatin1Literal("DebugLog");
+    debugLog.m_type = UciOption::Check;
+    debugLog.m_default = QLatin1Literal("true");
+    debugLog.m_value = debugLog.m_default;
+    debugLog.m_description = QLatin1String("Output a debug log in binary directory");
+    insertOption(debugLog);
+
+    UciOption GPUCores;
+    GPUCores.m_name = QLatin1Literal("GPUCores");
+    GPUCores.m_type = UciOption::Spin;
+    GPUCores.m_default = QLatin1Literal("1");
+    GPUCores.m_value = GPUCores.m_default;
+    GPUCores.m_min = QLatin1Literal("0");
+    GPUCores.m_max = QLatin1Literal("256");
+    GPUCores.m_description = QLatin1String("Number of GPU cores to use");
+    insertOption(GPUCores);
+
     UciOption hash;
     hash.m_name = QLatin1Literal("Hash");
     hash.m_type = UciOption::Spin;
@@ -43,15 +61,15 @@ Options::Options()
     hash.m_description = QLatin1String("Size of the hash in MB");
     insertOption(hash);
 
-    UciOption treeSize;
-    treeSize.m_name = QLatin1Literal("TreeSize");
-    treeSize.m_type = UciOption::Spin;
-    treeSize.m_default = QLatin1Literal("0");
-    treeSize.m_value = treeSize.m_default;
-    treeSize.m_min = QLatin1Literal("0");
-    treeSize.m_max = QLatin1Literal("65536");
-    treeSize.m_description = QLatin1String("Limit the size of the tree in MB");
-    insertOption(treeSize);
+    UciOption maxBatchSize;
+    maxBatchSize.m_name = QLatin1Literal("MaxBatchSize");
+    maxBatchSize.m_type = UciOption::Spin;
+    maxBatchSize.m_default = QLatin1Literal("256");
+    maxBatchSize.m_value = maxBatchSize.m_default;
+    maxBatchSize.m_min = QLatin1Literal("0");
+    maxBatchSize.m_max = QLatin1Literal("65536");
+    maxBatchSize.m_description = QLatin1String("Largest batch to send to GPU");
+    insertOption(maxBatchSize);
 
     UciOption moveOverhead;
     moveOverhead.m_name = QLatin1Literal("MoveOverhead");
@@ -71,23 +89,13 @@ Options::Options()
     ponder.m_description = QLatin1String("Whether to ponder");
     insertOption(ponder);
 
-    UciOption useHalfFloatingPoint;
-    useHalfFloatingPoint.m_name = QLatin1Literal("UseFP16");
-    useHalfFloatingPoint.m_type = UciOption::Check;
-    useHalfFloatingPoint.m_default = QLatin1Literal("false");
-    useHalfFloatingPoint.m_value = useHalfFloatingPoint.m_default;
-    useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
-    insertOption(useHalfFloatingPoint);
-
-    UciOption GPUCores;
-    GPUCores.m_name = QLatin1Literal("GPUCores");
-    GPUCores.m_type = UciOption::Spin;
-    GPUCores.m_default = QLatin1Literal("1");
-    GPUCores.m_value = GPUCores.m_default;
-    GPUCores.m_min = QLatin1Literal("0");
-    GPUCores.m_max = QLatin1Literal("256");
-    GPUCores.m_description = QLatin1String("Number of GPU cores to use");
-    insertOption(GPUCores);
+    UciOption tb;
+    tb.m_name = QLatin1Literal("SyzygyPath");
+    tb.m_type = UciOption::String;
+    tb.m_default = QLatin1Literal("");
+    tb.m_value = tb.m_default;
+    tb.m_description = QLatin1String("Path to the syzygy tablebase");
+    insertOption(tb);
 
     UciOption threads;
     threads.m_name = QLatin1Literal("Threads");
@@ -99,23 +107,23 @@ Options::Options()
     threads.m_description = QLatin1String("Number of threads to use");
     insertOption(threads);
 
-    UciOption maxBatchSize;
-    maxBatchSize.m_name = QLatin1Literal("MaxBatchSize");
-    maxBatchSize.m_type = UciOption::Spin;
-    maxBatchSize.m_default = QLatin1Literal("256");
-    maxBatchSize.m_value = maxBatchSize.m_default;
-    maxBatchSize.m_min = QLatin1Literal("0");
-    maxBatchSize.m_max = QLatin1Literal("65536");
-    maxBatchSize.m_description = QLatin1String("Largest batch to send to GPU");
-    insertOption(maxBatchSize);
+    UciOption treeSize;
+    treeSize.m_name = QLatin1Literal("TreeSize");
+    treeSize.m_type = UciOption::Spin;
+    treeSize.m_default = QLatin1Literal("0");
+    treeSize.m_value = treeSize.m_default;
+    treeSize.m_min = QLatin1Literal("0");
+    treeSize.m_max = QLatin1Literal("65536");
+    treeSize.m_description = QLatin1String("Limit the size of the tree in MB");
+    insertOption(treeSize);
 
-    UciOption tb;
-    tb.m_name = QLatin1Literal("SyzygyPath");
-    tb.m_type = UciOption::String;
-    tb.m_default = QLatin1Literal("");
-    tb.m_value = tb.m_default;
-    tb.m_description = QLatin1String("Path to the syzygy tablebase");
-    insertOption(tb);
+    UciOption useHalfFloatingPoint;
+    useHalfFloatingPoint.m_name = QLatin1Literal("UseFP16");
+    useHalfFloatingPoint.m_type = UciOption::Check;
+    useHalfFloatingPoint.m_default = QLatin1Literal("false");
+    useHalfFloatingPoint.m_value = useHalfFloatingPoint.m_default;
+    useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
+    insertOption(useHalfFloatingPoint);
 
     UciOption ninesixty;
     ninesixty.m_name = QLatin1Literal("UCI_Chess960");

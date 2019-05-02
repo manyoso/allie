@@ -41,11 +41,8 @@
 #include "searchengine.h"
 #include "tb.h"
 
-#define LOG
 //#define AVERAGES
-#if defined(LOG)
 static bool s_firstLog = true;
-#endif
 
 //#define DEBUG_TIME
 
@@ -161,23 +158,24 @@ void g_uciMessageHandler(QtMsgType type, const QMessageLogContext &context, cons
         fprintf(stderr, "%s", format.toLatin1().constData());
     }
 
-#if defined(LOG)
-    QString logFilePath = QCoreApplication::applicationDirPath() +
-        QDir::separator() + QCoreApplication::applicationName() +
-        "_debug.log";
-    QFile file(logFilePath);
+    const bool debugLog = Options::globalInstance()->option("DebugLog").value() == "true";
+    if (debugLog) {
+        QString logFilePath = QCoreApplication::applicationDirPath() +
+            QDir::separator() + QCoreApplication::applicationName() +
+            "_debug.log";
+        QFile file(logFilePath);
 
-    QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append;
-    if (!file.open(mode))
-        return;
+        QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append;
+        if (!file.open(mode))
+            return;
 
-    QTextStream log(&file);
-    if (s_firstLog)
-        log << "Output: log pid " << QCoreApplication::applicationPid() << " at "
-            << QDateTime::currentDateTime().toString() << "\n";
-    log << format;
-    s_firstLog = false;
-#endif
+        QTextStream log(&file);
+        if (s_firstLog)
+            log << "Output: log pid " << QCoreApplication::applicationPid() << " at "
+                << QDateTime::currentDateTime().toString() << "\n";
+        log << format;
+        s_firstLog = false;
+    }
 }
 
 IOWorker::IOWorker(const QString &debugFile, QObject *parent)
