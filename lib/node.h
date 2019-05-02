@@ -42,9 +42,10 @@
 extern int scoreToCP(float score);
 extern float cpToScore(int cp);
 
-// From Deepmind's A0 pseudocode
-static const float s_kpuctInit = 1.25f;
-static const float s_kpuctBase = 19652.0f;
+// From Deepmind's A0 pseudocode, but doubled for our score representation
+static const float s_kpuctF = 1.f * 2;
+static const float s_kpuctInit = 1.25f * 2;
+static const float s_kpuctBase = 19652.0f / 2;
 
 template<Traversal>
 class TreeIterator;
@@ -336,7 +337,7 @@ inline float Node::uCoeff() const
 #if defined(USE_CPUCT_SCALING)
         // From Deepmind's A0 paper
         // log ((1 + N(s) + cbase)/cbase) + cini
-        const float growth = fastlog(1 + N + s_kpuctBase / s_kpuctBase);
+        const float growth = s_kpuctF * fastlog((1 + N + s_kpuctBase) / s_kpuctBase);
 #else
         const float growth = 0.0f;
 #endif
