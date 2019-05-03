@@ -25,6 +25,11 @@
 #include "neural/nn_policy.h"
 #include "tb.h"
 
+// From Deepmind's A0 pseudocode, but doubled for our score representation
+float SearchSettings::cpuctF = 1.f * 2;
+float SearchSettings::cpuctInit = 1.25f * 2;
+float SearchSettings::cpuctBase = 19652.0f / 2;
+
 int scoreToCP(float score)
 {
     // Same formula as lc0

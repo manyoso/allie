@@ -21,6 +21,7 @@
 #include "options.h"
 
 #include "hash.h"
+#include "node.h"
 #include "nn.h"
 #include "tb.h"
 
@@ -33,6 +34,36 @@ Options* Options::globalInstance()
 
 Options::Options()
 {
+    UciOption cpuctBase;
+    cpuctBase.m_name = QLatin1Literal("CpuctBase");
+    cpuctBase.m_type = UciOption::Spin;
+    cpuctBase.m_default = QString::number(double(SearchSettings::cpuctBase));
+    cpuctBase.m_value = cpuctBase.m_default;
+    cpuctBase.m_min = QLatin1Literal("0");
+    cpuctBase.m_max = QLatin1Literal("100000");
+    cpuctBase.m_description = QLatin1String("Cpuct base");
+    insertOption(cpuctBase);
+
+    UciOption cpuctF;
+    cpuctF.m_name = QLatin1Literal("CpuctF");
+    cpuctF.m_type = UciOption::Spin;
+    cpuctF.m_default = QString::number(double(SearchSettings::cpuctF));
+    cpuctF.m_value = cpuctF.m_default;
+    cpuctF.m_min = QLatin1Literal("1");
+    cpuctF.m_max = QLatin1Literal("256");
+    cpuctF.m_description = QLatin1String("Cpuct growth factor");
+    insertOption(cpuctF);
+
+    UciOption cpuctInit;
+    cpuctInit.m_name = QLatin1Literal("CpuctInit");
+    cpuctInit.m_type = UciOption::Spin;
+    cpuctInit.m_default = QString::number(double(SearchSettings::cpuctInit));
+    cpuctInit.m_value = cpuctInit.m_default;
+    cpuctInit.m_min = QLatin1Literal("1");
+    cpuctInit.m_max = QLatin1Literal("256");
+    cpuctInit.m_description = QLatin1String("Cpuct initial value");
+    insertOption(cpuctInit);
+
     UciOption debugLog;
     debugLog.m_name = QLatin1Literal("DebugLog");
     debugLog.m_type = UciOption::Check;
@@ -117,14 +148,6 @@ Options::Options()
     treeSize.m_description = QLatin1String("Limit the size of the tree in MB");
     insertOption(treeSize);
 
-    UciOption useHalfFloatingPoint;
-    useHalfFloatingPoint.m_name = QLatin1Literal("UseFP16");
-    useHalfFloatingPoint.m_type = UciOption::Check;
-    useHalfFloatingPoint.m_default = QLatin1Literal("false");
-    useHalfFloatingPoint.m_value = useHalfFloatingPoint.m_default;
-    useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
-    insertOption(useHalfFloatingPoint);
-
     UciOption ninesixty;
     ninesixty.m_name = QLatin1Literal("UCI_Chess960");
     ninesixty.m_type = UciOption::Check;
@@ -132,6 +155,14 @@ Options::Options()
     ninesixty.m_value = ninesixty.m_default;
     ninesixty.m_description = QLatin1String("Play Chess960");
     insertOption(ninesixty);
+
+    UciOption useHalfFloatingPoint;
+    useHalfFloatingPoint.m_name = QLatin1Literal("UseFP16");
+    useHalfFloatingPoint.m_type = UciOption::Check;
+    useHalfFloatingPoint.m_default = QLatin1Literal("false");
+    useHalfFloatingPoint.m_value = useHalfFloatingPoint.m_default;
+    useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
+    insertOption(useHalfFloatingPoint);
 }
 
 Options::~Options()

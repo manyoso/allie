@@ -450,6 +450,11 @@ void SearchEngine::startSearch(const Search &s)
     if (!resumeSearch)
         resetSearch(s);
 
+    // Set the mcts search parameters
+    SearchSettings::cpuctF = Options::globalInstance()->option("CpuctF").value().toFloat();
+    SearchSettings::cpuctInit = Options::globalInstance()->option("CpuctInit").value().toFloat();
+    SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();
+
     m_startedWorkers = 0;
     m_score = 0;
     m_trendDegree = 0.0f;
