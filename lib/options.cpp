@@ -36,7 +36,7 @@ Options::Options()
 {
     UciOption cpuctBase;
     cpuctBase.m_name = QLatin1Literal("CpuctBase");
-    cpuctBase.m_type = UciOption::Spin;
+    cpuctBase.m_type = UciOption::String;
     cpuctBase.m_default = QString::number(double(SearchSettings::cpuctBase));
     cpuctBase.m_value = cpuctBase.m_default;
     cpuctBase.m_min = QLatin1Literal("0");
@@ -46,7 +46,7 @@ Options::Options()
 
     UciOption cpuctF;
     cpuctF.m_name = QLatin1Literal("CpuctF");
-    cpuctF.m_type = UciOption::Spin;
+    cpuctF.m_type = UciOption::String;
     cpuctF.m_default = QString::number(double(SearchSettings::cpuctF));
     cpuctF.m_value = cpuctF.m_default;
     cpuctF.m_min = QLatin1Literal("1");
@@ -56,7 +56,7 @@ Options::Options()
 
     UciOption cpuctInit;
     cpuctInit.m_name = QLatin1Literal("CpuctInit");
-    cpuctInit.m_type = UciOption::Spin;
+    cpuctInit.m_type = UciOption::String;
     cpuctInit.m_default = QString::number(double(SearchSettings::cpuctInit));
     cpuctInit.m_value = cpuctInit.m_default;
     cpuctInit.m_min = QLatin1Literal("1");
