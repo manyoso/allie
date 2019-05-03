@@ -25,11 +25,6 @@
 #include "neural/nn_policy.h"
 #include "tb.h"
 
-// From Deepmind's A0 pseudocode, but doubled for our score representation
-float SearchSettings::cpuctF = 1.f * 2;
-float SearchSettings::cpuctInit = 1.25f * 2;
-float SearchSettings::cpuctBase = 19652.0f / 2;
-
 int scoreToCP(float score)
 {
     // Same formula as lc0
@@ -118,7 +113,7 @@ void Node::setAsRootNode()
     m_parent = nullptr;
 }
 
-QString Node::principalVariation(int *depth, Strategy strategy) const
+QString Node::principalVariation(int *depth) const
 {
     if (!isRootNode() && !hasPValue())
         return QString();
@@ -129,13 +124,13 @@ QString Node::principalVariation(int *depth, Strategy strategy) const
         return Notation::moveToString(m_game.lastMove(), Chess::Computer);
 
     QVector<Node*> children = m_children;
-    sortByScore(children, true /*partialSortFirstOnly*/, strategy);
+    sortByScore(children, true /*partialSortFirstOnly*/);
     Node *bestChild = children.first();
     if (isRootNode())
-        return bestChild->principalVariation(depth, strategy);
+        return bestChild->principalVariation(depth);
     else
         return Notation::moveToString(m_game.lastMove(), Chess::Computer)
-            + " " + bestChild->principalVariation(depth, strategy);
+            + " " + bestChild->principalVariation(depth);
 }
 
 int Node::repetitions() const
@@ -327,7 +322,7 @@ inline int virtualLossDistance(float wec, const MCTSNode &a, const MCTSNode &b)
     if (qFuzzyCompare(wec - q, 0.0f))
         return 1;
     else if (q > wec)
-        return 9999;
+        return SearchSettings::vldMax;
     const float nf = -(q + p * uCoeff - wec) / (wec - q);
     const int n = qMax(1, qCeil(qreal(nf)));
     return n;
@@ -335,8 +330,8 @@ inline int virtualLossDistance(float wec, const MCTSNode &a, const MCTSNode &b)
 
 Node *Node::playout(int *depth, bool *createdNode)
 {
-    int tryPlayoutLimit = 256;
-    int vldMax = 9999;
+    int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
+    int vldMax = SearchSettings::vldMax;
 
 start_playout:
     int d = 0;
@@ -640,7 +635,6 @@ QString Node::toString(Chess::NotationType notation) const
 
 QString Node::printTree(int depth) /*const*/
 {
-    const Strategy strategy = MCTS;
     QString tree;
     QTextStream stream(&tree);
     stream.setRealNumberNotation(QTextStream::FixedNotation);
@@ -664,13 +658,13 @@ QString Node::printTree(int depth) /*const*/
         << qSetFieldWidth(4) << " u: " << qSetFieldWidth(6) << qSetRealNumberPrecision(5) << right << uValue()
         << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << weightedExplorationScore()
         << qSetFieldWidth(4) << " v: " << qSetFieldWidth(7) << qSetRealNumberPrecision(4) << right << rawQValue()
-        << qSetFieldWidth(4) << " h: " << qSetFieldWidth(2) << right << qMax(1, treeDepth(strategy) - d)
+        << qSetFieldWidth(4) << " h: " << qSetFieldWidth(2) << right << qMax(1, treeDepth() - d)
         << qSetFieldWidth(4) << " cp: " << qSetFieldWidth(2) << right << scoreToCP(qValue());
 
     if (d < depth) {
         QVector<Node*> children = m_children;
         if (!children.isEmpty()) {
-            sortByScore(children, false /*partialSortFirstOnly*/, strategy);
+            sortByScore(children, false /*partialSortFirstOnly*/);
             for (Node *child : children)
                 stream << child->printTree(depth);
         }

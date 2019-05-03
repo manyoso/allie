@@ -485,11 +485,11 @@ void SearchEngine::startSearch(const Search &s)
             m_currentInfo.score = mateDistanceOrScore(-dtzNode->qValue(), depth + 1);
             emit sendInfo(m_currentInfo, false /*isPartial*/);
             return; // We are all done
-        } else if (Node *best = m_tree->root->bestChild(Node::MCTS)) {
+        } else if (Node *best = m_tree->root->bestChild()) {
             // If we have a bestmove candidate, set it now
             m_currentInfo.isResume = true;
             m_currentInfo.bestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
-            if (Node *ponder = best->bestChild(Node::MCTS))
+            if (Node *ponder = best->bestChild())
                 m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
             onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
             emit sendInfo(m_currentInfo, !onlyLegalMove /*isPartial*/);
@@ -569,7 +569,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_tree->mutex.lock();
 
     // See if root has a best child
-    Node *best = m_tree->root->bestChild(Node::MCTS);
+    Node *best = m_tree->root->bestChild();
     if (!best) {
         m_tree->mutex.unlock();
         return;
@@ -582,12 +582,12 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.bestMove = newBestMove;
 
     // Record a ponder move
-    if (Node *ponder = best->bestChild(Node::MCTS))
+    if (Node *ponder = best->bestChild())
         m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
 
     // Record a pv and score
     int pvDepth = 0;
-    m_currentInfo.pv = m_tree->root->principalVariation(&pvDepth, Node::MCTS);
+    m_currentInfo.pv = m_tree->root->principalVariation(&pvDepth);
 
     float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
 

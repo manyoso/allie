@@ -41,6 +41,16 @@ struct Search {
     Game game;
 };
 
+struct SearchSettings {
+    static float cpuctF;
+    static float cpuctInit;
+    static float cpuctBase;
+    static float fpuReduction;
+    static float policySoftmaxTemp;
+    static int tryPlayoutLimit;
+    static int vldMax;
+};
+
 QDebug operator<<(QDebug, const Search &);
 
 enum Trend {

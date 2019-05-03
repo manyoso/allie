@@ -30,6 +30,7 @@
 #include "game.h"
 #include "move.h"
 #include "notation.h"
+#include "search.h"
 #include "treeutils.h"
 
 #define MAX_DEPTH 127
@@ -41,12 +42,6 @@
 
 extern int scoreToCP(float score);
 extern float cpToScore(int cp);
-
-struct SearchSettings {
-    static float cpuctF;
-    static float cpuctInit;
-    static float cpuctBase;
-};
 
 template<Traversal>
 class TreeIterator;
@@ -82,10 +77,6 @@ private:
 
 class Node {
 public:
-    enum Strategy {
-        MCTS
-    };
-
     Node(Node *parent, const Game &game);
     ~Node();
 
@@ -102,7 +93,7 @@ public:
     bool isSecondChild() const;
 
     int depth() const;
-    int treeDepth(Strategy strategy) const;
+    int treeDepth() const;
     bool isExact() const;
     float uCoeff() const;
     float uValue() const;
@@ -127,9 +118,9 @@ public:
     Node *leftMostChild() const;
     Node *nextSibling() const;
     Node *nextAncestorSibling() const;
-    Node *bestChild(Strategy strategy) const;
+    Node *bestChild() const;
 
-    QString principalVariation(int *depth, Strategy strategy) const; // recursive
+    QString principalVariation(int *depth) const; // recursive
 
     bool hasQValue() const;
     float qValueDefault() const;
@@ -151,9 +142,8 @@ public:
     int count() const;
 
     void incrementVisited();
-    static bool greaterThan(const Node *a, const Node *b, Strategy strategy);
-    static void sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly,
-        Strategy strategy);
+    static bool greaterThan(const Node *a, const Node *b);
+    static void sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnlyy);
 
     QString toString(Chess::NotationType = Chess::Computer) const;
     QString printTree(int depth) /*const*/; // recursive
@@ -216,13 +206,13 @@ inline int Node::depth() const
     return d;
 }
 
-inline int Node::treeDepth(Strategy strategy) const
+inline int Node::treeDepth() const
 {
     int d = 0;
     const Node *n = this;
     while (n && n->hasChildren()) {
         QVector<Node*> children = n->m_children;
-        sortByScore(children, true /*partialSortFirstOnly*/, strategy);
+        sortByScore(children, true /*partialSortFirstOnly*/);
         n = children.first();
         ++d;
     }
@@ -267,12 +257,12 @@ inline Node *Node::leftChild() const
     return m_children.first();
 }
 
-inline Node *Node::bestChild(Strategy strategy) const
+inline Node *Node::bestChild() const
 {
     if (!hasChildren())
         return nullptr;
     QVector<Node*> children = m_children;
-    sortByScore(children, true /*partialSortFirstOnly*/, strategy);
+    sortByScore(children, true /*partialSortFirstOnly*/);
     return children.first();
 }
 
@@ -314,8 +304,7 @@ inline Node *Node::nextAncestorSibling() const
 inline float Node::qValueDefault() const
 {
 #if defined(USE_PARENT_QVALUE)
-    static const float fpu_reduce = 1.2f;
-    return -qValue() - fpu_reduce * float(qSqrt(qreal(m_policySum)));
+    return -qValue() - SearchSettings::fpuReduction * float(qSqrt(qreal(m_policySum)));
 #else
     return -1.0f;
 #endif
@@ -365,9 +354,8 @@ inline float Node::weightedExplorationScore() const
     return q + uValue();
 }
 
-inline bool Node::greaterThan(const Node *a, const Node *b, Strategy s)
+inline bool Node::greaterThan(const Node *a, const Node *b)
 {
-    Q_UNUSED(s);
     if (a->m_visited == b->m_visited) {
         if (!a->m_visited)
             return a->pValue() > b->pValue();
@@ -377,18 +365,17 @@ inline bool Node::greaterThan(const Node *a, const Node *b, Strategy s)
     return a->m_visited > b->m_visited;
 }
 
-inline void Node::sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly,
-    Strategy strategy)
+inline void Node::sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly)
 {
     if (Q_LIKELY(partialSortFirstOnly)) {
         std::partial_sort(nodes.begin(), nodes.begin() + 1, nodes.end(),
             [=](const Node *a, const Node *b) {
-            return greaterThan(a, b, strategy);
+            return greaterThan(a, b);
         });
     } else {
         std::stable_sort(nodes.begin(), nodes.end(),
             [=](const Node *a, const Node *b) {
-            return greaterThan(a, b, strategy);
+            return greaterThan(a, b);
         });
     }
 }
