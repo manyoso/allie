@@ -67,7 +67,7 @@ Options::Options()
     UciOption debugLog;
     debugLog.m_name = QLatin1Literal("DebugLog");
     debugLog.m_type = UciOption::Check;
-    debugLog.m_default = QLatin1Literal("true");
+    debugLog.m_default = QLatin1Literal("false");
     debugLog.m_value = debugLog.m_default;
     debugLog.m_description = QLatin1String("Output a debug log in binary directory");
     insertOption(debugLog);
