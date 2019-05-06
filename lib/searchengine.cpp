@@ -35,6 +35,7 @@
 #include "treeiterator.h"
 
 //#define DEBUG_EVAL
+//#define DEBUG_VALIDATE_TREE
 //#define USE_DUMMY_NODES
 
 SearchWorker::SearchWorker(int id, QObject *parent)
@@ -98,9 +99,15 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             node->setRawQValue(-computation.qVal(index));
             if (node->hasPotentials())
                 computation.setPVals(index, node);
-            node->setQValueAndPropagate();
             Hash::globalInstance()->insert(node);
         }
+
+        // Gather minimax scores;
+        bool isExact = false;
+        Node::minimax(m_tree->root, &isExact);
+#if defined(DEBUG_VALIDATE_TREE)
+        Node::validateTree(m_tree->root);
+#endif
     }
 
     WorkerInfo myInfo = info;
@@ -152,10 +159,20 @@ bool SearchWorker::fillOutTree()
     bool didWork = false;
     WorkerInfo info;
     QVector<Node*> playouts = playoutNodesMCTS(fetchSize, &didWork, &info);
-    if (!playouts.isEmpty())
+    if (!playouts.isEmpty()) {
         fetchFromNN(playouts, info);
-    else if (didWork)
+    } else if (didWork) {
+        {
+            QMutexLocker locker(&m_tree->mutex);
+            // Gather minimax scores;
+            bool isExact = false;
+            Node::minimax(m_tree->root, &isExact);
+#if defined(DEBUG_VALIDATE_TREE)
+            Node::validateTree(m_tree->root);
+#endif
+        }
         emit sendInfo(info);
+    }
     return didWork;
 }
 
@@ -170,10 +187,10 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     qDebug() << "adding regular playout" << playout->toString() << "depth" << depth;
 #endif
 
-    // If we *re-encounter* an exact node that overrides the NN (checkmate/stalemate/drawish...)
+    // If we *re-encounter* a true term node that overrides the NN (checkmate/stalemate/drawish...)
     // then let's just *reset* (which is noop since it is exact) the value, increment and propagate
     // which is *not* noop
-    if (playout->isExact()) {
+    if (playout->isTrueTerminal()) {
 #if defined(DEBUG_PLAYOUT_MCTS)
         qDebug() << "adding exact playout" << playout->toString();
 #endif
@@ -193,26 +210,27 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     m_tree->mutex.unlock();
 
     // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
-    // then let's just set the value and propagate
-    if (playout->isExact()) {
+    // then let's just back propagate dirty (which will have happened above in call to generate
+    // potentials)
+    if (playout->isTrueTerminal()) {
 #if defined(DEBUG_PLAYOUT_MCTS)
         qDebug() << "adding exact playout 2" << playout->toString();
 #endif
+        // Dirty flag gets set in generate potentials above
         info->nodesCacheHits += 1;
-        QMutexLocker locker(&m_tree->mutex);
-        playout->setQValueAndPropagate();
         return false;
     }
 
-    // If this playout is in cache, retrieve the values and back propagate and continue
+    // If this playout is in cache, retrieve the values and back propagate dirty (which will have
+    // happened in the fill out)
     {
         QMutexLocker locker(&m_tree->mutex);
         if (Hash::globalInstance()->fillOut(playout)) {
-    #if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT_MCTS)
             qDebug() << "found cached playout" << playout->toString();
-    #endif
+#endif
+            // Dirty flag gets set in fillOut above
             info->nodesCacheHits += 1;
-            playout->setQValueAndPropagate();
             return false;
         }
     }
@@ -420,7 +438,7 @@ bool SearchEngine::tryResumeSearch(const Search &s)
     for (Node *child : ch) {
         const QVector<Node*> gch = child->children();
         for (Node *grandChild : gch) {
-            if (grandChild->m_game.isSamePosition(s.game) && !grandChild->isExact()) {
+            if (grandChild->m_game.isSamePosition(s.game) && !grandChild->isTrueTerminal()) {
                 grandChild->setAsRootNode();
                 std::function<void()> gc = std::bind(&SearchEngine::gcNode, m_tree->root);
                 QtConcurrent::run(gc);

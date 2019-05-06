@@ -95,6 +95,7 @@ public:
     int depth() const;
     int treeDepth() const;
     bool isExact() const;
+    bool isTrueTerminal() const;
     float uCoeff() const;
     float uValue() const;
     float weightedExplorationScore() const;
@@ -132,6 +133,10 @@ public:
     void backPropagateValue(float qValue);
     void backPropagateValueFull();
     void setQValueAndPropagate();
+    void backPropagateDirty();
+    void scoreMiniMax(float score, bool isExact);
+    static float minimax(Node *, bool *isExact);
+    static void validateTree(Node *);
     bool isAlreadyPlayingOut() const;
     Node *playout(int *depth, bool *createdNode);
 
@@ -181,6 +186,7 @@ private:
     mutable float m_uCoeff;
     bool m_isExact: 1;
     bool m_isTB: 1;
+    bool m_isDirty: 1;
     std::atomic_flag m_scoringOrScored;
     template<Traversal t>
     friend class TreeIterator;
@@ -222,6 +228,11 @@ inline int Node::treeDepth() const
 inline bool Node::isExact() const
 {
     return m_isExact;
+}
+
+inline bool Node::isTrueTerminal() const
+{
+    return m_isExact && m_potentials.isEmpty() && m_children.isEmpty();
 }
 
 inline bool Node::isRootNode() const
@@ -356,13 +367,10 @@ inline float Node::weightedExplorationScore() const
 
 inline bool Node::greaterThan(const Node *a, const Node *b)
 {
-    if (a->m_visited == b->m_visited) {
-        if (!a->m_visited)
-            return a->pValue() > b->pValue();
-        else
-            return a->qValue() > b->qValue();
-    }
-    return a->m_visited > b->m_visited;
+    if (!a->m_visited)
+        return a->pValue() > b->pValue();
+    else
+        return a->qValue() > b->qValue();
 }
 
 inline void Node::sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly)

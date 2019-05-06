@@ -48,7 +48,8 @@ Node::Node(Node *parent, const Game &game)
     m_policySum(0),
     m_uCoeff(-2.0f),
     m_isExact(false),
-    m_isTB(false)
+    m_isTB(false),
+    m_isDirty(false)
 {
     m_scoringOrScored.clear();
 }
@@ -173,6 +174,7 @@ void Node::setRawQValue(float qValue)
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "sq " << toString() << " v:" << qValue;
 #endif
+    backPropagateDirty();
 }
 
 void Node::backPropagateValue(float v)
@@ -211,6 +213,108 @@ void Node::setQValueAndPropagate()
         << "v:" << m_rawQValue << "oq:" << 0.0 << "fq:" << m_qValue;
 #endif
     backPropagateValueFull();
+}
+
+void Node::backPropagateDirty()
+{
+    Q_ASSERT(hasRawQValue());
+    m_isDirty = true;
+    Node *parent = m_parent;
+    while (parent) {
+        parent->m_isDirty = true;
+        parent = parent->m_parent;
+    }
+}
+
+void Node::scoreMiniMax(float score, bool isExact)
+{
+    Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
+    m_isExact = isExact;
+    if (isExact)
+        m_qValue = score;
+    else
+        m_qValue = (m_visited * m_qValue + score) / float(m_visited + 1);
+    ++m_visited;
+}
+
+float Node::minimax(Node *node, bool *isExact)
+{
+    Q_ASSERT(node);
+    Q_ASSERT(node->hasRawQValue());
+
+    const bool isTrueTerminal = node->isTrueTerminal();
+
+    // First we look to see if this node has been scored or if it is a dirty terminal
+    if (!node->hasQValue() || (isTrueTerminal && node->m_isDirty)) {
+        Q_ASSERT(node->m_isDirty);
+        *isExact = node->isTrueTerminal();
+        node->setQValueAndPropagate();
+        return node->m_qValue;
+    }
+
+    // If we are an exact node, then we are terminal so just return the score
+    if (isTrueTerminal)
+        return node->m_qValue;
+
+    // However, if the subtree is not dirty, then we can just return our score
+    if (!node->m_isDirty)
+        return node->m_qValue;
+
+    // At this point we should have children
+    Q_ASSERT(node->hasChildren());
+
+    // Search the children
+    float best = -2.0f;
+    bool bestIsExact = false;
+    bool everythingScored = true;
+    for (int index = 0; index < node->m_children.count(); ++index) {
+        Node *child = node->m_children.at(index);
+
+        // If the child doesn't have a raw qValue then it has not been scored yet so just continue
+        if (!child->hasRawQValue()) {
+            everythingScored = false;
+            continue;
+        }
+
+        bool subtreeIsExact = false;
+        float score = minimax(child, &subtreeIsExact);
+
+        // Check if we have a new best child
+        if (score > best) {
+            bestIsExact = subtreeIsExact;
+            best = score;
+        }
+    }
+
+    // We only propagate exact certainty if the best score from subtree is exact AND either the best
+    // score is > 0 (a proven win) OR the potential children of this node have all been played out
+    const bool miniMaxComplete = everythingScored && node->m_potentials.isEmpty();
+    const bool shouldPropagateExact = bestIsExact && (best > 0 || miniMaxComplete);
+
+    // Score the node based on minimax of children
+    node->scoreMiniMax(-best, shouldPropagateExact);
+
+    *isExact = shouldPropagateExact;
+    return node->m_qValue;
+}
+
+void Node::validateTree(Node *node)
+{
+    // Goes through the entire tree and verifies that everything that should have a score has one
+    // and that nothing is marked as dirty that shouldn't be
+    Q_ASSERT(node);
+    Q_ASSERT(node->hasRawQValue());
+    Q_ASSERT(!node->m_isDirty);
+    Q_ASSERT(node->hasQValue());
+    for (int index = 0; index < node->m_children.count(); ++index) {
+        Node *child = node->m_children.at(index);
+
+        // If the child doesn't have a raw qValue then it has not been scored yet so just continue
+        if (!child->hasRawQValue())
+            continue;
+
+        validateTree(child);
+    }
 }
 
 class MCTSNode {
@@ -341,7 +445,7 @@ start_playout:
         ++d;
 
         // If we've never been scored or this is an exact node, then this is our playout node
-        if (!n->setScoringOrScored() || n->isExact()) {
+        if (!n->setScoringOrScored() || n->isTrueTerminal()) {
             ++n->m_virtualLoss;
 #if defined(DEBUG_PLAYOUT_MCTS)
             qDebug() << "score hit" << n->toString() << "n" << n->m_visited
@@ -448,6 +552,7 @@ void Node::incrementVisited()
     m_uCoeff = -2.0f;
     m_virtualLoss = 0;
     ++m_visited;
+    m_isDirty = false;
 }
 
 bool Node::isNoisy() const
@@ -499,17 +604,17 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->m_rawQValue = 1.0f - cpToScore(1);
+        child->setRawQValue(1.0f - cpToScore(1));
         child->m_isExact = true;
         child->m_isTB = true;
         break;
     case TB::Loss:
-        child->m_rawQValue = -1.0f + cpToScore(1);
+        child->setRawQValue(-1.0f + cpToScore(1));
         child->m_isExact = true;
         child->m_isTB = true;
         break;
     case TB::Draw:
-        child->m_rawQValue = 0.0f;
+        child->setRawQValue(0.0f);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
@@ -538,15 +643,15 @@ void Node::generatePotentials()
 
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         m_isExact = true;
         return;
     } else if (Q_UNLIKELY(m_game.isDeadPosition())) {
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         m_isExact = true;
         return;
     } else if (Q_UNLIKELY(isThreeFold())) {
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         m_isExact = true;
         return;
     }
@@ -556,17 +661,17 @@ void Node::generatePotentials()
     case TB::NotFound:
         break;
     case TB::Win:
-        m_rawQValue = 1.0f - cpToScore(1);
+        setRawQValue(1.0f - cpToScore(1));
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Loss:
-        m_rawQValue = -1.0f + cpToScore(1);
+        setRawQValue(-1.0f + cpToScore(1));
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Draw:
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         m_isExact = true;
         m_isTB = true;
         return;
@@ -580,11 +685,11 @@ void Node::generatePotentials()
         bool isChecked = m_game.isChecked(m_game.activeArmy());
         if (isChecked) {
             m_game.setCheckMate(true);
-            m_rawQValue = 1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f);
+            setRawQValue(1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f));
             m_isExact = true;
         } else {
             m_game.setStaleMate(true);
-            m_rawQValue = 0.0f;
+            setRawQValue(0.0f);
             m_isExact = true;
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
