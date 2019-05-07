@@ -317,16 +317,16 @@ void Node::validateTree(Node *node)
     }
 }
 
-class MCTSNode {
+class PlayoutNode {
 public:
-    MCTSNode(Node* parent, PotentialNode* potential)
+    PlayoutNode(Node* parent, PotentialNode* potential)
         : m_node(nullptr),
         m_parent(parent),
         m_potential(potential)
     {
     }
 
-    MCTSNode(Node* node)
+    PlayoutNode(Node* node)
         : m_node(node),
         m_parent(nullptr),
         m_potential(nullptr)
@@ -395,12 +395,12 @@ public:
         return m_node;
     }
 
-    bool operator==(const MCTSNode &other) const
+    bool operator==(const PlayoutNode &other) const
     {
         return m_node == other.m_node && m_parent == other.m_parent && m_potential == other.m_potential;
     }
 
-    bool operator!=(const MCTSNode &other) const
+    bool operator!=(const PlayoutNode &other) const
     {
         return m_node != other.m_node || m_parent != other.m_parent || m_potential != other.m_potential;
     }
@@ -411,7 +411,7 @@ private:
     PotentialNode *m_potential;
 };
 
-inline int virtualLossDistance(float wec, const MCTSNode &a, const MCTSNode &b)
+inline int virtualLossDistance(float wec, const PlayoutNode &a, const PlayoutNode &b)
 {
     Q_UNUSED(a);
     // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
@@ -447,7 +447,7 @@ start_playout:
         // If we've never been scored or this is an exact node, then this is our playout node
         if (!n->setScoringOrScored() || n->isTrueTerminal()) {
             ++n->m_virtualLoss;
-#if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT)
             qDebug() << "score hit" << n->toString() << "n" << n->m_visited
                      << "virtualLoss" << n->m_virtualLoss;
 #endif
@@ -458,7 +458,7 @@ start_playout:
         const bool alreadyPlayingOut = n->isAlreadyPlayingOut();
         const qint64 increment = alreadyPlayingOut ? qint64(vld - 1) : 1;
         n->m_virtualLoss += increment;
-#if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT)
         qDebug() << "increment hit" << n->toString() << "n" << n->m_visited
                  << "virtualLoss" << n->m_virtualLoss;
 #endif
@@ -467,14 +467,14 @@ start_playout:
         // then decrement the try and vld limits and check if we should exit
         if (alreadyPlayingOut || n->isNotExtendable()) {
             --tryPlayoutLimit;
-#if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT)
             qDebug() << "decreasing try for" << n->toString() << tryPlayoutLimit;
 #endif
             if (tryPlayoutLimit <= 0)
                 return nullptr;
 
             vldMax -= n->m_virtualLoss;
-#if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT)
             qDebug() << "decreasing vldMax for" << n->toString() << vldMax;
 #endif
             if (vldMax <= 0)
@@ -486,22 +486,22 @@ start_playout:
         // Otherwise calculate the virtualLossDistance to advance past this node
         Q_ASSERT(hasChildren() || hasPotentials());
 
-        MCTSNode firstNode = nullptr;
-        MCTSNode secondNode = nullptr;
+        PlayoutNode firstNode = nullptr;
+        PlayoutNode secondNode = nullptr;
         float bestScore = -1.0f;
         float secondBestScore = -1.0f;
 
         // First look at the actual children
         for (Node *child : n->m_children) {
-            MCTSNode mctsNode(child);
-            float score = mctsNode.weightedExplorationScore();
+            PlayoutNode PlayoutNode(child);
+            float score = PlayoutNode.weightedExplorationScore();
             if (firstNode.isNull() || score > bestScore) {
                 secondNode = firstNode;
                 secondBestScore = bestScore;
-                firstNode = mctsNode;
+                firstNode = PlayoutNode;
                 bestScore = score;
             } else if (secondNode.isNull() || score > secondBestScore) {
-                secondNode = mctsNode;
+                secondNode = PlayoutNode;
                 secondBestScore = score;
             }
         }
@@ -510,15 +510,15 @@ start_playout:
 
         // Then look for potential children
         for (PotentialNode *potential : n->m_potentials) {
-            MCTSNode mctsNode(n, potential);
-            float score = mctsNode.weightedExplorationScore();
+            PlayoutNode PlayoutNode(n, potential);
+            float score = PlayoutNode.weightedExplorationScore();
             if (firstNode.isNull() || score > bestScore) {
                 secondNode = firstNode;
                 secondBestScore = bestScore;
-                firstNode = mctsNode;
+                firstNode = PlayoutNode;
                 bestScore = score;
             } else if (secondNode.isNull() || score > secondBestScore) {
-                secondNode = mctsNode;
+                secondNode = PlayoutNode;
                 secondBestScore = score;
             }
         }

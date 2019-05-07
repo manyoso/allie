@@ -65,9 +65,7 @@ private:
 
     // Playout methods
     bool handlePlayout(Node *node, int depth, WorkerInfo *info);
-
-    // MCTS related methods
-    QVector<Node*> playoutNodesMCTS(int size, bool *didWork, WorkerInfo *info);
+    QVector<Node*> playoutNodes(int size, bool *didWork, WorkerInfo *info);
 
     int m_id;
     bool m_reachedMaxBatchSize;

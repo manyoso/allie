@@ -158,7 +158,7 @@ bool SearchWorker::fillOutTree()
 
     bool didWork = false;
     WorkerInfo info;
-    QVector<Node*> playouts = playoutNodesMCTS(fetchSize, &didWork, &info);
+    QVector<Node*> playouts = playoutNodes(fetchSize, &didWork, &info);
     if (!playouts.isEmpty()) {
         fetchFromNN(playouts, info);
     } else if (didWork) {
@@ -183,7 +183,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     info->sumDepths += depth * int(playout->m_virtualLoss);
     info->maxDepth = qMax(info->maxDepth, depth);
 
-#if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT)
     qDebug() << "adding regular playout" << playout->toString() << "depth" << depth;
 #endif
 
@@ -191,7 +191,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     // then let's just *reset* (which is noop since it is exact) the value, increment and propagate
     // which is *not* noop
     if (playout->isTrueTerminal()) {
-#if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT)
         qDebug() << "adding exact playout" << playout->toString();
 #endif
         info->nodesCacheHits += 1;
@@ -213,7 +213,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     // then let's just back propagate dirty (which will have happened above in call to generate
     // potentials)
     if (playout->isTrueTerminal()) {
-#if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT)
         qDebug() << "adding exact playout 2" << playout->toString();
 #endif
         // Dirty flag gets set in generate potentials above
@@ -226,7 +226,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     {
         QMutexLocker locker(&m_tree->mutex);
         if (Hash::globalInstance()->fillOut(playout)) {
-#if defined(DEBUG_PLAYOUT_MCTS)
+#if defined(DEBUG_PLAYOUT)
             qDebug() << "found cached playout" << playout->toString();
 #endif
             // Dirty flag gets set in fillOut above
@@ -238,10 +238,10 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     return true; // Otherwise we should fetch from NN
 }
 
-QVector<Node*> SearchWorker::playoutNodesMCTS(int size, bool *didWork, WorkerInfo *info)
+QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, WorkerInfo *info)
 {
-#if defined(DEBUG_PLAYOUT_MCTS)
-    qDebug() << "begin MCTS playout filling" << size;
+#if defined(DEBUG_PLAYOUT)
+    qDebug() << "begin playout filling" << size;
 #endif
 
     int exactOrCached = 0;
@@ -293,8 +293,8 @@ QVector<Node*> SearchWorker::playoutNodesMCTS(int size, bool *didWork, WorkerInf
         nodes.append(playout);
     }
 
-#if defined(DEBUG_PLAYOUT_MCTS)
-    qDebug() << "end MCTS playout return" << nodes.count();
+#if defined(DEBUG_PLAYOUT)
+    qDebug() << "end playout return" << nodes.count();
 #endif
 
     return nodes;
@@ -470,7 +470,7 @@ void SearchEngine::startSearch(const Search &s)
     if (!resumeSearch)
         resetSearch(s);
 
-    // Set the mcts search parameters
+    // Set the search parameters
     SearchSettings::cpuctF = Options::globalInstance()->option("CpuctF").value().toFloat();
     SearchSettings::cpuctInit = Options::globalInstance()->option("CpuctInit").value().toFloat();
     SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();

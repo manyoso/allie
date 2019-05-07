@@ -38,7 +38,7 @@
 #define USE_CPUCT_SCALING
 
 //#define DEBUG_FETCHANDBP
-//#define DEBUG_PLAYOUT_MCTS
+//#define DEBUG_PLAYOUT
 
 extern int scoreToCP(float score);
 extern float cpToScore(int cp);

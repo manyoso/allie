@@ -14,7 +14,7 @@ Not exactly. AF and the Stein are (apparently quite successful) experiments with
 
 ## Ok, so details. How is she different?
 
-Well, I was inspired during the original CCC to see if you could pair traditional AlphaBeta search with an NN. This is still her main purpose and the focus going forward. However, the initial versions are using a similar MCTS algorithm as Lc0 and AlphaZero.
+Well, I was inspired during the original CCC to see if you could pair traditional Minimax/AlphaBeta search with an NN. This is still her main purpose and the focus going forward. However, the initial versions were using a similar pure MCTS algorithm as Lc0 and AlphaZero.
 
 Here is a non-exhaustive list of differences:
 - UCI protocol code
@@ -47,7 +47,7 @@ Depends. First, her ELO will obviously depend upon which network is used. Howeve
 
 ## Why did you develop her rather than just help out Leela?
 
-A couple reasons. First, my original inspiration was to see if I could implement an alternative search using AlphaBeta rather than MCTS. Second, I wanted to teach myself the AlphaZero concepts and algorithms and this was the best way to do it. In the future, I expect Allie to have an AB search and leave MCTS to Leela, but it is not ready yet. I've done a lot of experiments with AB and Lc0 networks and think I've hit upon what might work, but getting the NPS to scale and utilizing the policy values optimally is challenging. Stay tuned.
+A couple reasons. First, my original inspiration was to see if I could implement an alternative search using Minimax/AlphaBeta rather than MCTS. Second, I wanted to teach myself the AlphaZero concepts and algorithms and this was the best way to do it. Allie is now using a hybrid Minimax Monte Carlo search.
 
 Also, I am contributing back some patches to Leela where appropriate.
 
