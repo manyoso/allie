@@ -452,8 +452,10 @@ bool SearchEngine::tryResumeSearch(const Search &s)
     return false;
 }
 
-QString mateDistanceOrScore(float score, int pvDepth) {
+QString mateDistanceOrScore(float score, int pvDepth, bool isTB) {
     QString s = QString("cp %0").arg(scoreToCP(score));
+    if (isTB)
+        return s;
     if (score > 1.0f || qFuzzyCompare(score, 1.0f))
         s = QString("mate %0").arg(qCeil(qreal(pvDepth - 1) / 2));
     else if (score < -1.0f || qFuzzyCompare(score, -1.0f))
@@ -496,13 +498,14 @@ void SearchEngine::startSearch(const Search &s)
             m_currentInfo.nodes = depth;
             m_currentInfo.workerInfo.nodesSearched += 1;
             m_currentInfo.workerInfo.nodesSearchedTotal += 1;
+            m_currentInfo.workerInfo.nodesTBHits += 1;
             m_currentInfo.workerInfo.sumDepths = depth;
             m_currentInfo.workerInfo.maxDepth = depth;
             Node *dtzNode = m_tree->root->leftChild();
             Q_ASSERT(dtzNode);
             m_currentInfo.bestMove = Notation::moveToString(dtzNode->m_game.lastMove(), Chess::Computer);
             m_currentInfo.pv = m_currentInfo.bestMove;
-            m_currentInfo.score = mateDistanceOrScore(-dtzNode->qValue(), depth + 1);
+            m_currentInfo.score = mateDistanceOrScore(-dtzNode->qValue(), depth + 1, true /*isTB*/);
             emit sendInfo(m_currentInfo, false /*isPartial*/);
             return; // We are all done
         } else if (Node *best = m_tree->root->bestChild()) {
@@ -513,9 +516,10 @@ void SearchEngine::startSearch(const Search &s)
                 m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
             onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
             int pvDepth = 0;
-            m_currentInfo.pv = m_tree->root->principalVariation(&pvDepth);
+            bool isTB = false;
+            m_currentInfo.pv = m_tree->root->principalVariation(&pvDepth, &isTB);
             float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
-            m_currentInfo.score = mateDistanceOrScore(score, pvDepth);
+            m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isTB);
             emit sendInfo(m_currentInfo, !onlyLegalMove /*isPartial*/);
         }
     }
@@ -611,7 +615,8 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
 
     // Record a pv and score
     int pvDepth = 0;
-    m_currentInfo.pv = m_tree->root->principalVariation(&pvDepth);
+    bool isTB = false;
+    m_currentInfo.pv = m_tree->root->principalVariation(&pvDepth, &isTB);
 
     float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
 
@@ -620,7 +625,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     // Unlock for read
     m_tree->mutex.unlock();
 
-    m_currentInfo.score = mateDistanceOrScore(score, pvDepth);
+    m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isTB);
 
     // Update our trend
     Trend t;

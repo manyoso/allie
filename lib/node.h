@@ -121,7 +121,7 @@ public:
     Node *nextAncestorSibling() const;
     Node *bestChild() const;
 
-    QString principalVariation(int *depth) const; // recursive
+    QString principalVariation(int *depth, bool *isTB) const; // recursive
 
     bool hasQValue() const;
     float qValueDefault() const;

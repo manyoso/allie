@@ -114,24 +114,28 @@ void Node::setAsRootNode()
     m_parent = nullptr;
 }
 
-QString Node::principalVariation(int *depth) const
+QString Node::principalVariation(int *depth, bool *isTB) const
 {
-    if (!isRootNode() && !hasPValue())
+    if (!isRootNode() && !hasPValue()) {
+        *isTB = m_isTB;
         return QString();
+    }
 
     *depth += 1;
 
-    if (!hasChildren())
+    if (!hasChildren()) {
+        *isTB = m_isTB;
         return Notation::moveToString(m_game.lastMove(), Chess::Computer);
+    }
 
     QVector<Node*> children = m_children;
     sortByScore(children, true /*partialSortFirstOnly*/);
     Node *bestChild = children.first();
     if (isRootNode())
-        return bestChild->principalVariation(depth);
+        return bestChild->principalVariation(depth, isTB);
     else
         return Notation::moveToString(m_game.lastMove(), Chess::Computer)
-            + " " + bestChild->principalVariation(depth);
+            + " " + bestChild->principalVariation(depth, isTB);
 }
 
 int Node::repetitions() const
@@ -604,12 +608,12 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->setRawQValue(1.0f - cpToScore(1));
+        child->setRawQValue(1.0f);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
     case TB::Loss:
-        child->setRawQValue(-1.0f + cpToScore(1));
+        child->setRawQValue(-1.0f);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
@@ -661,12 +665,12 @@ void Node::generatePotentials()
     case TB::NotFound:
         break;
     case TB::Win:
-        setRawQValue(1.0f - cpToScore(1));
+        setRawQValue(1.0f);
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Loss:
-        setRawQValue(-1.0f + cpToScore(1));
+        setRawQValue(-1.0f);
         m_isExact = true;
         m_isTB = true;
         return;
