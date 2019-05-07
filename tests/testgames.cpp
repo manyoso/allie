@@ -212,6 +212,7 @@ void TestGames::testInstaMove()
     QVERIFY(receivedSignal);
     QVERIFY2(handler.lastBestMove() == QLatin1String("d1d2"), QString("Result is %1")
         .arg(handler.lastBestMove()).toLatin1().constData());
+    QVERIFY(handler.lastInfo().score != QLatin1String("cp 0"));
 }
 
 void TestGames::testHistory()

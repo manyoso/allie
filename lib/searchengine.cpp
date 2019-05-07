@@ -512,6 +512,10 @@ void SearchEngine::startSearch(const Search &s)
             if (Node *ponder = best->bestChild())
                 m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
             onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
+            int pvDepth = 0;
+            m_currentInfo.pv = m_tree->root->principalVariation(&pvDepth);
+            float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
+            m_currentInfo.score = mateDistanceOrScore(score, pvDepth);
             emit sendInfo(m_currentInfo, !onlyLegalMove /*isPartial*/);
         }
     }
