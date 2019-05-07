@@ -183,7 +183,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     info->sumDepths += depth * int(playout->m_virtualLoss);
     info->maxDepth = qMax(info->maxDepth, depth);
 
-#if defined(DEBUG_PLAYOUT_MCTS) || defined(DEBUG_PLAYOUT_AB)
+#if defined(DEBUG_PLAYOUT_MCTS)
     qDebug() << "adding regular playout" << playout->toString() << "depth" << depth;
 #endif
 
@@ -198,7 +198,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
         if (playout->m_isTB)
             info->nodesTBHits += 1;
         QMutexLocker locker(&m_tree->mutex);
-        playout->setQValueAndPropagate();
+        playout->backPropagateDirty();
         return false;
     }
 
@@ -417,8 +417,10 @@ void SearchEngine::gcNode(Node *node)
     // Deletes the node and all of its children in post order traversal
     QVector<Node*> gc;
     TreeIterator<PreOrder> it = node->begin<PreOrder>();
-    for (; it != node->end<PreOrder>(); ++it)
+    for (; it != node->end<PreOrder>(); ++it) {
+        Q_ASSERT(!(*it)->m_isDirty);
         gc.append(*it);
+    }
     qDeleteAll(gc);
 }
 
