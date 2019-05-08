@@ -64,7 +64,6 @@ struct WorkerInfo {
     int sumDepths = 0;
     int maxDepth = 0;
     int nodesSearched = 0;
-    int nodesSearchedTotal = 0;
     int nodesEvaluated = 0;
     int nodesCreated = 0;
     int numberOfBatches = 0;

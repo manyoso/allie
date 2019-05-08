@@ -179,8 +179,7 @@ bool SearchWorker::fillOutTree()
 bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 {
     info->nodesSearched += 1;
-    info->nodesSearchedTotal += playout->m_virtualLoss;
-    info->sumDepths += depth * int(playout->m_virtualLoss);
+    info->sumDepths += depth;
     info->maxDepth = qMax(info->maxDepth, depth);
 
 #if defined(DEBUG_PLAYOUT)
@@ -497,7 +496,6 @@ void SearchEngine::startSearch(const Search &s)
             m_currentInfo.seldepth = depth;
             m_currentInfo.nodes = depth;
             m_currentInfo.workerInfo.nodesSearched += 1;
-            m_currentInfo.workerInfo.nodesSearchedTotal += 1;
             m_currentInfo.workerInfo.nodesTBHits += 1;
             m_currentInfo.workerInfo.sumDepths = depth;
             m_currentInfo.workerInfo.maxDepth = depth;
@@ -573,7 +571,6 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.workerInfo.sumDepths += info.sumDepths;
     m_currentInfo.workerInfo.maxDepth = qMax(m_currentInfo.workerInfo.maxDepth, info.maxDepth);
     m_currentInfo.workerInfo.nodesSearched += info.nodesSearched;
-    m_currentInfo.workerInfo.nodesSearchedTotal += info.nodesSearchedTotal;
     m_currentInfo.workerInfo.nodesEvaluated += info.nodesEvaluated;
     m_currentInfo.workerInfo.nodesCreated += info.nodesCreated;
     m_currentInfo.workerInfo.numberOfBatches += info.numberOfBatches;
@@ -591,7 +588,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.seldepth = qMax(newSelDepth, m_currentInfo.seldepth);
 
     // Update our node info
-    m_currentInfo.nodes = m_currentInfo.workerInfo.nodesSearchedTotal;
+    m_currentInfo.nodes = m_currentInfo.workerInfo.nodesSearched;
 
     // Lock the tree for reading
     m_tree->mutex.lock();
