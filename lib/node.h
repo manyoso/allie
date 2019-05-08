@@ -147,6 +147,7 @@ public:
     int count() const;
 
     void incrementVisited();
+    void sortByPVals();
     static bool greaterThan(const Node *a, const Node *b);
     static void sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnlyy);
 
@@ -363,6 +364,14 @@ inline float Node::weightedExplorationScore() const
         return 1.0f + uValue();
     const float q = qValue();
     return q + uValue();
+}
+
+inline void Node::sortByPVals()
+{
+    std::stable_sort(m_potentials.begin(), m_potentials.end(),
+        [=](const PotentialNode *a, const PotentialNode *b) {
+        return a->pValue() > b->pValue();
+    });
 }
 
 inline bool Node::greaterThan(const Node *a, const Node *b)

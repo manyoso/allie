@@ -512,8 +512,9 @@ start_playout:
 
         Q_ASSERT(firstNode.isNull() || firstNode != secondNode);
 
-        // Then look for potential children
-        for (PotentialNode *potential : n->m_potentials) {
+        // Then look at the first two potential children as they have now been sorted by pval
+        for (int i = 0; i < n->m_potentials.count() && i < 2; ++i) {
+            PotentialNode *potential = n->m_potentials.at(i);
             PlayoutNode PlayoutNode(n, potential);
             float score = PlayoutNode.weightedExplorationScore();
             if (firstNode.isNull() || score > bestScore) {

@@ -100,6 +100,7 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             if (node->hasPotentials())
                 computation.setPVals(index, node);
             Hash::globalInstance()->insert(node);
+            node->sortByPVals(); // strictly after we insert into hash
         }
 
         // Gather minimax scores;
@@ -230,6 +231,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 #endif
             // Dirty flag gets set in fillOut above
             info->nodesCacheHits += 1;
+            playout->sortByPVals(); // strictly after we filled from hash
             return false;
         }
     }
