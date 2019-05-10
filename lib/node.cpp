@@ -521,19 +521,21 @@ start_playout:
 
         PlayoutNode firstNode = nullptr;
         PlayoutNode secondNode = nullptr;
-        float bestScore = -1.0f;
-        float secondBestScore = -1.0f;
+        float bestScore = -2.0f;
+        float secondBestScore = -2.0f;
 
         // First look at the actual children
-        for (Node *child : n->m_children) {
+        for (int i = 0; i < n->m_children.count(); ++i) {
+            Node *child = n->m_children.at(i);
             PlayoutNode PlayoutNode(child);
             float score = PlayoutNode.weightedExplorationScore();
-            if (firstNode.isNull() || score > bestScore) {
+            Q_ASSERT(score > -2.f);
+            if (score > bestScore) {
                 secondNode = firstNode;
                 secondBestScore = bestScore;
                 firstNode = PlayoutNode;
                 bestScore = score;
-            } else if (secondNode.isNull() || score > secondBestScore) {
+            } else if (score > secondBestScore) {
                 secondNode = PlayoutNode;
                 secondBestScore = score;
             }
@@ -546,12 +548,13 @@ start_playout:
             PotentialNode *potential = n->m_potentials.at(i);
             PlayoutNode PlayoutNode(n, potential);
             float score = PlayoutNode.weightedExplorationScore();
-            if (firstNode.isNull() || score > bestScore) {
+            Q_ASSERT(score > -2.f);
+            if (score > bestScore) {
                 secondNode = firstNode;
                 secondBestScore = bestScore;
                 firstNode = PlayoutNode;
                 bestScore = score;
-            } else if (secondNode.isNull() || score > secondBestScore) {
+            } else if (score > secondBestScore) {
                 secondNode = PlayoutNode;
                 secondBestScore = score;
             }
