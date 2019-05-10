@@ -42,6 +42,7 @@ public:
     void setIncrement(Chess::Army army, qint64 inc);
 
     void setMoveTime(qint64 time);
+    bool isInfinite() const;
     void setInfinite(bool infinite);
 
     void startDeadline(Chess::Army army);
@@ -60,7 +61,7 @@ public:
     bool pastMoveOverhead() const;
 
     bool isActive() const { return m_isActive; }
-    void stop() { m_isActive = false; m_timeout->stop(); }
+    void stop();
 
 Q_SIGNALS:
     void timeout();

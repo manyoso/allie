@@ -97,6 +97,9 @@ public:
 
     SearchInfo currentInfo() const { return m_currentInfo; }
 
+    quint32 estimatedNodes() const { return m_estimatedNodes; }
+    void setEstimatedNodes(quint32 nodes) { m_estimatedNodes = nodes; }
+
 public Q_SLOTS:
     void reset();
     void startSearch(const Search &search);
@@ -119,6 +122,7 @@ private:
 
     Tree *m_tree;
     int m_startedWorkers;
+    quint32 m_estimatedNodes;
     float m_score;
     float m_trendDegree;
     Trend m_trend;

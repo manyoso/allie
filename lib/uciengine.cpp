@@ -517,7 +517,18 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     m_timeAtLastProgress = msecs;
 
     m_lastInfo.nps = qRound(qreal(m_lastInfo.nodes) / qMax(qint64(1), msecs) * 1000.0);
-    m_lastInfo.rawnps = qRound(qreal(m_lastInfo.nodes) / qMax(qint64(1), msecs) * 1000.0);
+    m_lastInfo.rawnps = qRound(qreal(m_lastInfo.workerInfo.nodesSearched) / qMax(qint64(1), msecs) * 1000.0);
+
+    // Set the estimated number of nodes to be searched under deadline if we've been searching for
+    // at least N msecs and we want to early exit according to following paper:
+    // https://link.springer.com/chapter/10.1007/978-3-642-31866-5_4
+    const bool hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
+    if (!hasTarget && !m_clock->isInfinite() && msecs > SearchSettings::earlyExitMinimumTime) {
+        const qint64 timeToRemaining = m_clock->deadline() - msecs;
+        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_lastInfo.rawnps));
+        m_searchEngine->setEstimatedNodes(e);
+    }
+
     m_lastInfo.batchSize = 0;
     if (m_lastInfo.workerInfo.nodesEvaluated && m_lastInfo.workerInfo.numberOfBatches)
         m_lastInfo.batchSize = m_lastInfo.workerInfo.nodesEvaluated / m_lastInfo.workerInfo.numberOfBatches;

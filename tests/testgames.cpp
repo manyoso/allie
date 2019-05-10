@@ -215,6 +215,31 @@ void TestGames::testInstaMove()
     QVERIFY(handler.lastInfo().score != QLatin1String("cp 0"));
 }
 
+void TestGames::testEarlyExit()
+{
+    const QLatin1String oneLegalMove = QLatin1String("position fen 7k/rrrr2nr/8/8/8/8/8/5RK1 w - - 0 1");
+    UciEngine engine(this, QString());
+    UCIIOHandler handler(this);
+    engine.installIOHandler(&handler);
+
+    QSignalSpy bestMoveSpy(&handler, &UCIIOHandler::receivedBestMove);
+    engine.readyRead(oneLegalMove);
+    QElapsedTimer timer;
+    timer.start();
+    engine.readyRead(QLatin1String("go wtime 5000 btime 5000"));
+    const bool receivedSignal = bestMoveSpy.isEmpty() ? bestMoveSpy.wait(1000000) : true;
+    if (!receivedSignal) {
+        QString message = QString("Did not receive signal for %1").arg(oneLegalMove);
+        QWARN(message.toLatin1().constData());
+        engine.readyRead(QLatin1String("stop"));
+    }
+    QVERIFY(receivedSignal);
+    QVERIFY(timer.elapsed() < 4000);
+    QVERIFY2(handler.lastBestMove() == QLatin1String("f1f8"), QString("Result is %1")
+        .arg(handler.lastBestMove()).toLatin1().constData());
+    QCOMPARE(handler.lastInfo().score, QLatin1String("mate 1"));
+}
+
 void TestGames::testHistory()
 {
     QLatin1String fen = QLatin1String("4k3/8/8/8/8/1R6/8/4K3 b - - 0 40");

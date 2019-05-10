@@ -47,6 +47,8 @@ struct SearchSettings {
     static float cpuctBase;
     static float fpuReduction;
     static float policySoftmaxTemp;
+    static float savingsTimeFactor;
+    static qint64 earlyExitMinimumTime;
     static int tryPlayoutLimit;
     static int vldMax;
 };
@@ -64,6 +66,7 @@ struct WorkerInfo {
     int sumDepths = 0;
     int maxDepth = 0;
     int nodesSearched = 0;
+    int nodesSearchedTotal = 0;
     int nodesEvaluated = 0;
     int nodesCreated = 0;
     int numberOfBatches = 0;

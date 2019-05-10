@@ -436,6 +436,35 @@ inline int virtualLossDistance(float wec, const PlayoutNode &a, const PlayoutNod
     return n;
 }
 
+bool Node::shouldEarlyExit(quint32 maxPlayouts) const
+{
+    Q_ASSERT(isRootNode());
+    if (hasPotentials())
+        return false;
+
+    if (m_children.count() < 2)
+        return true;
+
+    if (maxPlayouts == std::numeric_limits<quint32>::max())
+        return false;
+
+    // Sort the first two children by score
+    QVector<Node*> children = m_children;
+    std::partial_sort(children.begin(), children.begin() + 2, children.end(),
+            [=](const Node *a, const Node *b) {
+            return greaterThan(a, b);
+    });
+
+    Node *firstChild = children.at(0);
+    Node *secondChild = children.at(1);
+    if (firstChild->m_visited < secondChild->m_visited)
+        return false;
+
+    const quint32 visitsToCatchUP = firstChild->m_visited - secondChild->m_visited;
+    const bool r = visitsToCatchUP > maxPlayouts;
+    return r;
+}
+
 Node *Node::playout(int *depth, bool *createdNode)
 {
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;

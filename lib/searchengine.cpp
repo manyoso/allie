@@ -272,7 +272,9 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, WorkerInfo *i
         }
 #else
         Node *playout = m_tree->root->playout(&depth, &createdNode);
+        const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
 #endif
+
         if (createdNode)
             info->nodesCreated += 1;
         m_tree->mutex.unlock();
@@ -281,6 +283,13 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, WorkerInfo *i
             break;
 
         *didWork = true;
+
+        info->nodesSearchedTotal += 1;
+
+        if (isExistingPlayout) {
+            ++exactOrCached;
+            continue;
+        }
 
         bool shouldFetchFromNN = handlePlayout(playout, depth, info);
         if (!shouldFetchFromNN) {
@@ -361,6 +370,7 @@ SearchEngine::SearchEngine(QObject *parent)
     : QObject(parent),
     m_tree(new Tree),
     m_startedWorkers(0),
+    m_estimatedNodes(std::numeric_limits<quint32>::max()),
     m_score(0),
     m_trendDegree(0.0f),
     m_trend(Better),
@@ -484,6 +494,7 @@ void SearchEngine::startSearch(const Search &s)
     m_trend = Better;
     m_currentInfo = SearchInfo();
     m_stop = false;
+    m_estimatedNodes = std::numeric_limits<quint32>::max();
 
     bool onlyLegalMove = false;
 
@@ -573,6 +584,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.workerInfo.sumDepths += info.sumDepths;
     m_currentInfo.workerInfo.maxDepth = qMax(m_currentInfo.workerInfo.maxDepth, info.maxDepth);
     m_currentInfo.workerInfo.nodesSearched += info.nodesSearched;
+    m_currentInfo.workerInfo.nodesSearchedTotal += info.nodesSearchedTotal;
     m_currentInfo.workerInfo.nodesEvaluated += info.nodesEvaluated;
     m_currentInfo.workerInfo.nodesCreated += info.nodesCreated;
     m_currentInfo.workerInfo.numberOfBatches += info.numberOfBatches;
@@ -590,7 +602,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.seldepth = qMax(newSelDepth, m_currentInfo.seldepth);
 
     // Update our node info
-    m_currentInfo.nodes = m_currentInfo.workerInfo.nodesSearched;
+    m_currentInfo.nodes = m_currentInfo.workerInfo.nodesSearchedTotal;
 
     // Lock the tree for reading
     m_tree->mutex.lock();
@@ -619,7 +631,8 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
 
     float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
 
-    const bool onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
+    bool shouldEarlyExit = (!m_tree->root->hasPotentials() && m_tree->root->children().count() == 1)
+        || m_tree->root->shouldEarlyExit(m_estimatedNodes);
 
     // Unlock for read
     m_tree->mutex.unlock();
@@ -643,7 +656,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.trendDegree = m_trendDegree;
 
     emit sendInfo(m_currentInfo, isPartial);
-    if (onlyLegalMove)
+    if (shouldEarlyExit)
         emit requestStop();
 }
 

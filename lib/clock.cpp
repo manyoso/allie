@@ -83,6 +83,11 @@ void Clock::setIncrement(Chess::Army army, qint64 inc)
         m_blackIncrement = inc;
 }
 
+bool Clock::isInfinite() const
+{
+    return m_infinite;
+}
+
 void Clock::setInfinite(bool infinite)
 {
     m_infinite = infinite;
@@ -141,6 +146,12 @@ bool Clock::pastMoveOverhead() const
     return elapsed() > Options::globalInstance()->option("MoveOverhead").value().toInt();
 }
 
+void Clock::stop()
+{
+    m_isActive = false;
+    m_timeout->stop();
+}
+
 int Clock::expectedHalfMovesTillEOG() const
 {
     // Heuristic from http://facta.junis.ni.ac.rs/acar/acar200901/acar2009-07.pdf
@@ -150,16 +161,6 @@ int Clock::expectedHalfMovesTillEOG() const
         return qRound((3/8 * float(m_materialScore))) + 22;
     else
         return qRound((5/4 * float(m_materialScore))) - 30;
-}
-
-float easingCurve(float x)
-{
-#if !defined(EXPERIMENTAL)
-    return x;
-#else
-    // Meant to provide a slight easing so that most time is spent in middle game
-    return (float(qSin(M_PI * qreal(x))) * 0.5f) + 0.5f;
-#endif
 }
 
 void Clock::calculateDeadline(bool isPartial)
@@ -176,7 +177,7 @@ void Clock::calculateDeadline(bool isPartial)
     const qint64 t = time(m_onTheClock);
     const qint64 inc = increment(m_onTheClock);
     const qint64 maximum = t - overhead;
-    const qint64 ideal = qRound(easingCurve(t / expectedHalfMovesTillEOG() + inc));
+    const qint64 ideal = qRound((t / expectedHalfMovesTillEOG() + inc) * SearchSettings::savingsTimeFactor);
 
     // Largest factor is a quarter of remaining time
     qint64 trendFactor = qRound((maximum / 4) * m_info.trendDegree);

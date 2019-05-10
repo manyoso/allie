@@ -28,6 +28,8 @@ float SearchSettings::cpuctInit = 3.4f;
 float SearchSettings::cpuctBase = 10000;
 float SearchSettings::fpuReduction = 1.2f;
 float SearchSettings::policySoftmaxTemp = 1 / 2.2f;
+float SearchSettings::savingsTimeFactor = 2.0f;
+qint64 SearchSettings::earlyExitMinimumTime = 200;
 int SearchSettings::tryPlayoutLimit = 32;
 int SearchSettings::vldMax = 10000;
 

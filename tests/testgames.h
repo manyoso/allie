@@ -70,6 +70,7 @@ private slots:
     void testStartingPositionBlack();
     void test960();
     void testSearchForMateInOne();
+    void testEarlyExit();
     void testInstaMove();
     void testHistory();
     void testThreeFold();
