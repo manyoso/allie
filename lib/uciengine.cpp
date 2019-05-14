@@ -620,6 +620,9 @@ void UciEngine::uciNewGame()
     m_gameInitialized = true;
 
     Hash::globalInstance()->reset();
+    const QString weightsFile = Options::globalInstance()->option("WeightsFile").value();
+    if (!weightsFile.isEmpty())
+        NeuralNet::globalInstance()->setWeights(weightsFile);
     NeuralNet::globalInstance()->reset();
     TB::globalInstance()->reset();
     m_searchEngine->reset();

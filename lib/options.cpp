@@ -163,6 +163,14 @@ Options::Options()
     useHalfFloatingPoint.m_value = useHalfFloatingPoint.m_default;
     useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
     insertOption(useHalfFloatingPoint);
+
+    UciOption weightsFile;
+    weightsFile.m_name = QLatin1Literal("WeightsFile");
+    weightsFile.m_type = UciOption::String;
+    weightsFile.m_default = QLatin1Literal("");
+    weightsFile.m_value = weightsFile.m_default;
+    weightsFile.m_description = QLatin1String("Provides a weights file to use");
+    insertOption(weightsFile);
 }
 
 Options::~Options()

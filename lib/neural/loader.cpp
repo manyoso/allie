@@ -240,7 +240,7 @@ std::string DiscoverWeightsFile() {
       CERR << "Found txt network file: " << candidate.second;
 #else
       QFileInfo info(QString::fromStdString(candidate.second));
-      fprintf(stderr, "Using leela net: %s\n", info.fileName().toLatin1().constData());
+      fprintf(stderr, "Using weights: %s\n", info.fileName().toLatin1().constData());
 #endif
       return candidate.second;
     }
@@ -255,7 +255,7 @@ std::string DiscoverWeightsFile() {
       CERR << "Found pb network file: " << candidate.second;
 #else
       QFileInfo info(QString::fromStdString(candidate.second));
-      fprintf(stderr, "Using leela net: %s\n", info.fileName().toLatin1().constData());
+      fprintf(stderr, "Using weights: %s\n", info.fileName().toLatin1().constData());
 #endif
       return candidate.second;
     }

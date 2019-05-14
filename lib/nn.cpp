@@ -183,6 +183,7 @@ void NeuralNet::setWeights(const QString &pathToWeights)
 {
     QFileInfo info(pathToWeights);
     if (info.exists()) {
+        fprintf(stderr, "Using weights: %s\n", pathToWeights.toLatin1().constData());
         s_weights = LoadWeightsFromFile(pathToWeights.toStdString());
         m_weightsValid = true;
     } else {
