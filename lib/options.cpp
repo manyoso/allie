@@ -128,16 +128,6 @@ Options::Options()
     tb.m_description = QLatin1String("Path to the syzygy tablebase");
     insertOption(tb);
 
-    UciOption threads;
-    threads.m_name = QLatin1Literal("Threads");
-    threads.m_type = UciOption::Spin;
-    threads.m_default = QLatin1Literal("1");
-    threads.m_value = threads.m_default;
-    threads.m_min = QLatin1Literal("0");
-    threads.m_max = QLatin1Literal("256");
-    threads.m_description = QLatin1String("Number of threads to use");
-    insertOption(threads);
-
     UciOption treeSize;
     treeSize.m_name = QLatin1Literal("TreeSize");
     treeSize.m_type = UciOption::Spin;
