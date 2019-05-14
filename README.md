@@ -14,7 +14,7 @@ Not exactly. AF and the Stein are (apparently quite successful) experiments with
 
 ## Ok, so details. How is she different?
 
-Well, I was inspired during the original CCC to see if you could pair traditional Minimax/AlphaBeta search with an NN. This is still her main purpose and the focus going forward. However, the initial versions were using a similar pure MCTS algorithm as Lc0 and AlphaZero.
+Well, I was inspired during the original CCC to see if you could pair traditional Minimax/AlphaBeta search with an NN. This is still her main purpose and the focus going forward. However, the initial versions were using a similar pure MCTS algorithm as Lc0 and AlphaZero. The current versions of Allie use a modified hybrid search of Minimax and Monte Carlo.
 
 Here is a non-exhaustive list of differences:
 - UCI protocol code
@@ -43,7 +43,7 @@ Here is what Allie uses from the Lc0 codebase:
 
 ## All right, brass tacks how strong is she?
 
-Depends. First, her ELO will obviously depend upon which network is used. However, head-to-head using the same network on my limited hardware setup she is currently 50-100 elo behind.
+Depends. First, her ELO will obviously depend upon which network is used. However, head-to-head using the same network on my limited hardware setup she is very competitive with Lc0 and SF.
 
 ## Why did you develop her rather than just help out Leela?
 
