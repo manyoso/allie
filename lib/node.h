@@ -185,7 +185,7 @@ private:
     float m_rawQValue;
     float m_pValue;
     float m_policySum;
-    mutable float m_uCoeff;
+    float m_uCoeff;
     bool m_isExact: 1;
     bool m_isTB: 1;
     bool m_isDirty: 1;
@@ -333,17 +333,6 @@ inline float Node::qValue() const
 
 inline float Node::uCoeff() const
 {
-    if (qFuzzyCompare(m_uCoeff, -2.0f)) {
-        const quint32 N = qMax(quint32(1), m_visited);
-#if defined(USE_CPUCT_SCALING)
-        // From Deepmind's A0 paper
-        // log ((1 + N(s) + cbase)/cbase) + cini
-        const float growth = SearchSettings::cpuctF * fastlog((1 + N + SearchSettings::cpuctBase) / SearchSettings::cpuctBase);
-#else
-        const float growth = 0.0f;
-#endif
-        m_uCoeff = (SearchSettings::cpuctInit + growth) * float(qSqrt(N));
-    }
     return m_uCoeff;
 }
 

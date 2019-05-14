@@ -583,9 +583,17 @@ start_playout:
 
 void Node::incrementVisited()
 {
-    m_uCoeff = -2.0f;
-    m_virtualLoss = 0;
     ++m_visited;
+    const quint32 N = qMax(quint32(1), m_visited);
+#if defined(USE_CPUCT_SCALING)
+    // From Deepmind's A0 paper
+    // log ((1 + N(s) + cbase)/cbase) + cini
+    const float growth = SearchSettings::cpuctF * fastlog((1 + N + SearchSettings::cpuctBase) / SearchSettings::cpuctBase);
+#else
+    const float growth = 0.0f;
+#endif
+    m_uCoeff = (SearchSettings::cpuctInit + growth) * float(qSqrt(N));
+    m_virtualLoss = 0;
     m_isDirty = false;
 }
 
