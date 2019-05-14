@@ -189,7 +189,7 @@ void Node::backPropagateValue(float v)
     m_qValue = (m_visited * currentQValue + v) / float(m_visited + 1);
     incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
-    qDebug() << "bp " << toString() << " n:" << n
+    qDebug() << "bp " << toString() << " n:" << m_visited
         << "v:" << v << "oq:" << currentQValue << "fq:" << m_qValue;
 #endif
 }
@@ -366,11 +366,8 @@ public:
 
     float qValue() const
     {
-        if (isPotential()) {
-            if (m_parent->isRootNode())
-                return 1.0f;
+        if (isPotential())
             return m_parent->qValueDefault();
-        }
         return m_node->qValue();
     }
 
@@ -797,8 +794,8 @@ QString Node::printTree(int depth) /*const*/
         << qSetFieldWidth(4) << left << " n: " << qSetFieldWidth(4) << right << m_visited + m_virtualLoss
         << qSetFieldWidth(4) << left << " p: " << qSetFieldWidth(5) << qSetRealNumberPrecision(2) << right << pValue() * 100 << qSetFieldWidth(1) << left << "%"
         << qSetFieldWidth(4) << left << " q: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << qValue()
-        << qSetFieldWidth(4) << " u: " << qSetFieldWidth(6) << qSetRealNumberPrecision(5) << right << uValue()
-        << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << weightedExplorationScore()
+        << qSetFieldWidth(4) << " u: " << qSetFieldWidth(6) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : uValue())
+        << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : weightedExplorationScore())
         << qSetFieldWidth(4) << " v: " << qSetFieldWidth(7) << qSetRealNumberPrecision(4) << right << rawQValue()
         << qSetFieldWidth(4) << " h: " << qSetFieldWidth(2) << right << qMax(1, treeDepth() - d)
         << qSetFieldWidth(4) << " cp: " << qSetFieldWidth(2) << right << scoreToCP(qValue());

@@ -325,11 +325,9 @@ inline float Node::qValueDefault() const
 
 inline float Node::qValue() const
 {
-    if (isRootNode() || m_visited > 0)
+    if (m_visited > 0)
         return m_qValue;
 
-    if (m_parent->isRootNode())
-        return 1.0f;
     return m_parent->qValueDefault();
 }
 
@@ -351,9 +349,6 @@ inline float Node::uCoeff() const
 
 inline float Node::uValue() const
 {
-    if (isRootNode())
-        return 100.f;
-
     const qint64 n = m_visited + m_virtualLoss;
     const float p = m_pValue;
     return m_parent->uCoeff() * p / (n + 1);
@@ -361,8 +356,6 @@ inline float Node::uValue() const
 
 inline float Node::weightedExplorationScore() const
 {
-    if (isRootNode())
-        return 1.0f + uValue();
     const float q = qValue();
     return q + uValue();
 }
