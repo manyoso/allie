@@ -59,12 +59,3 @@ QDebug operator<<(QDebug debug, const Search &search)
 
     return debug.space();
 }
-
-QString trendToString(Trend t)
-{
-    switch (t) {
-    case Worse: return "Worse";
-    case Better: return "Better";
-    }
-    Q_UNREACHABLE();
-}

@@ -469,6 +469,16 @@ void UciEngine::sendBestMove(bool force)
     if (Q_UNLIKELY(m_ioHandler))
         m_ioHandler->handleBestMove(m_lastInfo.bestMove);
 
+#if defined(DEBUG_TIME)
+    // This should only happen when we are completely out of time
+    if (!m_lastInfo.bestIsMostVisited) {
+        QString out;
+        QTextStream stream(&out);
+        stream << "info bestIsMostVisited " << (m_lastInfo.bestIsMostVisited ? "true" : "false") << endl;
+        output(out);
+    }
+#endif
+
     QString out;
     QTextStream stream(&out);
     if (m_lastInfo.ponderMove.isEmpty())
@@ -476,6 +486,7 @@ void UciEngine::sendBestMove(bool force)
     else
         stream << "bestmove " << m_lastInfo.bestMove << " ponder " << m_lastInfo.ponderMove << endl;
     output(out);
+
     calculateRollingAverage(m_lastInfo);
 
     stopSearch(); // we block until the search has stopped
@@ -541,9 +552,6 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
 #if defined(DEBUG_TIME)
     stream << "info"
-        << " trend " << trendToString(m_lastInfo.trend)
-        << " trendDegree " << m_lastInfo.trendDegree
-        << " trendFactor " << m_clock->trendFactor()
         << " deadline " << m_clock->deadline()
         << " timeToDeadline " << m_clock->timeToDeadline()
         << endl;
@@ -771,6 +779,7 @@ void UciEngine::go(const Search& s)
     m_clock->setInfinite(s.infinite || s.depth != -1);
     m_clock->setMaterialScore(s.game.materialScore(Chess::White) + s.game.materialScore(Chess::Black));
     m_clock->setHalfMoveNumber(s.game.halfMoveNumber());
+    m_clock->resetExtension();
     m_clock->startDeadline(s.game.activeArmy());
     m_timeAtLastProgress = 0;
     m_depthTargeted = s.depth;

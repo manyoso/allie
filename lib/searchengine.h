@@ -125,9 +125,6 @@ private:
     Tree *m_tree;
     int m_startedWorkers;
     quint32 m_estimatedNodes;
-    float m_score;
-    float m_trendDegree;
-    Trend m_trend;
     SearchInfo m_currentInfo;
     QVector<WorkerThread*> m_workers;
     QMutex m_mutex;

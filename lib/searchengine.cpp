@@ -421,9 +421,6 @@ SearchEngine::SearchEngine(QObject *parent)
     m_tree(new Tree),
     m_startedWorkers(0),
     m_estimatedNodes(std::numeric_limits<quint32>::max()),
-    m_score(0),
-    m_trendDegree(0.0f),
-    m_trend(Better),
     m_stop(false)
 {
     qRegisterMetaType<Search>("Search");
@@ -538,9 +535,6 @@ void SearchEngine::startSearch(const Search &s)
     SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();
 
     m_startedWorkers = 0;
-    m_score = 0;
-    m_trendDegree = 0.0f;
-    m_trend = Better;
     m_currentInfo = SearchInfo();
     m_stop = false;
     m_estimatedNodes = std::numeric_limits<quint32>::max();
@@ -680,29 +674,17 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
 
     float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
 
-    bool shouldEarlyExit = (!m_tree->root->hasPotentials() && m_tree->root->children().count() == 1)
-        || m_tree->root->shouldEarlyExit(m_estimatedNodes);
+    QPair<Node*, Node*> topTwoChildren = m_tree->root->topTwoChildren();
+    const qint64 diff = qint64(topTwoChildren.first->m_visited) - qint64(topTwoChildren.second->m_visited);
+    const bool bestIsMostVisited = diff > 0;
+    const bool onlyOneLegalMove = (!m_tree->root->hasPotentials() && m_tree->root->children().count() == 1);
+    bool shouldEarlyExit = onlyOneLegalMove || (bestIsMostVisited && diff > m_estimatedNodes);
+    m_currentInfo.bestIsMostVisited = bestIsMostVisited;
 
     // Unlock for read
     m_tree->mutex.unlock();
 
     m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isTB);
-
-    // Update our trend
-    Trend t;
-    if (qFuzzyCompare(score, m_score))
-        t = m_trend;
-    else if (score < m_score)
-        t = Worse;
-    else
-        t = Better;
-
-    static const float scaleScore = qAbs(cpToScore(900)); // a queen
-    m_trend = t;
-    m_trendDegree = qAbs(score - m_score) / scaleScore;
-    m_score = score;
-    m_currentInfo.trend = m_trend;
-    m_currentInfo.trendDegree = m_trendDegree;
 
     emit sendInfo(m_currentInfo, isPartial);
     if (shouldEarlyExit)

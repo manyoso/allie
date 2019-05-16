@@ -412,18 +412,8 @@ private:
     PotentialNode *m_potential;
 };
 
-bool Node::shouldEarlyExit(quint32 maxPlayouts) const
+QPair<Node*, Node*> Node::topTwoChildren() const
 {
-    Q_ASSERT(isRootNode());
-    if (hasPotentials())
-        return false;
-
-    if (m_children.count() < 2)
-        return true;
-
-    if (maxPlayouts == std::numeric_limits<quint32>::max())
-        return false;
-
     // Sort the first two children by score
     QVector<Node*> children = m_children;
     std::partial_sort(children.begin(), children.begin() + 2, children.end(),
@@ -433,12 +423,7 @@ bool Node::shouldEarlyExit(quint32 maxPlayouts) const
 
     Node *firstChild = children.at(0);
     Node *secondChild = children.at(1);
-    if (firstChild->m_visited < secondChild->m_visited)
-        return false;
-
-    const quint32 visitsToCatchUP = firstChild->m_visited - secondChild->m_visited;
-    const bool r = visitsToCatchUP > maxPlayouts;
-    return r;
+    return qMakePair(firstChild, secondChild);
 }
 
 Node *Node::playout(int *depth, bool *createdNode)

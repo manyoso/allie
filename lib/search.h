@@ -54,13 +54,6 @@ struct SearchSettings {
 
 QDebug operator<<(QDebug, const Search &);
 
-enum Trend {
-    Worse = 0,
-    Better
-};
-
-QString trendToString(Trend t);
-
 struct WorkerInfo {
     int sumDepths = 0;
     int maxDepth = 0;
@@ -84,12 +77,11 @@ struct SearchInfo {
     int batchSize = -1;
     QString pv;
     int rawnps = -1;
-    Trend trend = Better;
-    float trendDegree = 0.0;
     QString bestMove;
     QString ponderMove;
     bool isResume = false;
     bool isDTZ = false;
+    bool bestIsMostVisited = true;
     WorkerInfo workerInfo;
 };
 

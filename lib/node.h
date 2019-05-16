@@ -138,7 +138,7 @@ public:
     static float minimax(Node *, bool *isExact);
     static void validateTree(Node *);
     bool isAlreadyPlayingOut() const;
-    bool shouldEarlyExit(quint32 maxPlayouts) const;
+    QPair<Node*, Node*> topTwoChildren() const;
     Node *playout(int *depth, bool *createdNode);
 
     bool hasPValue() const;
