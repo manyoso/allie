@@ -85,7 +85,7 @@ Options::Options()
     UciOption hash;
     hash.m_name = QLatin1Literal("Hash");
     hash.m_type = UciOption::Spin;
-    hash.m_default = QLatin1Literal("20");
+    hash.m_default = QLatin1Literal("512");
     hash.m_value = hash.m_default;
     hash.m_min = QLatin1Literal("0");
     hash.m_max = QLatin1Literal("65536");
