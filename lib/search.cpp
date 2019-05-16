@@ -37,13 +37,13 @@ QDebug operator<<(QDebug debug, const Search &search)
     if (!search.searchMoves.isEmpty())
         debug << "searchmoves: " << search.searchMoves;
     if (search.wtime != -1)
-        debug << "movestogo: " << search.wtime;
+        debug << "wtime: " << search.wtime;
     if (search.btime != -1)
-        debug << "movestogo: " << search.btime;
+        debug << "btime: " << search.btime;
     if (search.winc != -1)
-        debug << "movestogo: " << search.winc;
+        debug << "winc: " << search.winc;
     if (search.binc != -1)
-        debug << "movestogo: " << search.binc;
+        debug << "binc: " << search.binc;
     if (search.movestogo != -1)
         debug << "movestogo: " << search.movestogo;
     if (search.depth != -1)
