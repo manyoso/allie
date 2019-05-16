@@ -50,7 +50,6 @@ struct SearchSettings {
     static float savingsTimeFactor;
     static qint64 earlyExitMinimumTime;
     static int tryPlayoutLimit;
-    static int vldMax;
 };
 
 QDebug operator<<(QDebug, const Search &);

@@ -31,7 +31,6 @@ float SearchSettings::policySoftmaxTemp = 1 / 2.2f;
 float SearchSettings::savingsTimeFactor = 2.0f;
 qint64 SearchSettings::earlyExitMinimumTime = 200;
 int SearchSettings::tryPlayoutLimit = 32;
-int SearchSettings::vldMax = 10000;
 
 QDebug operator<<(QDebug debug, const Search &search)
 {
