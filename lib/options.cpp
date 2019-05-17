@@ -112,6 +112,16 @@ Options::Options()
     moveOverhead.m_description = QLatin1String("Overhead to avoid timing out");
     insertOption(moveOverhead);
 
+    UciOption openingTimeFactor;
+    openingTimeFactor.m_name = QLatin1Literal("OpeningTimeFactor");
+    openingTimeFactor.m_type =  UciOption::String;
+    openingTimeFactor.m_default = QString::number(double(SearchSettings::openingTimeFactor));
+    openingTimeFactor.m_value = openingTimeFactor.m_default;
+    openingTimeFactor.m_min = QLatin1Literal("1");
+    openingTimeFactor.m_max = QLatin1Literal("3");
+    openingTimeFactor.m_description = QLatin1String("Time factor for extra time in opening");
+    insertOption(openingTimeFactor);
+
     UciOption ponder;
     ponder.m_name = QLatin1Literal("Ponder");
     ponder.m_type = UciOption::Check;

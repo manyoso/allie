@@ -201,7 +201,7 @@ void Clock::calculateDeadline(bool isPartial)
     const qint64 t = time(m_onTheClock);
     const qint64 inc = increment(m_onTheClock);
     const qint64 maximum = t - overhead;
-    const qint64 ideal = qRound((t / expectedHalfMovesTillEOG() + inc) * SearchSettings::savingsTimeFactor);
+    const qint64 ideal = qRound((t / expectedHalfMovesTillEOG() + inc) * SearchSettings::openingTimeFactor);
 
     // Calculate the actual deadline
     qint64 deadline = 5000;
