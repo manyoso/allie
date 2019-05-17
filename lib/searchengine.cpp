@@ -573,6 +573,8 @@ void SearchEngine::startSearch(const Search &s)
             m_currentInfo.bestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
             if (Node *ponder = best->bestChild())
                 m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
+            else
+                m_currentInfo.ponderMove = QString();
             onlyLegalMove = !m_tree->root->hasPotentials() && m_tree->root->children().count() == 1;
             int pvDepth = 0;
             bool isTB = false;
@@ -671,6 +673,8 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     // Record a ponder move
     if (Node *ponder = best->bestChild())
         m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
+    else
+        m_currentInfo.ponderMove = QString();
 
     // Record a pv and score
     int pvDepth = 0;
