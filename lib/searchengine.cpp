@@ -661,12 +661,23 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
 
     float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
 
-    QPair<Node*, Node*> topTwoChildren = m_tree->root->topTwoChildren();
-    const qint64 diff = qint64(topTwoChildren.first->m_visited) - qint64(topTwoChildren.second->m_visited);
-    const bool bestIsMostVisited = diff > 0;
+    // Check for an early exit
+    bool shouldEarlyExit = false;
+    Q_ASSERT(m_tree->root->hasChildren());
     const bool onlyOneLegalMove = (!m_tree->root->hasPotentials() && m_tree->root->children().count() == 1);
-    bool shouldEarlyExit = onlyOneLegalMove || (bestIsMostVisited && diff > m_estimatedNodes);
-    m_currentInfo.bestIsMostVisited = bestIsMostVisited;
+    if (onlyOneLegalMove) {
+        shouldEarlyExit = true;
+        m_currentInfo.bestIsMostVisited = true;
+    } else if (m_tree->root->children().count() > 1) {
+        QPair<Node*, Node*> topTwoChildren = m_tree->root->topTwoChildren();
+        const qint64 diff = qint64(topTwoChildren.first->m_visited) - qint64(topTwoChildren.second->m_visited);
+        const bool bestIsMostVisited = diff > 0;
+        shouldEarlyExit = bestIsMostVisited && diff > m_estimatedNodes;
+        m_currentInfo.bestIsMostVisited = bestIsMostVisited;
+    } else {
+        m_currentInfo.bestIsMostVisited = true;
+        Q_UNREACHABLE();
+    }
 
     // Unlock for read
     m_tree->mutex.unlock();

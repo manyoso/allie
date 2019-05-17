@@ -445,6 +445,7 @@ private:
 
 QPair<Node*, Node*> Node::topTwoChildren() const
 {
+    Q_ASSERT(m_children.count() > 1);
     // Sort the first two children by score
     QVector<Node*> children = m_children;
     std::partial_sort(children.begin(), children.begin() + 2, children.end(),
