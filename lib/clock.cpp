@@ -25,8 +25,6 @@
 
 #include "options.h"
 
-//#define USE_EXTENDED_TIME
-
 using namespace Chess;
 
 Clock::Clock(QObject *parent)
@@ -112,15 +110,6 @@ void Clock::startDeadline(Chess::Army army)
 
 void Clock::updateDeadline(const SearchInfo &info, bool isPartial)
 {
-    // If we are already in extended mode and best has become most visited, then stop
-    if (m_isExtended) {
-        if (info.bestIsMostVisited) {
-            m_timeout->stop();
-            emit timeout();
-        }
-        return;
-    }
-
     m_info = info;
     calculateDeadline(isPartial);
 }
@@ -132,7 +121,7 @@ qint64 Clock::elapsed() const
 
 bool Clock::hasExpired() const
 {
-    return m_timer.hasExpired(m_deadline) && !m_isExtended;
+    return m_timer.hasExpired(m_deadline);
 }
 
 qint64 Clock::timeToDeadline() const
@@ -160,9 +149,6 @@ void Clock::stop()
 
 void Clock::maybeTimeout()
 {
-#if !defined(USE_EXTENDED_TIME)
-    emit timeout();
-#else
     // If best is most visited just timeout as usual
     if (m_info.bestIsMostVisited) {
         emit timeout();
@@ -187,8 +173,7 @@ void Clock::maybeTimeout()
     }
 
     m_isExtended = true;
-    m_timeout->start(int(maximum));
-#endif
+    m_timeout->start(qMax(int(0), int(maximum - elapsed())));
 }
 
 int Clock::expectedHalfMovesTillEOG() const

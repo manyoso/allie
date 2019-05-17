@@ -102,6 +102,8 @@ public:
     quint32 estimatedNodes() const { return m_estimatedNodes; }
     void setEstimatedNodes(quint32 nodes) { m_estimatedNodes = nodes; }
 
+    bool isStopped() const { return m_stop; }
+
 public Q_SLOTS:
     void reset();
     void startSearch(const Search &search);

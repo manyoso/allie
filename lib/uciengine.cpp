@@ -500,11 +500,19 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     m_lastInfo = info;
 
+    // Check if we are in extended mode and best has become most visited
+    if (m_clock->isExtended() && m_lastInfo.bestIsMostVisited) {
+        sendBestMove(true /*force*/);
+        return;
+    }
+
     // Check if we've already exceeded time
     if (m_clock->hasExpired()) {
         sendBestMove(true /*force*/);
         return;
     }
+
+    Q_ASSERT(!m_searchEngine->isStopped());
 
     // Check if we've exceeded the ram limit for tree size
     const quint64 treeSizeLimit = Options::globalInstance()->option("TreeSize").value().toUInt() * quint64(1024) * quint64(1024);
@@ -585,6 +593,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
            << " pv " << m_lastInfo.pv
            << endl;
 
+    Q_ASSERT(m_clock->isActive());
     output(out);
 
     // Stop at specific targets if requested or if we have a dtz move

@@ -317,7 +317,9 @@ void SearchWorker::ensureRootAndChildrenScored()
         WorkerInfo info;
         QVector<Node*> nodes;
         if (!root->setScoringOrScored()) {
+            m_tree->mutex.lock();
             root->m_virtualLoss += 1;
+            m_tree->mutex.unlock();
             bool shouldFetchFromNN = handlePlayout(root);
             if (shouldFetchFromNN)
                 nodes.append(root);
@@ -327,14 +329,21 @@ void SearchWorker::ensureRootAndChildrenScored()
 
     {
         // Fetch and minimax for children of root
-        QVector<Node*> nodes;
+        m_tree->mutex.lock();
         bool didWork = false;
+        QVector<Node *> children;
         QVector<PotentialNode*> potentials = root->m_potentials; // copy
         for (PotentialNode *potential : potentials) {
             Node *child = root->generateChild(potential);
             child->m_virtualLoss += 1;
             child->setScoringOrScored();
+            children.append(child);
             didWork = true;
+        }
+        m_tree->mutex.unlock();
+
+        QVector<Node*> nodes;
+        for (Node *child : children) {
             bool shouldFetchFromNN = handlePlayout(child);
             if (shouldFetchFromNN)
                 nodes.append(child);
@@ -675,7 +684,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
         shouldEarlyExit = bestIsMostVisited && diff > m_estimatedNodes;
         m_currentInfo.bestIsMostVisited = bestIsMostVisited;
     } else {
-        m_currentInfo.bestIsMostVisited = true;
+        m_currentInfo.bestIsMostVisited = false;
         Q_UNREACHABLE();
     }
 
