@@ -561,8 +561,9 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
         stream << "info"
                << " isResume " << (m_lastInfo.isResume ? "true" : "false")
                << " rawnps " << m_lastInfo.rawnps
-               << " efficiency " << m_lastInfo.workerInfo.nodesSearched / float(m_lastInfo.workerInfo.nodesEvaluated)
+               << " efficiency " << m_lastInfo.workerInfo.nodesCreated / float(m_lastInfo.workerInfo.nodesEvaluated)
                << " nodesSearched " << m_lastInfo.workerInfo.nodesSearched
+               << " nodesSearchedTotal " << m_lastInfo.workerInfo.nodesSearchedTotal
                << " nodesEvaluated " << m_lastInfo.workerInfo.nodesEvaluated
                << " nodesCreated " << m_lastInfo.workerInfo.nodesCreated
                << " nodesCacheHits " << m_lastInfo.workerInfo.nodesCacheHits

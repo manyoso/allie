@@ -135,7 +135,7 @@ public:
     void setQValueAndPropagate();
     void backPropagateDirty();
     void scoreMiniMax(float score, bool isExact);
-    static float minimax(Node *, bool *isExact);
+    static float minimax(Node *, bool *isExact, int depth, WorkerInfo *info);
     static void validateTree(Node *);
     bool isAlreadyPlayingOut() const;
     QPair<Node*, Node*> topTwoChildren() const;

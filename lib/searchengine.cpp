@@ -70,7 +70,7 @@ void SearchWorker::startSearch(Tree *tree)
 }
 
 void SearchWorker::fetchBatch(const QVector<Node*> &batch,
-    lczero::Network *network, Tree *tree, const WorkerInfo &info)
+    lczero::Network *network, Tree *tree)
 {
     Computation computation(network);
     for (int index = 0; index < batch.count(); ++index) {
@@ -91,6 +91,7 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         return;
     }
 
+    WorkerInfo info;
     {
         QMutexLocker locker(&tree->mutex);
         for (int index = 0; index < batch.count(); ++index) {
@@ -105,20 +106,20 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
 
         // Gather minimax scores;
         bool isExact = false;
-        Node::minimax(m_tree->root, &isExact);
+        Node::minimax(m_tree->root, &isExact, 0 /*depth*/, &info);
 #if defined(DEBUG_VALIDATE_TREE)
         Node::validateTree(m_tree->root);
 #endif
     }
 
-    WorkerInfo myInfo = info;
-    myInfo.nodesEvaluated += batch.count();
-    myInfo.numberOfBatches += 1;
-    myInfo.threadId = QThread::currentThread()->objectName();
-    emit sendInfo(myInfo);
+    info.nodesCacheHits = info.nodesCreated - batch.count();
+    info.nodesEvaluated += batch.count();
+    info.numberOfBatches += 1;
+    info.threadId = QThread::currentThread()->objectName();
+    emit sendInfo(info);
 }
 
-void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, const WorkerInfo &info, bool sync)
+void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, bool sync)
 {
     Q_ASSERT(!nodesToFetch.isEmpty());
     const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
@@ -143,10 +144,10 @@ void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, const WorkerI
         lczero::Network *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
         Q_ASSERT(network);
         if (sync) {
-            fetchBatch(batch, network, m_tree, info);
+            fetchBatch(batch, network, m_tree);
         } else {
             std::function<void()> fetchBatch = std::bind(&SearchWorker::fetchBatch, this,
-                batch, network, m_tree, info);
+                batch, network, m_tree);
             m_futures.append(QtConcurrent::run(fetchBatch));
         }
     }
@@ -162,39 +163,38 @@ bool SearchWorker::fillOutTree()
     const int fetchSize = maxSize;
 
     bool didWork = false;
-    WorkerInfo info;
-    QVector<Node*> playouts = playoutNodes(fetchSize, &didWork, &info);
+    QVector<Node*> playouts = playoutNodes(fetchSize, &didWork);
     if (!playouts.isEmpty() || didWork)
-        fetchAndMinimax(playouts, info, false /*sync*/);
+        fetchAndMinimax(playouts, false /*sync*/);
     return didWork;
 }
 
-void SearchWorker::fetchAndMinimax(QVector<Node*> nodes, const WorkerInfo &info, bool sync)
+void SearchWorker::fetchAndMinimax(QVector<Node*> nodes, bool sync)
 {
     if (!nodes.isEmpty()) {
-        fetchFromNN(nodes, info, sync);
+        fetchFromNN(nodes, sync);
     } else {
+        WorkerInfo info;
         {
             QMutexLocker locker(&m_tree->mutex);
             // Gather minimax scores;
             bool isExact = false;
-            Node::minimax(m_tree->root, &isExact);
+            Node::minimax(m_tree->root, &isExact, 0 /*depth*/, &info);
 #if defined(DEBUG_VALIDATE_TREE)
             Node::validateTree(m_tree->root);
 #endif
         }
+
+        info.nodesCacheHits = info.nodesCreated;
+        info.threadId = QThread::currentThread()->objectName();
         emit sendInfo(info);
     }
 }
 
-bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
+bool SearchWorker::handlePlayout(Node *playout)
 {
-    info->nodesSearched += 1;
-    info->sumDepths += depth;
-    info->maxDepth = qMax(info->maxDepth, depth);
-
 #if defined(DEBUG_PLAYOUT)
-    qDebug() << "adding regular playout" << playout->toString() << "depth" << depth;
+    qDebug() << "adding regular playout" << playout->toString();
 #endif
 
     // If we *re-encounter* a true term node that overrides the NN (checkmate/stalemate/drawish...)
@@ -204,9 +204,6 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding exact playout" << playout->toString();
 #endif
-        info->nodesCacheHits += 1;
-        if (playout->m_isTB)
-            info->nodesTBHits += 1;
         QMutexLocker locker(&m_tree->mutex);
         playout->backPropagateDirty();
         return false;
@@ -215,8 +212,6 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     // Generate potential moves of the node if possible
     m_tree->mutex.lock();
     playout->generatePotentials();
-    if (playout->m_isTB)
-        info->nodesTBHits += 1;
     m_tree->mutex.unlock();
 
     // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
@@ -227,7 +222,6 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
         qDebug() << "adding exact playout 2" << playout->toString();
 #endif
         // Dirty flag gets set in generate potentials above
-        info->nodesCacheHits += 1;
         return false;
     }
 
@@ -240,7 +234,6 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
             qDebug() << "found cached playout" << playout->toString();
 #endif
             // Dirty flag gets set in fillOut above
-            info->nodesCacheHits += 1;
             playout->sortByPVals(); // strictly after we filled from hash
             return false;
         }
@@ -249,7 +242,7 @@ bool SearchWorker::handlePlayout(Node *playout, int depth, WorkerInfo *info)
     return true; // Otherwise we should fetch from NN
 }
 
-QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, WorkerInfo *info)
+QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork)
 {
 #if defined(DEBUG_PLAYOUT)
     qDebug() << "begin playout filling" << size;
@@ -285,8 +278,6 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, WorkerInfo *i
         const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
 #endif
 
-        if (createdNode)
-            info->nodesCreated += 1;
         m_tree->mutex.unlock();
 
         if (!playout)
@@ -294,14 +285,12 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, WorkerInfo *i
 
         *didWork = true;
 
-        info->nodesSearchedTotal += 1;
-
         if (isExistingPlayout) {
             ++exactOrCached;
             continue;
         }
 
-        bool shouldFetchFromNN = handlePlayout(playout, depth, info);
+        bool shouldFetchFromNN = handlePlayout(playout);
         if (!shouldFetchFromNN) {
             ++exactOrCached;
             continue;
@@ -329,17 +318,15 @@ void SearchWorker::ensureRootAndChildrenScored()
         QVector<Node*> nodes;
         if (!root->setScoringOrScored()) {
             root->m_virtualLoss += 1;
-            WorkerInfo info;
-            bool shouldFetchFromNN = handlePlayout(root, 0, &info);
+            bool shouldFetchFromNN = handlePlayout(root);
             if (shouldFetchFromNN)
                 nodes.append(root);
-            fetchAndMinimax(nodes, info, true /*sync*/);
+            fetchAndMinimax(nodes, true /*sync*/);
         }
     }
 
     {
         // Fetch and minimax for children of root
-        WorkerInfo info;
         QVector<Node*> nodes;
         bool didWork = false;
         QVector<PotentialNode*> potentials = root->m_potentials; // copy
@@ -348,13 +335,13 @@ void SearchWorker::ensureRootAndChildrenScored()
             child->m_virtualLoss += 1;
             child->setScoringOrScored();
             didWork = true;
-            bool shouldFetchFromNN = handlePlayout(child, 1, &info);
+            bool shouldFetchFromNN = handlePlayout(child);
             if (shouldFetchFromNN)
                 nodes.append(child);
         }
 
         if (didWork)
-            fetchAndMinimax(nodes, info, true /*sync*/);
+            fetchAndMinimax(nodes, true /*sync*/);
     }
 }
 

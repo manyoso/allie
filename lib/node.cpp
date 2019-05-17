@@ -241,15 +241,40 @@ void Node::scoreMiniMax(float score, bool isExact)
     ++m_visited;
 }
 
-float Node::minimax(Node *node, bool *isExact)
+float Node::minimax(Node *node, bool *isExact, int depth, WorkerInfo *info)
 {
     Q_ASSERT(node);
     Q_ASSERT(node->hasRawQValue());
 
     const bool isTrueTerminal = node->isTrueTerminal();
 
-    // First we look to see if this node has been scored or if it is a dirty terminal
-    if (!node->hasQValue() || (isTrueTerminal && node->m_isDirty)) {
+    // First we look to see if this node has been scored
+    if (!node->hasQValue()) {
+        // Record info
+        ++(info->nodesSearched);
+        ++(info->nodesSearchedTotal);
+        ++(info->nodesCreated);
+        info->sumDepths += depth;
+        info->maxDepth = qMax(info->maxDepth, depth);
+        if (node->m_isTB)
+            ++(info->nodesTBHits);
+
+        Q_ASSERT(node->m_isDirty);
+        *isExact = node->isTrueTerminal();
+        node->setQValueAndPropagate();
+        return node->m_qValue;
+    }
+
+    // Next look if it is a dirty terminal
+    if (isTrueTerminal && node->m_isDirty) {
+        // Record info
+        ++(info->nodesSearched);
+        ++(info->nodesSearchedTotal);
+        info->sumDepths += depth;
+        info->maxDepth = qMax(info->maxDepth, depth);
+        if (node->m_isTB)
+            ++(info->nodesTBHits);
+
         Q_ASSERT(node->m_isDirty);
         *isExact = node->isTrueTerminal();
         node->setQValueAndPropagate();
@@ -281,7 +306,7 @@ float Node::minimax(Node *node, bool *isExact)
         }
 
         bool subtreeIsExact = false;
-        float score = minimax(child, &subtreeIsExact);
+        float score = minimax(child, &subtreeIsExact, depth + 1, info);
 
         // Check if we have a new best child
         if (score > best) {
@@ -297,6 +322,12 @@ float Node::minimax(Node *node, bool *isExact)
 
     // Score the node based on minimax of children
     node->scoreMiniMax(-best, shouldPropagateExact);
+
+    // Record info
+    ++(info->nodesSearched);
+    ++(info->nodesSearchedTotal);
+    info->sumDepths += depth;
+    info->maxDepth = qMax(info->maxDepth, depth);
 
     *isExact = shouldPropagateExact;
     return node->m_qValue;

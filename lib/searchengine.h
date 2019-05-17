@@ -59,14 +59,14 @@ private Q_SLOTS:
 
 private:
     void fetchBatch(const QVector<Node*> &batch,
-        lczero::Network *network, Tree *tree, const WorkerInfo &info);
-    void fetchFromNN(const QVector<Node*> &fetch, const WorkerInfo &info, bool sync);
-    void fetchAndMinimax(QVector<Node*> nodes, const WorkerInfo &info, bool sync);
+        lczero::Network *network, Tree *tree);
+    void fetchFromNN(const QVector<Node*> &fetch, bool sync);
+    void fetchAndMinimax(QVector<Node*> nodes, bool sync);
     bool fillOutTree();
 
     // Playout methods
-    bool handlePlayout(Node *node, int depth, WorkerInfo *info);
-    QVector<Node*> playoutNodes(int size, bool *didWork, WorkerInfo *info);
+    bool handlePlayout(Node *node);
+    QVector<Node*> playoutNodes(int size, bool *didWork);
     void ensureRootAndChildrenScored();
 
     int m_id;
