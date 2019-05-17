@@ -25,6 +25,8 @@
 
 #include "options.h"
 
+//#define USE_EXTENDED_TIME
+
 using namespace Chess;
 
 Clock::Clock(QObject *parent)
@@ -158,6 +160,9 @@ void Clock::stop()
 
 void Clock::maybeTimeout()
 {
+#if !defined(USE_EXTENDED_TIME)
+    emit timeout();
+#else
     // If best is most visited just timeout as usual
     if (m_info.bestIsMostVisited) {
         emit timeout();
@@ -183,6 +188,7 @@ void Clock::maybeTimeout()
 
     m_isExtended = true;
     m_timeout->start(int(maximum));
+#endif
 }
 
 int Clock::expectedHalfMovesTillEOG() const
