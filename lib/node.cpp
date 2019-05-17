@@ -426,12 +426,35 @@ QPair<Node*, Node*> Node::topTwoChildren() const
     return qMakePair(firstChild, secondChild);
 }
 
+inline int virtualLossDistance(float wec, const PlayoutNode &a, const PlayoutNode &b)
+{
+    Q_UNUSED(a);
+    // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
+    // in weighted exploration score
+    // We have...
+    //     wec = q + ((kpuct * sqrt(N)) * p / (n + 1))
+    // Solving for n...
+    //     n = (q + p * kpuct * sqrt(N) - wec) / (wec - q) where wec - q != 0
+    const float q = b.qValue();
+    const float p = b.pValue();
+    const float uCoeff = b.uCoeff();
+    if (qFuzzyCompare(wec - q, 0.0f))
+        return 1;
+    else if (q > wec)
+        return SearchSettings::vldMax;
+    const float nf = -(q + p * uCoeff - wec) / (wec - q);
+    const int n = qMax(1, qCeil(qreal(nf)));
+    return n;
+}
+
 Node *Node::playout(int *depth, bool *createdNode)
 {
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
+    int vldMax = SearchSettings::vldMax;
 
 start_playout:
     int d = 0;
+    int vld = vldMax;
     Node *n = this;
     forever {
         ++d;
@@ -446,18 +469,17 @@ start_playout:
             break;
         }
 
-        // Otherwise, increase virtual loss if we are not already playing out this node
+        // Otherwise, increase virtual loss
         const bool alreadyPlayingOut = n->isAlreadyPlayingOut();
-        if (!alreadyPlayingOut)
-            ++n->m_virtualLoss;
-
+        const qint64 increment = alreadyPlayingOut ? qint64(vld - 1) : 1;
+        n->m_virtualLoss += increment;
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "increment hit" << n->toString() << "n" << n->m_visited
                  << "virtualLoss" << n->m_virtualLoss;
 #endif
 
-        // If we're already playing out or we are not extendable, then decrement the try and check
-        // if we should exit
+        // If we've already calculated virtualLossDistance or we are not extendable,
+        // then decrement the try and vld limits and check if we should exit
         if (alreadyPlayingOut || n->isNotExtendable()) {
             --tryPlayoutLimit;
 #if defined(DEBUG_PLAYOUT)
@@ -466,14 +488,24 @@ start_playout:
             if (tryPlayoutLimit <= 0)
                 return nullptr;
 
+            vldMax -= n->m_virtualLoss;
+#if defined(DEBUG_PLAYOUT)
+            qDebug() << "decreasing vldMax for" << n->toString() << vldMax;
+#endif
+            if (vldMax <= 0)
+                return nullptr;
+
             goto start_playout;
         }
 
-        // Otherwise advance past this node
+        // Otherwise calculate the virtualLossDistance to advance past this node
         Q_ASSERT(hasChildren() || hasPotentials());
 
         PlayoutNode firstNode = nullptr;
+        PlayoutNode secondNode = nullptr;
         float bestScore = -2.0f;
+        float secondBestScore = -2.0f;
+
         // First look at the actual children
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
@@ -481,21 +513,44 @@ start_playout:
             float score = PlayoutNode.weightedExplorationScore();
             Q_ASSERT(score > -2.f);
             if (score > bestScore) {
+                secondNode = firstNode;
+                secondBestScore = bestScore;
                 firstNode = PlayoutNode;
                 bestScore = score;
+            } else if (score > secondBestScore) {
+                secondNode = PlayoutNode;
+                secondBestScore = score;
             }
         }
 
-        // Then look at the first potential child as they have now been sorted by pval
-        if (!n->m_potentials.isEmpty()) {
-            PotentialNode *potential = n->m_potentials.first();
+        Q_ASSERT(firstNode.isNull() || firstNode != secondNode);
+
+        // Then look at the first two potential children as they have now been sorted by pval
+        for (int i = 0; i < n->m_potentials.count() && i < 2; ++i) {
+            PotentialNode *potential = n->m_potentials.at(i);
             PlayoutNode PlayoutNode(n, potential);
             float score = PlayoutNode.weightedExplorationScore();
             Q_ASSERT(score > -2.f);
             if (score > bestScore) {
+                secondNode = firstNode;
+                secondBestScore = bestScore;
                 firstNode = PlayoutNode;
                 bestScore = score;
+            } else if (score > secondBestScore) {
+                secondNode = PlayoutNode;
+                secondBestScore = score;
             }
+        }
+
+        Q_ASSERT(!firstNode.isNull());
+        if (!secondNode.isNull()) {
+            const int vldNew
+                = virtualLossDistance(bestScore, firstNode, secondNode);
+            if (!vld)
+                vld = vldNew;
+            else
+                vld = qMin(vld, vldNew);
+            Q_ASSERT(vld >= 1);
         }
 
         // Retrieve the actual first node
