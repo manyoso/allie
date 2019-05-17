@@ -46,7 +46,7 @@ public:
     void stopSearch();
 
 public Q_SLOTS:
-    void startSearch(Tree *tree);
+    void startSearch(Tree *tree, int searchId);
     void printTree(int depth) const;
 
 Q_SIGNALS:
@@ -59,7 +59,7 @@ private Q_SLOTS:
 
 private:
     void fetchBatch(const QVector<Node*> &batch,
-        lczero::Network *network, Tree *tree);
+        lczero::Network *network, Tree *tree, int searchId);
     void fetchFromNN(const QVector<Node*> &fetch, bool sync);
     void fetchAndMinimax(QVector<Node*> nodes, bool sync);
     bool fillOutTree();
@@ -70,6 +70,7 @@ private:
     void ensureRootAndChildrenScored();
 
     int m_id;
+    int m_searchId;
     bool m_reachedMaxBatchSize;
     Tree *m_tree;
     QVector<QFuture<void>> m_futures;
@@ -87,7 +88,7 @@ public:
     QThread thread;
 
 Q_SIGNALS:
-    void startWorker(Tree *tree);
+    void startWorker(Tree *tree, int searchId);
 };
 
 class SearchEngine : public QObject
@@ -125,6 +126,7 @@ private:
     bool tryResumeSearch(const Search &search);
 
     Tree *m_tree;
+    int m_searchId;
     int m_startedWorkers;
     quint32 m_estimatedNodes;
     SearchInfo m_currentInfo;

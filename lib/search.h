@@ -65,6 +65,7 @@ struct WorkerInfo {
     int numberOfBatches = 0;
     int nodesCacheHits = 0;
     int nodesTBHits = 0;
+    int searchId = 0;
     QString threadId;
 };
 

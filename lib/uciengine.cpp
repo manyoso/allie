@@ -451,6 +451,9 @@ void UciEngine::sendBestMove(bool force)
             return;
     }
 
+    Q_ASSERT(!m_searchEngine->isStopped());
+    Q_ASSERT(m_clock->isActive());
+
     stopTheClock();
 
 #if defined(DEBUG_TIME)
@@ -663,7 +666,8 @@ void UciEngine::ponderHit()
 void UciEngine::stop()
 {
     //qDebug() << "stop";
-    sendBestMove(true /*force*/);
+    if (m_clock->isActive() && !m_searchEngine->isStopped())
+        sendBestMove(true /*force*/);
 }
 
 void UciEngine::quit()

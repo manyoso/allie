@@ -41,6 +41,7 @@
 SearchWorker::SearchWorker(int id, QObject *parent)
     : QObject(parent),
       m_id(id),
+      m_searchId(0),
       m_reachedMaxBatchSize(false),
       m_tree(nullptr),
       m_stop(true)
@@ -58,9 +59,10 @@ void SearchWorker::stopSearch()
     m_sleepCondition.wakeAll();
 }
 
-void SearchWorker::startSearch(Tree *tree)
+void SearchWorker::startSearch(Tree *tree, int searchId)
 {
     // Reset state
+    m_searchId = searchId;
     m_reachedMaxBatchSize = false;
     m_tree = tree;
     m_stop = false;
@@ -70,7 +72,7 @@ void SearchWorker::startSearch(Tree *tree)
 }
 
 void SearchWorker::fetchBatch(const QVector<Node*> &batch,
-    lczero::Network *network, Tree *tree)
+    lczero::Network *network, Tree *tree, int searchId)
 {
     Computation computation(network);
     for (int index = 0; index < batch.count(); ++index) {
@@ -115,6 +117,7 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
     info.nodesCacheHits = info.nodesCreated - batch.count();
     info.nodesEvaluated += batch.count();
     info.numberOfBatches += 1;
+    info.searchId = searchId;
     info.threadId = QThread::currentThread()->objectName();
     emit sendInfo(info);
 }
@@ -144,10 +147,10 @@ void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, bool sync)
         lczero::Network *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
         Q_ASSERT(network);
         if (sync) {
-            fetchBatch(batch, network, m_tree);
+            fetchBatch(batch, network, m_tree, m_searchId);
         } else {
             std::function<void()> fetchBatch = std::bind(&SearchWorker::fetchBatch, this,
-                batch, network, m_tree);
+                batch, network, m_tree, m_searchId);
             m_futures.append(QtConcurrent::run(fetchBatch));
         }
     }
@@ -186,6 +189,7 @@ void SearchWorker::fetchAndMinimax(QVector<Node*> nodes, bool sync)
         }
 
         info.nodesCacheHits = info.nodesCreated;
+        info.searchId = m_searchId;
         info.threadId = QThread::currentThread()->objectName();
         emit sendInfo(info);
     }
@@ -314,7 +318,6 @@ void SearchWorker::ensureRootAndChildrenScored()
     Node *root = m_tree->root;
     {
         // Fetch and minimax for root
-        WorkerInfo info;
         QVector<Node*> nodes;
         if (!root->setScoringOrScored()) {
             m_tree->mutex.lock();
@@ -415,6 +418,7 @@ WorkerThread::~WorkerThread()
 SearchEngine::SearchEngine(QObject *parent)
     : QObject(parent),
     m_tree(new Tree),
+    m_searchId(0),
     m_startedWorkers(0),
     m_estimatedNodes(std::numeric_limits<quint32>::max()),
     m_stop(true)
@@ -431,6 +435,7 @@ SearchEngine::~SearchEngine()
     m_tree = nullptr;
     qDeleteAll(m_workers);
     m_workers.clear();
+    m_searchId = 0;
     m_startedWorkers = 0;
 }
 
@@ -589,7 +594,7 @@ void SearchEngine::startSearch(const Search &s)
         requestStop();
     } else {
         Q_ASSERT(!m_workers.isEmpty());
-        m_workers.first()->startWorker(m_tree);
+        m_workers.first()->startWorker(m_tree, m_searchId);
         ++m_startedWorkers;
     }
 }
@@ -598,6 +603,9 @@ void SearchEngine::stopSearch()
 {
     // First, change our state to stop using thread safe atomic
     m_stop = true;
+
+    // Now, increment the searchId to guard against stale info
+    ++m_searchId;
 
     if (!m_startedWorkers)
         return;
@@ -627,7 +635,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
 {
     // It is possible this could have been queued before we were asked to stop
     // so ignore if so
-    if (m_stop)
+    if (m_stop || info.searchId != m_searchId)
         return;
 
     // Sum the worker infos
@@ -724,7 +732,7 @@ void SearchEngine::workerReachedMaxBatchSize()
 #if defined(DEBUG_EVAL)
         qDebug() << "Starting worker" << m_startedWorkers;
 #endif
-        m_workers.at(m_startedWorkers)->startWorker(m_tree);
+        m_workers.at(m_startedWorkers)->startWorker(m_tree, m_searchId);
         ++m_startedWorkers;
     }
 }
