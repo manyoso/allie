@@ -535,15 +535,15 @@ start_playout:
 
         PlayoutNode firstNode = nullptr;
         PlayoutNode secondNode = nullptr;
-        float bestScore = -2.0f;
-        float secondBestScore = -2.0f;
+        float bestScore = -std::numeric_limits<float>::max();
+        float secondBestScore = -std::numeric_limits<float>::max();;
 
         // First look at the actual children
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
             PlayoutNode PlayoutNode(child);
             float score = PlayoutNode.weightedExplorationScore();
-            Q_ASSERT(score > -2.f);
+            Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondNode = firstNode;
                 secondBestScore = bestScore;
@@ -562,7 +562,7 @@ start_playout:
             PotentialNode *potential = n->m_potentials.at(i);
             PlayoutNode PlayoutNode(n, potential);
             float score = PlayoutNode.weightedExplorationScore();
-            Q_ASSERT(score > -2.f);
+            Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondNode = firstNode;
                 secondBestScore = bestScore;
