@@ -43,7 +43,7 @@ SearchWorker::SearchWorker(int id, QObject *parent)
       m_id(id),
       m_reachedMaxBatchSize(false),
       m_tree(nullptr),
-      m_stop(false)
+      m_stop(true)
 {
 }
 
@@ -417,7 +417,7 @@ SearchEngine::SearchEngine(QObject *parent)
     m_tree(new Tree),
     m_startedWorkers(0),
     m_estimatedNodes(std::numeric_limits<quint32>::max()),
-    m_stop(false)
+    m_stop(true)
 {
     qRegisterMetaType<Search>("Search");
     qRegisterMetaType<SearchInfo>("SearchInfo");
@@ -437,6 +437,15 @@ SearchEngine::~SearchEngine()
 void SearchEngine::reset()
 {
     QMutexLocker locker(&m_mutex);
+    Q_ASSERT(m_stop); // we should be stopped before a reset
+
+    // Delete the old root if it exists
+    if (m_tree->root) {
+        gcNode(m_tree->root);
+        m_tree->root = nullptr;
+    }
+
+    // Reset the search workers
     const int numberOfSearchThreads = 1;
     if (m_workers.count() != numberOfSearchThreads) {
         qDeleteAll(m_workers);

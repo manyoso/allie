@@ -637,13 +637,13 @@ void UciEngine::uciNewGame()
     //qDebug() << "uciNewGame";
     m_gameInitialized = true;
 
+    m_searchEngine->reset();
     Hash::globalInstance()->reset();
     const QString weightsFile = Options::globalInstance()->option("WeightsFile").value();
     if (!weightsFile.isEmpty())
         NeuralNet::globalInstance()->setWeights(weightsFile);
     NeuralNet::globalInstance()->reset();
     TB::globalInstance()->reset();
-    m_searchEngine->reset();
 
     m_averageInfo = SearchInfo();
 #if defined(AVERAGES)
