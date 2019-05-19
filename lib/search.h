@@ -85,6 +85,7 @@ struct SearchInfo {
     bool isDTZ = false;
     bool bestIsMostVisited = true;
     WorkerInfo workerInfo;
+    int games = 0;
 };
 
 #endif // SEARCH_H

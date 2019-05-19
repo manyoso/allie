@@ -421,10 +421,8 @@ void UciEngine::stopSearch()
 
 void UciEngine::calculateRollingAverage(const SearchInfo &info)
 {
-    const int n = History::globalInstance()->currentGame().halfMoveNumber() / 2;
-    if (!n)
-        return;
-
+    static int n = 0;
+    ++n;
     m_averageInfo.depth             = rollingAverage(m_averageInfo.depth, info.depth, n);
     m_averageInfo.seldepth          = rollingAverage(m_averageInfo.seldepth, info.seldepth, n);
     m_averageInfo.nodes             = rollingAverage(m_averageInfo.nodes, info.nodes, n);
@@ -490,8 +488,6 @@ void UciEngine::sendBestMove(bool force)
     else
         stream << "bestmove " << m_lastInfo.bestMove << " ponder " << m_lastInfo.ponderMove << endl;
     output(out);
-
-    calculateRollingAverage(m_lastInfo);
 
     stopSearch(); // we block until the search has stopped
 }
@@ -601,6 +597,10 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     Q_ASSERT(m_clock->isActive());
     output(out);
 
+#if defined(AVERAGES)
+    calculateRollingAverage(m_lastInfo);
+#endif
+
     // Stop at specific targets if requested or if we have a dtz move
     if (targetReached)
         sendBestMove(true /*force*/);
@@ -611,6 +611,7 @@ void UciEngine::sendAverages()
     QString out;
     QTextStream stream(&out);
     stream << "info averages"
+           << " games " << m_averageInfo.games
            << " depth " << m_averageInfo.depth
            << " seldepth " << m_averageInfo.seldepth
            << " nodes " << m_averageInfo.nodes
@@ -650,12 +651,7 @@ void UciEngine::uciNewGame()
         NeuralNet::globalInstance()->setWeights(weightsFile);
     NeuralNet::globalInstance()->reset();
     TB::globalInstance()->reset();
-
-    m_averageInfo = SearchInfo();
-#if defined(AVERAGES)
-    if (m_averageInfo.depth != -1)
-        sendAverages();
-#endif
+    ++m_averageInfo.games;
 }
 
 void UciEngine::ponderHit()
