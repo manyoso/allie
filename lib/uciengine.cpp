@@ -431,6 +431,7 @@ void UciEngine::calculateRollingAverage(const SearchInfo &info)
     m_averageInfo.nps               = rollingAverage(m_averageInfo.nps, info.nps, n);
     m_averageInfo.batchSize         = rollingAverage(m_averageInfo.batchSize, info.batchSize, n);
     m_averageInfo.rawnps            = rollingAverage(m_averageInfo.rawnps, info.rawnps, n);
+    m_averageInfo.nnnps             = rollingAverage(m_averageInfo.nnnps, info.nnnps, n);
 
     WorkerInfo &avgW = m_averageInfo.workerInfo;
     const WorkerInfo &newW = info.workerInfo;
@@ -539,7 +540,8 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     m_timeAtLastProgress = msecs;
 
     m_lastInfo.nps = qRound(qreal(m_lastInfo.nodes) / qMax(qint64(1), msecs) * 1000.0);
-    m_lastInfo.rawnps = qRound(qreal(m_lastInfo.workerInfo.nodesSearched) / qMax(qint64(1), msecs) * 1000.0);
+    m_lastInfo.rawnps = qRound(qreal(m_lastInfo.workerInfo.nodesCreated) / qMax(qint64(1), msecs) * 1000.0);
+    m_lastInfo.nnnps = qRound(qreal(m_lastInfo.workerInfo.nodesEvaluated) / qMax(qint64(1), msecs) * 1000.0);
 
     // Set the estimated number of nodes to be searched under deadline if we've been searching for
     // at least N msecs and we want to early exit according to following paper:
@@ -547,7 +549,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     const bool hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
     if (!hasTarget && !m_clock->isInfinite() && msecs > SearchSettings::earlyExitMinimumTime) {
         const qint64 timeToRemaining = m_clock->deadline() - msecs;
-        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_lastInfo.rawnps));
+        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_lastInfo.nps));
         m_searchEngine->setEstimatedNodes(e);
     }
 
@@ -572,9 +574,9 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
         stream << "info"
                << " isResume " << (m_lastInfo.isResume ? "true" : "false")
                << " rawnps " << m_lastInfo.rawnps
+               << " nnnps " << m_lastInfo.nnnps
                << " efficiency " << m_lastInfo.workerInfo.nodesCreated / float(m_lastInfo.workerInfo.nodesEvaluated)
                << " nodesSearched " << m_lastInfo.workerInfo.nodesSearched
-               << " nodesSearchedTotal " << m_lastInfo.workerInfo.nodesSearchedTotal
                << " nodesEvaluated " << m_lastInfo.workerInfo.nodesEvaluated
                << " nodesCreated " << m_lastInfo.workerInfo.nodesCreated
                << " nodesCacheHits " << m_lastInfo.workerInfo.nodesCacheHits
@@ -613,8 +615,9 @@ void UciEngine::sendAverages()
            << " seldepth " << m_averageInfo.seldepth
            << " nodes " << m_averageInfo.nodes
            << " nps " << m_averageInfo.nps
-           << " batchSize " << m_averageInfo.batchSize
            << " rawnps " << m_averageInfo.rawnps
+           << " nnnps " << m_averageInfo.nnnps
+           << " batchSize " << m_averageInfo.batchSize
            << " efficiency " << m_averageInfo.workerInfo.nodesSearched / float(m_averageInfo.workerInfo.nodesEvaluated)
            << " nodesSearched " << m_averageInfo.workerInfo.nodesSearched
            << " nodesEvaluated " << m_averageInfo.workerInfo.nodesEvaluated

@@ -642,7 +642,6 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.workerInfo.sumDepths += info.sumDepths;
     m_currentInfo.workerInfo.maxDepth = qMax(m_currentInfo.workerInfo.maxDepth, info.maxDepth);
     m_currentInfo.workerInfo.nodesSearched += info.nodesSearched;
-    m_currentInfo.workerInfo.nodesSearchedTotal += info.nodesSearchedTotal;
     m_currentInfo.workerInfo.nodesEvaluated += info.nodesEvaluated;
     m_currentInfo.workerInfo.nodesCreated += info.nodesCreated;
     m_currentInfo.workerInfo.numberOfBatches += info.numberOfBatches;
@@ -660,7 +659,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.seldepth = qMax(newSelDepth, m_currentInfo.seldepth);
 
     // Update our node info
-    m_currentInfo.nodes = m_currentInfo.workerInfo.nodesSearchedTotal;
+    m_currentInfo.nodes = m_currentInfo.workerInfo.nodesSearched;
 
     // Lock the tree for reading
     m_tree->mutex.lock();

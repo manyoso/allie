@@ -59,7 +59,6 @@ struct WorkerInfo {
     int sumDepths = 0;
     int maxDepth = 0;
     int nodesSearched = 0;
-    int nodesSearchedTotal = 0;
     int nodesEvaluated = 0;
     int nodesCreated = 0;
     int numberOfBatches = 0;
@@ -79,6 +78,7 @@ struct SearchInfo {
     int batchSize = -1;
     QString pv;
     int rawnps = -1;
+    int nnnps = -1;
     QString bestMove;
     QString ponderMove;
     bool isResume = false;
