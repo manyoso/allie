@@ -238,7 +238,6 @@ void Node::scoreMiniMax(float score, bool isExact)
         m_qValue = score;
     else
         m_qValue = (m_visited * m_qValue + score) / float(m_visited + 1);
-    ++m_visited;
 }
 
 float Node::minimax(Node *node, bool *isExact, int depth, WorkerInfo *info)
@@ -338,6 +337,7 @@ void Node::validateTree(Node *node)
     Q_ASSERT(node->hasRawQValue());
     Q_ASSERT(!node->m_isDirty);
     Q_ASSERT(node->hasQValue());
+    quint32 childVisits = 0;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
 
@@ -346,7 +346,10 @@ void Node::validateTree(Node *node)
             continue;
 
         validateTree(child);
+        childVisits += child->m_visited;
     }
+
+    Q_ASSERT(node->m_visited == childVisits + 1);
 }
 
 class PlayoutNode {
