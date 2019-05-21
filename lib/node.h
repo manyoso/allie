@@ -97,6 +97,8 @@ public:
     bool isExact() const;
     bool isTrueTerminal() const;
     float uCoeff() const;
+    quint32 visits() const;
+    quint32 virtualLoss() const;
     float uValue() const;
     float weightedExplorationScore() const;
 
@@ -334,6 +336,16 @@ inline float Node::qValue() const
 inline float Node::uCoeff() const
 {
     return m_uCoeff;
+}
+
+inline quint32 Node::visits() const
+{
+    return m_visited;
+}
+
+inline quint32 Node::virtualLoss() const
+{
+    return m_virtualLoss;
 }
 
 inline float Node::uValue() const

@@ -416,6 +416,20 @@ public:
         return m_node->weightedExplorationScore();
     }
 
+    quint32 visits() const
+    {
+        if (isPotential())
+            return 0;
+        return m_node->visits();
+    }
+
+    quint32 virtualLoss() const
+    {
+        if (isPotential())
+            return 0;
+        return m_node->virtualLoss();
+    }
+
     // Creates the node if necessary
     Node *actualNode(bool *created) const
     {
@@ -458,24 +472,35 @@ QPair<Node*, Node*> Node::topTwoChildren() const
     return qMakePair(firstChild, secondChild);
 }
 
-inline int virtualLossDistance(float wec, const PlayoutNode &a, const PlayoutNode &b)
+inline int virtualLossDistance(float swec, const PlayoutNode &a)
 {
-    Q_UNUSED(a);
     // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
     // in weighted exploration score
     // We have...
     //     wec = q + ((kpuct * sqrt(N)) * p / (n + 1))
     // Solving for n...
     //     n = (q + p * kpuct * sqrt(N) - wec) / (wec - q) where wec - q != 0
-    const float q = b.qValue();
-    const float p = b.pValue();
-    const float uCoeff = b.uCoeff();
+
+    float wec = swec - std::numeric_limits<float>::epsilon();
+    const int currentVisits = int(a.visits() + a.virtualLoss());
+
+    const float q = a.qValue();
+    const float p = a.pValue();
+    const float uCoeff = a.uCoeff();
     if (qFuzzyCompare(wec - q, 0.0f))
         return 1;
     else if (q > wec)
         return SearchSettings::vldMax;
-    const float nf = -(q + p * uCoeff - wec) / (wec - q);
-    const int n = qMax(1, qCeil(qreal(nf)));
+    const float nf = (q + p * uCoeff - wec) / (wec - q);
+    int n = qMax(1, qCeil(qreal(nf))) - currentVisits;
+    if (n > SearchSettings::vldMax)
+        return SearchSettings::vldMax;
+
+#ifndef NDEBUG
+    const float after = q + uCoeff * p / (currentVisits + n + 1);
+    Q_ASSERT(after < swec);
+#endif
+
     return n;
 }
 
@@ -577,7 +602,7 @@ start_playout:
         Q_ASSERT(!firstNode.isNull());
         if (!secondNode.isNull()) {
             const int vldNew
-                = virtualLossDistance(bestScore, firstNode, secondNode);
+                = virtualLossDistance(secondBestScore, firstNode);
             if (!vld)
                 vld = vldNew;
             else
