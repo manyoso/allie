@@ -172,13 +172,14 @@ void Node::setQValueFromRaw()
     m_qValue = m_rawQValue;
 }
 
-void Node::setRawQValue(float qValue)
+void Node::setRawQValue(float qValue, bool backPropDirty)
 {
     m_rawQValue = qValue;
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "sq " << toString() << " v:" << qValue;
 #endif
-    backPropagateDirty();
+    if (backPropDirty)
+        backPropagateDirty();
 }
 
 void Node::backPropagateValue(float v)
@@ -688,17 +689,17 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->setRawQValue(1.0f);
+        child->setRawQValue(1.0f, true /*backPropDirty*/);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
     case TB::Loss:
-        child->setRawQValue(-1.0f);
+        child->setRawQValue(-1.0f, true /*backPropDirty*/);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
     case TB::Draw:
-        child->setRawQValue(0.0f);
+        child->setRawQValue(0.0f, true /*backPropDirty*/);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
@@ -709,7 +710,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
 
     // If this root has never been scored, then do so now to prevent asserts in back propagation
     if (!hasQValue()) {
-        setRawQValue(0.0f);
+        setRawQValue(0.0f, true /*backPropDirty*/);
         setQValueFromRaw();
         ++m_visited;
     }
@@ -727,15 +728,15 @@ void Node::generatePotentials()
 
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
-        setRawQValue(0.0f);
+        setRawQValue(0.0f, true /*backPropDirty*/);
         m_isExact = true;
         return;
     } else if (Q_UNLIKELY(m_game.isDeadPosition())) {
-        setRawQValue(0.0f);
+        setRawQValue(0.0f, true /*backPropDirty*/);
         m_isExact = true;
         return;
     } else if (Q_UNLIKELY(isThreeFold())) {
-        setRawQValue(0.0f);
+        setRawQValue(0.0f, true /*backPropDirty*/);
         m_isExact = true;
         return;
     }
@@ -745,17 +746,17 @@ void Node::generatePotentials()
     case TB::NotFound:
         break;
     case TB::Win:
-        setRawQValue(1.0f);
+        setRawQValue(1.0f, true /*backPropDirty*/);
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Loss:
-        setRawQValue(-1.0f);
+        setRawQValue(-1.0f, true /*backPropDirty*/);
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Draw:
-        setRawQValue(0.0f);
+        setRawQValue(0.0f, true /*backPropDirty*/);
         m_isExact = true;
         m_isTB = true;
         return;
@@ -769,11 +770,11 @@ void Node::generatePotentials()
         bool isChecked = m_game.isChecked(m_game.activeArmy());
         if (isChecked) {
             m_game.setCheckMate(true);
-            setRawQValue(1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f));
+            setRawQValue(1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f), true /*backPropDirty*/);
             m_isExact = true;
         } else {
             m_game.setStaleMate(true);
-            setRawQValue(0.0f);
+            setRawQValue(0.0f, true /*backPropDirty*/);
             m_isExact = true;
         }
         Q_ASSERT(isCheckMate() || isStaleMate());

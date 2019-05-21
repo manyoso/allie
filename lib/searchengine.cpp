@@ -74,23 +74,34 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
 void SearchWorker::fetchBatch(const QVector<Node*> &batch,
     lczero::Network *network, Tree *tree, int searchId)
 {
-    Computation computation(network);
-    for (int index = 0; index < batch.count(); ++index) {
-        Node *node = batch.at(index);
-        computation.addPositionToEvaluate(node);
-    }
+    {
+        Computation computation(network);
+        for (int index = 0; index < batch.count(); ++index) {
+            Node *node = batch.at(index);
+            computation.addPositionToEvaluate(node);
+        }
 
 #if defined(DEBUG_EVAL)
-    qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
+        qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
 #endif
-    computation.evaluate();
+        computation.evaluate();
 
-    NeuralNet::globalInstance()->releaseNetwork(network);
+        for (int index = 0; index < batch.count(); ++index) {
+            Node *node = batch.at(index);
+            Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
+            node->setRawQValue(-computation.qVal(index), false /*backPropDirty*/);
+            if (node->hasPotentials())
+                computation.setPVals(index, node);
+        }
 
-    Q_ASSERT(computation.positions() == batch.count());
-    if (computation.positions() != batch.count()) {
-        qCritical() << "NN index mismatch!";
-        return;
+
+        NeuralNet::globalInstance()->releaseNetwork(network);
+
+        Q_ASSERT(computation.positions() == batch.count());
+        if (computation.positions() != batch.count()) {
+            qCritical() << "NN index mismatch!";
+            return;
+        }
     }
 
     WorkerInfo info;
@@ -98,10 +109,7 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         QMutexLocker locker(&tree->mutex);
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
-            Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
-            node->setRawQValue(-computation.qVal(index));
-            if (node->hasPotentials())
-                computation.setPVals(index, node);
+            node->backPropagateDirty();
             Hash::globalInstance()->insert(node);
             node->sortByPVals(); // strictly after we insert into hash
         }
@@ -132,41 +140,22 @@ void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, bool sync)
         emit reachedMaxBatchSize();
     }
 
-    QVector<QVector<Node*>> batches;
-    int batchSize = maximumBatchSize;
-    if (nodesToFetch.count() > batchSize) {
-        div_t divresult;
-        divresult = div(nodesToFetch.count(), batchSize);
-        int buckets = divresult.quot + (divresult.rem ? 1 : 0);
-        for (int i = 0; i < buckets; ++i)
-            batches.append(nodesToFetch.mid(i * batchSize, batchSize));
-    } else
-        batches.append(nodesToFetch);
-
-    for (QVector<Node*> batch : batches) {
-        lczero::Network *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
-        Q_ASSERT(network);
-        if (sync) {
-            fetchBatch(batch, network, m_tree, m_searchId);
-        } else {
-            std::function<void()> fetchBatch = std::bind(&SearchWorker::fetchBatch, this,
-                batch, network, m_tree, m_searchId);
-            m_futures.append(QtConcurrent::run(fetchBatch));
-        }
+    lczero::Network *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
+    Q_ASSERT(network);
+    if (sync) {
+        fetchBatch(nodesToFetch, network, m_tree, m_searchId);
+    } else {
+        std::function<void()> fetchBatch = std::bind(&SearchWorker::fetchBatch, this,
+            nodesToFetch, network, m_tree, m_searchId);
+        m_futures.append(QtConcurrent::run(fetchBatch));
     }
 }
 
 bool SearchWorker::fillOutTree()
 {
-    const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt();
     const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
-    const int maxSize = (numberOfGPUCores * maximumBatchSize);
-
-    // Scale the fetchSize by depth
-    const int fetchSize = maxSize;
-
     bool didWork = false;
-    QVector<Node*> playouts = playoutNodes(fetchSize, &didWork);
+    QVector<Node*> playouts = playoutNodes(maximumBatchSize, &didWork);
     if (!playouts.isEmpty() || didWork)
         fetchAndMinimax(playouts, false /*sync*/);
     return didWork;

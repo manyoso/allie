@@ -534,7 +534,7 @@ void TestGames::testHashInsertAndRetrieve()
     QCOMPARE(computation.positions(), 1);
 
     // Retrieve the qVal and pVal from NN and set the values in the node
-    node1->setRawQValue(-computation.qVal(0));
+    node1->setRawQValue(-computation.qVal(0), true /*backPropDirty*/);
     computation.setPVals(0, node1);
     node1->setQValueAndPropagate();
 
