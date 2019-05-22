@@ -66,13 +66,13 @@ QString UciOption::toString() const {
     case Check:
         {
             list << "check";
-            list << "default" << m_default;
+            list << "default" << m_value;
             break;
         }
     case Spin:
         {
             list << "spin";
-            list << "default" << m_default;
+            list << "default" << m_value;
             list << "min" << m_min;
             list << "max" << m_max;
 
@@ -81,7 +81,7 @@ QString UciOption::toString() const {
     case Combo:
         {
             list << "combo";
-            list << "default" << m_default;
+            list << "default" << m_value;
             for (QString v : m_var) {
                 list << "var" << v;
             }
@@ -95,7 +95,7 @@ QString UciOption::toString() const {
     case String:
         {
             list << "string";
-            list << "default" << m_default;
+            list << "default" << m_value;
             break;
         }
     }
