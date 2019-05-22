@@ -74,34 +74,23 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
 void SearchWorker::fetchBatch(const QVector<Node*> &batch,
     lczero::Network *network, Tree *tree, int searchId)
 {
-    {
-        Computation computation(network);
-        for (int index = 0; index < batch.count(); ++index) {
-            Node *node = batch.at(index);
-            computation.addPositionToEvaluate(node);
-        }
+    Computation computation(network);
+    for (int index = 0; index < batch.count(); ++index) {
+        Node *node = batch.at(index);
+        computation.addPositionToEvaluate(node);
+    }
 
 #if defined(DEBUG_EVAL)
-        qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
+    qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
 #endif
-        computation.evaluate();
+    computation.evaluate();
 
-        for (int index = 0; index < batch.count(); ++index) {
-            Node *node = batch.at(index);
-            Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
-            node->setRawQValue(-computation.qVal(index), false /*backPropDirty*/);
-            if (node->hasPotentials())
-                computation.setPVals(index, node);
-        }
+    NeuralNet::globalInstance()->releaseNetwork(network);
 
-
-        NeuralNet::globalInstance()->releaseNetwork(network);
-
-        Q_ASSERT(computation.positions() == batch.count());
-        if (computation.positions() != batch.count()) {
-            qCritical() << "NN index mismatch!";
-            return;
-        }
+    Q_ASSERT(computation.positions() == batch.count());
+    if (computation.positions() != batch.count()) {
+        qCritical() << "NN index mismatch!";
+        return;
     }
 
     WorkerInfo info;
@@ -109,6 +98,10 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         QMutexLocker locker(&tree->mutex);
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
+            Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
+            node->setRawQValue(-computation.qVal(index));
+            if (node->hasPotentials())
+                computation.setPVals(index, node);
             node->backPropagateDirty();
             Hash::globalInstance()->insert(node);
             node->sortByPVals(); // strictly after we insert into hash

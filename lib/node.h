@@ -131,7 +131,7 @@ public:
     void setQValueFromRaw();
     bool hasRawQValue() const;
     float rawQValue() const { return m_rawQValue; }
-    void setRawQValue(float qValue, bool backPropDirty);
+    void setRawQValue(float qValue);
     void backPropagateValue(float qValue);
     void backPropagateValueFull();
     void setQValueAndPropagate();
