@@ -536,6 +536,7 @@ void TestGames::testHashInsertAndRetrieve()
     // Retrieve the qVal and pVal from NN and set the values in the node
     node1->setRawQValue(-computation.qVal(0));
     computation.setPVals(0, node1);
+    node1->backPropagateDirty();
     node1->setQValueAndPropagate();
 
     // Insert node1 into the hash

@@ -178,7 +178,6 @@ void Node::setRawQValue(float qValue)
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "sq " << toString() << " v:" << qValue;
 #endif
-    backPropagateDirty();
 }
 
 void Node::backPropagateValue(float v)
@@ -297,7 +296,8 @@ float Node::minimax(Node *node, bool *isExact, int depth, WorkerInfo *info)
         Node *child = node->m_children.at(index);
 
         // If the child doesn't have a raw qValue then it has not been scored yet so just continue
-        if (!child->hasRawQValue()) {
+        // or if it does have one, but not a qValue and is not marked dirty yet
+        if (!child->hasRawQValue() || (!child->hasQValue() && !child->m_isDirty)) {
             everythingScored = false;
             continue;
         }
@@ -698,6 +698,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // If this root has never been scored, then do so now to prevent asserts in back propagation
     if (!hasQValue()) {
         setRawQValue(0.0f);
+        backPropagateDirty();
         setQValueFromRaw();
         ++m_visited;
     }

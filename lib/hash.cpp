@@ -136,6 +136,7 @@ bool fillOutNodeFromEntry(Node *node, const HashEntry &entry)
     Q_ASSERT(!qFuzzyCompare(entry.qValue, -2.0f));
     Q_ASSERT(!node->hasRawQValue());
     node->setRawQValue(entry.qValue);
+    node->backPropagateDirty();
     Q_ASSERT(node->hasRawQValue());
     Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
     if (!node->hasPotentials())

@@ -74,23 +74,33 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
 void SearchWorker::fetchBatch(const QVector<Node*> &batch,
     lczero::Network *network, Tree *tree, int searchId)
 {
-    Computation computation(network);
-    for (int index = 0; index < batch.count(); ++index) {
-        Node *node = batch.at(index);
-        computation.addPositionToEvaluate(node);
-    }
+    {
+        Computation computation(network);
+        for (int index = 0; index < batch.count(); ++index) {
+            Node *node = batch.at(index);
+            computation.addPositionToEvaluate(node);
+        }
 
-#if defined(DEBUG_EVAL)
-    qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
-#endif
-    computation.evaluate();
+    #if defined(DEBUG_EVAL)
+        qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
+    #endif
+        computation.evaluate();
 
-    NeuralNet::globalInstance()->releaseNetwork(network);
+        Q_ASSERT(computation.positions() == batch.count());
+        if (computation.positions() != batch.count()) {
+            qCritical() << "NN index mismatch!";
+            return;
+        }
 
-    Q_ASSERT(computation.positions() == batch.count());
-    if (computation.positions() != batch.count()) {
-        qCritical() << "NN index mismatch!";
-        return;
+        for (int index = 0; index < batch.count(); ++index) {
+            Node *node = batch.at(index);
+            Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
+            node->setRawQValue(-computation.qVal(index));
+            if (node->hasPotentials())
+                computation.setPVals(index, node);
+        }
+
+        NeuralNet::globalInstance()->releaseNetwork(network);
     }
 
     WorkerInfo info;
@@ -98,10 +108,6 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         QMutexLocker locker(&tree->mutex);
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
-            Q_ASSERT((node->hasPotentials()) || node->isCheckMate() || node->isStaleMate());
-            node->setRawQValue(-computation.qVal(index));
-            if (node->hasPotentials())
-                computation.setPVals(index, node);
             node->backPropagateDirty();
             Hash::globalInstance()->insert(node);
             node->sortByPVals(); // strictly after we insert into hash
@@ -196,18 +202,16 @@ bool SearchWorker::handlePlayout(Node *playout)
     }
 
     // Generate potential moves of the node if possible
-    m_tree->mutex.lock();
     playout->generatePotentials();
-    m_tree->mutex.unlock();
 
     // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
-    // then let's just back propagate dirty (which will have happened above in call to generate
-    // potentials)
+    // then let's just back propagate dirty
     if (playout->isTrueTerminal()) {
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding exact playout 2" << playout->toString();
 #endif
-        // Dirty flag gets set in generate potentials above
+        QMutexLocker locker(&m_tree->mutex);
+        playout->backPropagateDirty();
         return false;
     }
 
