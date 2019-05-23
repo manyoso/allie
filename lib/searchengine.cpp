@@ -237,13 +237,9 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork)
     int exactOrCached = 0;
     QVector<Node*> nodes;
     while (nodes.count() < size && exactOrCached < size) {
-        int depth = 0;
-
         m_tree->mutex.lock();
-        bool createdNode = false;
 #if defined(USE_DUMMY_NODES)
         static Node* currentLeaf = m_tree->root;
-        static int currentLeafDepth = 0;
         Node *playout = nullptr;
         if (!currentLeaf->setScoringOrScored()) {
             playout = currentLeaf;
@@ -251,16 +247,12 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork)
             playout = new Node(currentLeaf, Game());
             playout->setScoringOrScored();
             currentLeaf->m_children.append(playout);
-            createdNode = true;
-            depth = currentLeafDepth + 1;
         }
         ++playout->m_virtualLoss;
-        if (currentLeaf->m_children.count() > 20) {
+        if (currentLeaf->m_children.count() > 20)
             currentLeaf = playout;
-            currentLeafDepth = depth;
-        }
 #else
-        Node *playout = m_tree->root->playout(&depth, &createdNode);
+        Node *playout = Node::playout(m_tree->root);
         const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
 #endif
 

@@ -431,13 +431,10 @@ public:
     }
 
     // Creates the node if necessary
-    Node *actualNode(bool *created) const
+    Node *actualNode() const
     {
-        if (isPotential()) {
-            *created = true;
+        if (isPotential())
             return m_parent->generateChild(m_potential);
-        }
-        *created = false;
         return m_node;
     }
 
@@ -504,18 +501,15 @@ inline int virtualLossDistance(float swec, const PlayoutNode &a)
     return n;
 }
 
-Node *Node::playout(int *depth, bool *createdNode)
+Node *Node::playout(Node *root)
 {
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
     int vldMax = SearchSettings::vldMax;
 
 start_playout:
-    int d = 0;
     int vld = vldMax;
-    Node *n = this;
+    Node *n = root;
     forever {
-        ++d;
-
         // If we've never been scored or this is an exact node, then this is our playout node
         if (!n->setScoringOrScored() || n->isTrueTerminal()) {
             ++n->m_virtualLoss;
@@ -556,7 +550,7 @@ start_playout:
         }
 
         // Otherwise calculate the virtualLossDistance to advance past this node
-        Q_ASSERT(hasChildren() || hasPotentials());
+        Q_ASSERT(n->hasChildren() || n->hasPotentials());
 
         PlayoutNode firstNode = nullptr;
         PlayoutNode secondNode = nullptr;
@@ -611,15 +605,9 @@ start_playout:
         }
 
         // Retrieve the actual first node
-        bool created = false;
-        n = firstNode.actualNode(&created);
-
-        // If we created any nodes, then update to indicate
-        if (created)
-            *createdNode = true;
+        n = firstNode.actualNode();
     }
 
-    *depth = d;
     return n;
 }
 

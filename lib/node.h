@@ -141,7 +141,7 @@ public:
     static void validateTree(Node *);
     bool isAlreadyPlayingOut() const;
     QPair<Node*, Node*> topTwoChildren() const;
-    Node *playout(int *depth, bool *createdNode);
+    static Node *playout(Node *root);
 
     bool hasPValue() const;
     float pValue() const { return m_pValue; }
