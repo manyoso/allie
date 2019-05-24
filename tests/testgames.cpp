@@ -163,6 +163,30 @@ void TestGames::test960()
     QCOMPARE(g.stateOfGameToFen(), QLatin1String("qrknbbrn/pppppppp/8/8/8/8/PPPPPPPP/QRKNBBRN w GBgb - 0 1"));
     QCOMPARE(g.activeArmy(), Chess::White);
     Options::globalInstance()->setOption("UCI_Chess960", QLatin1Literal("false"));
+
+    //white to castle queenside
+    //r3k2r/pppqbpp1/2n1pnp1/3p2B1/3P1PP1/2P1P3/PPQ2N1P/R3KB1R w KQkq - 3 14
+
+    //black to castle queenside
+    //r3k2r/pppqbpp1/2n1pnp1/3p2B1/3P1PP1/2P1P3/PPQ2N1P/2KR1B1R b kq - 4 14
+
+    //black to castle kingside
+    //qrkr4/ppp1bppb/4pnnp/8/2PP4/2NB1P2/PP1R2PP/QRK1N1B1 b Qkq - 0 10
+
+    //white to castle queenside
+    //qr3rk1/2p1bppb/pp2pnnp/8/P1PP4/2NB1P2/1PNR2PP/QRK3B1 w Q - 0 13
+
+    //white to castle queenside
+    //1k1q1r1b/1p1n3p/r1np2p1/p1p1P3/2P2Pb1/P2N1N2/1PQ2B1P/RK2R2B w Qk - 0 16
+
+    //white to move and castle kingside
+    //2rkqr1n/Qp1p2pp/8/4bp2/2bB4/8/PP2P1PP/N1RK1R1N w KQkq - 0 10
+
+    //black to castle kingside
+    //rb2bkr1/pp1qpppp/1n1p2n1/8/2PNB3/1Q4N1/PP2PPPP/R3BKR1 b KQkq - 4 7
+
+    //white to castle kingside
+    //2r3k1/pp2p1p1/1n4np/5p2/3R4/1bB2NP1/1P2PPP1/5KR1 w K - 0 20
 }
 
 void TestGames::testSearchForMateInOne()
