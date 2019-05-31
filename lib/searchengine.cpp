@@ -627,7 +627,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.workerInfo.nodesCacheHits += info.nodesCacheHits;
 
     // Update our depth info
-    const int newDepth = m_currentInfo.workerInfo.sumDepths / qMax(1, m_currentInfo.workerInfo.nodesSearched);
+    const int newDepth = m_currentInfo.workerInfo.sumDepths / qMax(1, m_currentInfo.workerInfo.nodesCreated);
     bool isPartial = newDepth <= m_currentInfo.depth;
     m_currentInfo.depth = qMax(newDepth, m_currentInfo.depth);
 

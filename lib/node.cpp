@@ -266,8 +266,6 @@ float Node::minimax(Node *node, bool *isExact, int depth, WorkerInfo *info)
     if (isTrueTerminal && node->m_isDirty) {
         // Record info
         ++(info->nodesSearched);
-        info->sumDepths += depth;
-        info->maxDepth = qMax(info->maxDepth, depth);
         if (node->m_isTB)
             ++(info->nodesTBHits);
 
@@ -322,8 +320,6 @@ float Node::minimax(Node *node, bool *isExact, int depth, WorkerInfo *info)
 
     // Record info
     ++(info->nodesSearched);
-    info->sumDepths += depth;
-    info->maxDepth = qMax(info->maxDepth, depth);
 
     *isExact = shouldPropagateExact;
     return node->m_qValue;
