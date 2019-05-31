@@ -313,8 +313,9 @@ void SearchWorker::ensureRootAndChildrenScored()
         m_tree->mutex.lock();
         bool didWork = false;
         QVector<Node *> children;
-        QVector<PotentialNode*> potentials = root->m_potentials; // copy
-        for (PotentialNode *potential : potentials) {
+        QVector<PotentialNode> potentials = root->m_potentials; // copy
+        for (int i = 0; i < potentials.count(); ++i) {
+            PotentialNode *potential = &potentials[i];
             Node *child = root->generateChild(potential);
             child->m_virtualLoss += 1;
             child->setScoringOrScored();

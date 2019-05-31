@@ -129,7 +129,7 @@ void TestGames::testStartingPosition()
     Node *n = new Node(nullptr, g);
     n->generatePotentials();
 
-    QCOMPARE(n->potentials().count(), 20);
+    QCOMPARE(n->potentials()->count(), 20);
 
     QVector<Node*> gc;
     TreeIterator<PreOrder> it = n->begin<PreOrder>();
@@ -147,7 +147,7 @@ void TestGames::testStartingPositionBlack()
     Node *n = new Node(nullptr, g);
     n->generatePotentials();
 
-    QCOMPARE(n->potentials().count(), 20);
+    QCOMPARE(n->potentials()->count(), 20);
 
     QVector<Node*> gc;
     TreeIterator<PreOrder> it = n->begin<PreOrder>();
@@ -408,13 +408,13 @@ void TestGames::testCastlingAnd960()
 
         // Make sure this is encoded as king captures rook
         bool foundCastleKingSide = false;
-        for (PotentialNode *potential : n->potentials()) {
-            if (potential->toString() == QLatin1String("f8h8"))
+        for (PotentialNode potential : *n->potentials()) {
+            if (potential.toString() == QLatin1String("f8h8"))
                 foundCastleKingSide = true;
         }
 
         QVERIFY(foundCastleKingSide);
-        QCOMPARE(n->potentials().count(), 36);
+        QCOMPARE(n->potentials()->count(), 36);
 
         QVector<Node*> gc;
         TreeIterator<PreOrder> it = n->begin<PreOrder>();
@@ -647,10 +647,12 @@ void TestGames::testThreeFold4()
     Node n(nullptr, g);
     QVERIFY(!n.isThreeFold());
     n.generatePotentials();
-    QVector<PotentialNode*> potentials = n.potentials();
-    QVERIFY(!potentials.isEmpty());
     bool found = false;
-    for (PotentialNode *p : potentials) {
+    QVector<PotentialNode> *potentials = n.potentials();
+    QVERIFY(!potentials->isEmpty());
+    for (int i = 0; i < potentials->count(); ++i) {
+        // We get a non-const reference to the actual value and change it in place
+        PotentialNode *p = &(*potentials)[i];
         if (QLatin1String("a4b4") == Notation::moveToString(p->move(), Chess::Computer)) {
             found = true;
             Node *threeFold = n.generateChild(p);
@@ -808,7 +810,7 @@ void TestGames::testHashInsertAndRetrieve()
     // Create a node
     Node *node1 = new Node(nullptr, game);
     node1->generatePotentials();
-    QCOMPARE(node1->potentials().count(), 20);
+    QCOMPARE(node1->potentials()->count(), 20);
 
     // Go to the NN for evaluation
     Computation computation;
@@ -828,22 +830,22 @@ void TestGames::testHashInsertAndRetrieve()
     // Create a new node with the same position
     Node *node2 = new Node(nullptr, game);
     node2->generatePotentials();
-    QCOMPARE(node2->potentials().count(), 20);
+    QCOMPARE(node2->potentials()->count(), 20);
 
     QVERIFY(Hash::globalInstance()->contains(node2));
 
     // Go to the Hash to fill out
     Hash::globalInstance()->fillOut(node2);
 
-    QCOMPARE(node1->potentials().count(), node2->potentials().count());
+    QCOMPARE(node1->potentials()->count(), node2->potentials()->count());
     QCOMPARE(node1->rawQValue(), node2->rawQValue());
 
-    QVector<PotentialNode*> p1 = node1->potentials();
-    QVector<PotentialNode*> p2 = node2->potentials();
-    for (int i = 0; i < p1.count(); ++i) {
-        PotentialNode *potential1 = p1.at(i);
-        PotentialNode *potential2 = p2.at(i);
-        QCOMPARE(potential1->move(), potential2->move());
-        QCOMPARE(potential1->pValue(), potential2->pValue());
+    QVector<PotentialNode> *p1 = node1->potentials();
+    QVector<PotentialNode> *p2 = node2->potentials();
+    for (int i = 0; i < p1->count(); ++i) {
+        PotentialNode potential1 = (*p1).at(i);
+        PotentialNode potential2 = (*p2).at(i);
+        QCOMPARE(potential1.move(), potential2.move());
+        QCOMPARE(potential1.pValue(), potential2.pValue());
     }
 }

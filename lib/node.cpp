@@ -56,7 +56,6 @@ Node::Node(Node *parent, const Game &game)
 
 Node::~Node()
 {
-    qDeleteAll(m_potentials);
     m_potentials.clear();
 }
 
@@ -574,7 +573,8 @@ start_playout:
 
         // Then look at the first two potential children as they have now been sorted by pval
         for (int i = 0; i < n->m_potentials.count() && i < 2; ++i) {
-            PotentialNode *potential = n->m_potentials.at(i);
+            // We get a non-const reference to the actual value
+            PotentialNode *potential = &n->m_potentials[i];
             PlayoutNode PlayoutNode(n, potential);
             float score = PlayoutNode.weightedExplorationScore();
             Q_ASSERT(score > -std::numeric_limits<float>::max());
@@ -776,7 +776,7 @@ void Node::generatePotential(const Move &move)
     if (g.isChecked(m_game.activeArmy()))
         return; // illegal
 
-    m_potentials.append(new PotentialNode(move));
+    m_potentials.append(PotentialNode(move));
 }
 
 Node *Node::generateChild(PotentialNode *potential)
@@ -788,8 +788,8 @@ Node *Node::generateChild(PotentialNode *potential)
     Node *child = new Node(this, g);
     child->setPValue(potential->pValue());
     m_children.append(child);
-    m_potentials.removeAll(potential);
-    delete potential;
+    Q_ASSERT(m_potentials.contains(*potential));
+    m_potentials.removeAll(*potential);
     return child;
 }
 

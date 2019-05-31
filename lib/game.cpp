@@ -1020,14 +1020,6 @@ bool Game::isCastleLegal(Chess::Army army, Chess::Castle castle) const
     return true;
 }
 
-bool Game::isSameGame(const Game &other) const
-{
-    return isSamePosition(other)
-        && m_halfMoveClock == other.m_halfMoveClock
-        && m_halfMoveNumber == other.m_halfMoveNumber
-        && m_lastMove == other.m_lastMove;
-}
-
 bool Game::isSamePosition(const Game &other) const
 {
     // FIXME: For purposes of 3-fold it does not matter if the queens rook and kings rook have

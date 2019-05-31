@@ -142,9 +142,10 @@ bool fillOutNodeFromEntry(Node *node, const HashEntry &entry)
     if (!node->hasPotentials())
         return true;
 
-    const QVector<PotentialNode*> potentials = node->potentials();
-    for (int i = 0; i < potentials.count(); ++i) {
-        PotentialNode *potential = potentials.at(i);
+    QVector<PotentialNode> *potentials = node->potentials();
+    for (int i = 0; i < potentials->count(); ++i) {
+        // We get a non-const reference to the actual value and change it in place
+        PotentialNode *potential = &(*potentials)[i];
         Q_ASSERT(potential);
         Q_ASSERT(!potential->hasPValue());
         HashPValue pVal = pValueFromHash(entry.potentialValues[i]);
@@ -175,24 +176,24 @@ void Hash::insert(const Node *node)
     if (!m_cache || !m_cache->maxCost())
         return;
 
-    if (node->potentials().count() > MAX_POTENTIALS_COUNT)
+    if (node->potentials()->count() > MAX_POTENTIALS_COUNT)
         return; // Too many potentials to cache!
 
     HashEntry *entry = new HashEntry;
     entry->qValue = node->rawQValue();
     Q_ASSERT(!qFuzzyCompare(entry->qValue, -2.0f));
 
-    const QVector<PotentialNode*> po = node->potentials();
-    for (int i = 0; i < po.count(); ++i) {
-        PotentialNode *potential = po.at(i);
+    const QVector<PotentialNode> *po = node->potentials();
+    for (int i = 0; i < po->count(); ++i) {
+        PotentialNode potential = po->at(i);
         HashPValue pValue;
-        pValue.pValue = potential->pValue();
-        Q_ASSERT(!qFuzzyCompare(potential->pValue(), -2.0f));
-        pValue.index = moveToNNIndex(potential->move());
+        pValue.pValue = potential.pValue();
+        Q_ASSERT(!qFuzzyCompare(potential.pValue(), -2.0f));
+        pValue.index = moveToNNIndex(potential.move());
         entry->potentialValues[i] = pValueToHash(pValue);
     }
 
-    for (int i = po.count(); i < MAX_POTENTIALS_COUNT; ++i)
+    for (int i = po->count(); i < MAX_POTENTIALS_COUNT; ++i)
         entry->potentialValues[i] = pValueToHash(HashPValue());
 
     m_cache->insert(node->game().hash(), entry, 1);

@@ -226,7 +226,7 @@ inline void Move::mirror()
     m_data ^= 0b111000111000;
 }
 
-inline bool operator==(const Move &a, const Move &b) { return a.end() == b.end(); }
+inline bool operator==(const Move &a, const Move &b) { return a.data() == b.data(); }
 
 typedef QVector<Move> MoveList;
 

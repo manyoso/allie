@@ -54,6 +54,12 @@ struct Tree {
 
 class PotentialNode {
 public:
+    PotentialNode()
+        : m_pValue(-2.0f)
+    {
+        Q_ASSERT(!m_move.isValid());
+    }
+
     PotentialNode(const Move &move)
         : m_move(move),
         m_pValue(-2.0f)
@@ -64,10 +70,16 @@ public:
     float pValue() const { return m_pValue; }
     void setPValue(float pValue) { m_pValue = pValue; }
     Move move() const { return m_move; }
+    bool isValid() const { return m_move.isValid(); }
 
     QString toString() const
     {
         return Notation::moveToString(m_move, Chess::Computer);
+    }
+
+    bool operator==(const PotentialNode &other) const
+    {
+        return m_move == other.m_move;
     }
 
 private:
@@ -112,7 +124,8 @@ public:
     inline bool hasChildren() const { return !m_children.isEmpty(); }
     inline bool hasPotentials() const { return !m_potentials.isEmpty(); }
     const QVector<Node*> children() const { return m_children; }
-    const QVector<PotentialNode*> potentials() const { return m_potentials; }
+    QVector<PotentialNode> *potentials() { return &m_potentials; }
+    const QVector<PotentialNode> *potentials() const { return &m_potentials; }
     bool isNotExtendable() const;
 
     // traversal
@@ -180,7 +193,7 @@ private:
     Game m_game;
     Node *m_parent;
     QVector<Node*> m_children;
-    QVector<PotentialNode*> m_potentials;
+    QVector<PotentialNode> m_potentials;
     quint32 m_visited;
     quint32 m_virtualLoss;
     float m_qValue;
@@ -257,7 +270,7 @@ inline bool Node::isNotExtendable() const
     // If we don't have children or potentials (either exact or haven't generated them yet)
     // or if our children or potentials don't have pValues then we are not extendable
     return (!hasChildren() || !m_children.first()->hasPValue())
-        && (!hasPotentials() || !m_potentials.first()->hasPValue());
+        && (!hasPotentials() || !m_potentials.first().hasPValue());
 }
 
 inline bool Node::isChildOf(const Node *node) const
@@ -364,8 +377,8 @@ inline float Node::weightedExplorationScore() const
 inline void Node::sortByPVals()
 {
     std::stable_sort(m_potentials.begin(), m_potentials.end(),
-        [=](const PotentialNode *a, const PotentialNode *b) {
-        return a->pValue() > b->pValue();
+        [=](const PotentialNode &a, const PotentialNode &b) {
+        return a.pValue() > b.pValue();
     });
 }
 

@@ -95,7 +95,6 @@ public:
     bool isCastleLegal(Chess::Army army, Chess::Castle castle) const;
     bool isCastleAvailable(Chess::Army army, Chess::Castle castle) const;
 
-    bool isSameGame(const Game &other) const;
     bool isSamePosition(const Game &other) const;
     bool operator==(const Game &other) const { return isSamePosition(other); }
     bool operator!=(const Game &other) const { return !isSamePosition(other); }
