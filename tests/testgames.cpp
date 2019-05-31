@@ -156,37 +156,296 @@ void TestGames::testStartingPositionBlack()
     qDeleteAll(gc);
 }
 
-void TestGames::test960()
+void TestGames::testCastlingAnd960()
 {
+    // begin regular positions
+    {
+        // Black king is in check so cannot castle
+        const QLatin1String fen = QLatin1String("r3k2r/8/8/1Q6/8/8/8/4K3 b kq - 0 1");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::Black);
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    {
+        // Black can castle as check was removed
+        const QLatin1String fen = QLatin1String("r3k2r/8/8/8/8/8/8/4K3 b kq - 0 1");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::Black);
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    {
+        // White can not castle kingside as it would move through check, but can castle queenside
+        // even though the rook is attacked as king does not move through check
+        const QLatin1String fen = QLatin1String("4k3/6q1/8/8/8/8/8/R3K2R w KQ - 0 1");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    {
+        // White can not castle either side as king would move through check
+        const QLatin1String fen = QLatin1String("4k3/8/8/8/6q1/8/8/R3K2R w KQ - 0 1");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // begin 960 positions
+
     Options::globalInstance()->setOption("UCI_Chess960", QLatin1Literal("true"));
-    Game g("qrknbbrn/pppppppp/8/8/8/8/PPPPPPPP/QRKNBBRN w GBgb - 0 1");
-    QCOMPARE(g.stateOfGameToFen(), QLatin1String("qrknbbrn/pppppppp/8/8/8/8/PPPPPPPP/QRKNBBRN w GBgb - 0 1"));
-    QCOMPARE(g.activeArmy(), Chess::White);
+
+    // check fen
+    {
+        const QLatin1String fen = QLatin1String("qrknbbrn/pppppppp/8/8/8/8/PPPPPPPP/QRKNBBRN w KQkq - 0 1");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // white to castle queenside
+    {
+        const QLatin1String fen = QLatin1String("r3k2r/pppqbpp1/2n1pnp1/3p2B1/3P1PP1/2P1P3/PPQ2N1P/R3KB1R w KQkq - 3 14");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // black to castle queenside
+    {
+        const QLatin1String fen = QLatin1String("r3k2r/pppqbpp1/2n1pnp1/3p2B1/3P1PP1/2P1P3/PPQ2N1P/2KR1B1R b kq - 4 14");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::Black);
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // white to castle kingside
+    {
+        const QLatin1String fen = QLatin1String("rn2k1r1/ppp1pp1p/3p2p1/5bn1/P7/2N2B2/1PPPPP2/2BNK1RR w Gkq - 4 11");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // black to castle kingside
+    {
+        const QLatin1String fen = QLatin1String("qrkr4/ppp1bppb/4pnnp/8/2PP4/2NB1P2/PP1R2PP/QRK1N1B1 b Qkq - 0 10");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::Black);
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // white to castle queenside
+    {
+        const QLatin1String fen = QLatin1String("qr3rk1/2p1bppb/pp2pnnp/8/P1PP4/2NB1P2/1PNR2PP/QRK3B1 w Q - 0 13");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // white to castle queenside
+    {
+        const QLatin1String fen = QLatin1String("1k1q1r1b/1p1n3p/r1np2p1/p1p1P3/2P2Pb1/P2N1N2/1PQ2B1P/RK2R2B w Qk - 0 16");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // white to castle kingside
+    {
+        const QLatin1String fen = QLatin1String("2rkqr1n/Qp1p2pp/8/4bp2/2bB4/8/PP2P1PP/N1RK1R1N w KQkq - 0 10");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // black to castle kingside
+    {
+        const QLatin1String fen = QLatin1String("rb2bkr1/pp1qpppp/1n1p2n1/8/2PNB3/1Q4N1/PP2PPPP/R3BKR1 b KQkq - 4 7");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::Black);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // white to castle kingside
+    {
+        const QLatin1String fen = QLatin1String("2r3k1/pp2p1p1/1n4np/5p2/3R4/1bB2NP1/1P2PPP1/5KR1 w K - 0 20");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::White);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    // black to castle kingside
+    {
+        const QLatin1String fen = QLatin1String("1b1rqk1r/ppnpp1pp/2pn4/4Np2/2bP4/1NP2P2/PP2P1PP/1B1RQKBR b KQkq - 4 7");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::Black);
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+
+        Node *n = new Node(nullptr, g);
+        n->generatePotentials();
+
+        // Make sure this is encoded as king captures rook
+        bool foundCastleKingSide = false;
+        for (PotentialNode *potential : n->potentials()) {
+            if (potential->toString() == QLatin1String("f8h8"))
+                foundCastleKingSide = true;
+        }
+
+        QVERIFY(foundCastleKingSide);
+        QCOMPARE(n->potentials().count(), 36);
+
+        QVector<Node*> gc;
+        TreeIterator<PreOrder> it = n->begin<PreOrder>();
+        for (; it != n->end<PreOrder>(); ++it)
+            gc.append(*it);
+        qDeleteAll(gc);
+    }
+
+    // black to castle kingside
+    {
+        const QLatin1String fen = QLatin1String("bq4kr/p3bpp1/3ppn1p/1P1n3P/P2P4/2N4R/1P3PP1/B1Q1NBK1 b k - 0 13");
+        Game g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.activeArmy(), Chess::Black);
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.isCastleLegal(Chess::Black, Chess::QueenSide));
+
+        bool success = g.makeMove(Notation::stringToMove(QLatin1String("g8h8"), Chess::Computer));
+        QVERIFY(success);
+
+        const QLatin1String afterCastle = QLatin1String("bq3rk1/p3bpp1/3ppn1p/1P1n3P/P2P4/2N4R/1P3PP1/B1Q1NBK1 w - - 1 14");
+        QCOMPARE(g.stateOfGameToFen(), afterCastle);
+    }
+
     Options::globalInstance()->setOption("UCI_Chess960", QLatin1Literal("false"));
-
-    //white to castle queenside
-    //r3k2r/pppqbpp1/2n1pnp1/3p2B1/3P1PP1/2P1P3/PPQ2N1P/R3KB1R w KQkq - 3 14
-
-    //black to castle queenside
-    //r3k2r/pppqbpp1/2n1pnp1/3p2B1/3P1PP1/2P1P3/PPQ2N1P/2KR1B1R b kq - 4 14
-
-    //black to castle kingside
-    //qrkr4/ppp1bppb/4pnnp/8/2PP4/2NB1P2/PP1R2PP/QRK1N1B1 b Qkq - 0 10
-
-    //white to castle queenside
-    //qr3rk1/2p1bppb/pp2pnnp/8/P1PP4/2NB1P2/1PNR2PP/QRK3B1 w Q - 0 13
-
-    //white to castle queenside
-    //1k1q1r1b/1p1n3p/r1np2p1/p1p1P3/2P2Pb1/P2N1N2/1PQ2B1P/RK2R2B w Qk - 0 16
-
-    //white to move and castle kingside
-    //2rkqr1n/Qp1p2pp/8/4bp2/2bB4/8/PP2P1PP/N1RK1R1N w KQkq - 0 10
-
-    //black to castle kingside
-    //rb2bkr1/pp1qpppp/1n1p2n1/8/2PNB3/1Q4N1/PP2PPPP/R3BKR1 b KQkq - 4 7
-
-    //white to castle kingside
-    //2r3k1/pp2p1p1/1n4np/5p2/3R4/1bB2NP1/1P2PPP1/5KR1 w K - 0 20
 }
 
 void TestGames::testSearchForMateInOne()

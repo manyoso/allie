@@ -112,7 +112,7 @@ bool Game::makeMove(const Move &move)
     Move mv = move;
     bool ok = fillOutMove(activeArmy(), &mv);
     if (!ok) {
-        qDebug() << "ERROR! move is malformed";
+        qDebug() << "ERROR! move is malformed" << Notation::moveToString(move, Chess::Computer);
         return false;
     }
     processMove(activeArmy(), mv);
@@ -163,25 +163,29 @@ void Game::processMove(Chess::Army army, const Move &move)
         else
             m_halfMoveClock = 0;
 
+        togglePieceAt(start, White, move.piece(), false);
+
         if (move.isCastle()) { //have to move the rook
             if (move.castleSide() == KingSide) {
                 Square rook(m_fileOfKingsRook, 0);
                 togglePieceAt(BitBoard::squareToIndex(rook), White, Rook, false);
                 rook = Square(5, 0); //f1
                 togglePieceAt(BitBoard::squareToIndex(rook), White, Rook, true);
+                Square king(6, 0); //g1
+                togglePieceAt(BitBoard::squareToIndex(king), White, King, true);
             } else if (move.castleSide() == QueenSide) {
                 Square rook(m_fileOfQueensRook, 0);
                 togglePieceAt(BitBoard::squareToIndex(rook), White, Rook, false);
                 rook = Square(3, 0); //d1
                 togglePieceAt(BitBoard::squareToIndex(rook), White, Rook, true);
+                Square king(2, 0); //c1
+                togglePieceAt(BitBoard::squareToIndex(king), White, King, true);
             }
-        }
-
-        togglePieceAt(start, White, move.piece(), false);
-        if (move.promotion() != Unknown)
+        } else if (move.promotion() != Unknown) {
             togglePieceAt(end, White, move.promotion(), true);
-        else
+        } else if (!move.isCastle()) {
             togglePieceAt(end, White, move.piece(), true);
+        }
     } else if (army == Black) {
         if (move.piece() == King) {
             m_hasBlackKingCastle = false;
@@ -221,25 +225,29 @@ void Game::processMove(Chess::Army army, const Move &move)
         else
             m_halfMoveClock = 0;
 
+        togglePieceAt(start, Black, move.piece(), false);
+
         if (move.isCastle()) { //have to move the rook
             if (move.castleSide() == KingSide) {
                 Square rook(m_fileOfKingsRook, 7);
                 togglePieceAt(BitBoard::squareToIndex(rook), Black, Rook, false);
                 rook = Square(5, 7); //f8
                 togglePieceAt(BitBoard::squareToIndex(rook), Black, Rook, true);
+                Square king(6, 7); //g8
+                togglePieceAt(BitBoard::squareToIndex(king), Black, King, true);
             } else if (move.castleSide() == QueenSide) {
                 Square rook(m_fileOfQueensRook, 7);
                 togglePieceAt(BitBoard::squareToIndex(rook), Black, Rook, false);
                 rook = Square(3, 7); //d8
                 togglePieceAt(BitBoard::squareToIndex(rook), Black, Rook, true);
+                Square king(2, 7); //c8
+                togglePieceAt(BitBoard::squareToIndex(king), Black, King, true);
             }
-        }
-
-        togglePieceAt(start, Black, move.piece(), false);
-        if (move.promotion() != Unknown)
+        } else if (move.promotion() != Unknown) {
             togglePieceAt(end, Black, move.promotion(), true);
-        else
+        } else {
             togglePieceAt(end, Black, move.piece(), true);
+        }
     }
 
     m_repetitions = -1;
@@ -266,6 +274,9 @@ bool Game::fillOutMove(Chess::Army army, Move *move) const
         move->setPiece(pieceTypeAt(start));
     }
 
+    if (move->piece() == Unknown)
+        return false;
+
     if (!move->start().isValid()) {
         bool ok = fillOutStart(army, move);
         if (!ok)
@@ -291,15 +302,29 @@ bool Game::fillOutMove(Chess::Army army, Move *move) const
     if (move->piece() == Pawn && move->end() == m_enPassantTarget)
         move->setEnPassant(true);
 
-    if (move->piece() == King) {
-        //FIXME ...this is different for Chess960...
-        if ((move->start().rank() == 0 || move->start().rank() == 7) && move->start().file() == 4) {
-            if (move->end().file() == 6) {
-                move->setCastle(true);
+    if (move->piece() == King && !move->isCastle()) {
+        const int rankStart = move->start().rank();
+        const int rankEnd = move->end().rank();
+        if ((rankStart == 0 && rankEnd == 0) || (rankStart == 7 && rankEnd == 7)) {
+            const int fileStart = move->start().file();
+            const int fileEnd = move->end().file();
+            if (fileStart == 4 && fileEnd == 6) {
                 move->setCastleSide(KingSide);
-            } else if (move->end().file() == 2) {
+                move->setCastle(true);
+            } else if (fileStart == 4 && fileEnd == 2) {
                 move->setCastle(true);
                 move->setCastleSide(QueenSide);
+            } else if (Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true")
+                && !BitBoard(board(army) & board(Rook) & move->end()).isClear()) {
+                if (fileEnd == fileOfKingsRook()) {
+                    move->setCastleSide(KingSide);
+                    move->setCastle(true);
+                } else if (fileEnd == fileOfQueensRook()) {
+                    move->setCastleSide(QueenSide);
+                    move->setCastle(true);
+                } else {
+                    Q_UNREACHABLE();
+                }
             }
         }
     }
@@ -330,6 +355,93 @@ bool Game::fillOutStart(Chess::Army army, Move *move) const
     return false;
 }
 
+QPair<Chess::Castle, Square> castlingFromFen(const QChar c, const Square &king,
+    const QVector<Square> &rooks)
+{
+    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true");
+    QPair<Chess::Castle, Square> result;
+
+    // Support ill-formed or fabricated fen
+    if (rooks.isEmpty() || !king.isValid()) {
+        result.first = (c == QChar('k') ? KingSide : QueenSide);
+        return result;
+    }
+
+    if (c == QChar('k')) {
+        result.first = KingSide;
+        result.second = rooks.last();
+        Q_ASSERT(result.second.file() > king.file());
+    } else if (c == QChar('q')) {
+        result.first = QueenSide;
+        result.second = rooks.first();
+        Q_ASSERT(result.second.file() < king.file());
+    } else {
+        Q_ASSERT(isChess960);
+        for (Square sq : rooks) {
+            if (Notation::fileToChar(sq.file()) == c) {
+                result.second = sq;
+                result.first = sq.file() > king.file() ? KingSide : QueenSide;
+                break;
+            }
+        }
+    }
+
+    Q_ASSERT(result.second.isValid());
+    Q_ASSERT(result.second.file() != king.file());
+    return result;
+}
+
+QChar fenFromCastling(Chess::Castle castle, const Square &king, const QVector<Square> &rooks,
+    int fileOfCastlingRook)
+{
+    // Support ill-formed or fabricated fen
+    if (rooks.isEmpty()) {
+        if (castle == KingSide)
+            return QChar('k');
+        else
+            return QChar('q');
+    }
+
+    QVector<Square> rooksToTheLeft;
+    QVector<Square> rooksToTheRight;
+    for (Square sq : rooks) {
+        if (sq.file() < king.file())
+            rooksToTheLeft.append(sq);
+        else if (sq.file() > king.file())
+            rooksToTheRight.append(sq);
+        else
+            Q_UNREACHABLE();
+    }
+
+    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true");
+    if (castle == KingSide) {
+        Q_ASSERT(!rooksToTheRight.isEmpty());
+        if (rooksToTheRight.last().file() == fileOfCastlingRook)
+            return QChar('k');
+        else {
+            Q_ASSERT(isChess960);
+            for (Square sq : rooksToTheRight) {
+                if (sq.file() == fileOfCastlingRook)
+                    return Notation::fileToChar(fileOfCastlingRook);
+            }
+            Q_UNREACHABLE();
+        }
+    } else {
+        Q_ASSERT(!rooksToTheLeft.isEmpty());
+        if (rooksToTheLeft.first().file() == fileOfCastlingRook)
+            return QChar('q');
+        else {
+            Q_ASSERT(isChess960);
+            for (Square sq : rooksToTheLeft) {
+                if (sq.file() == fileOfCastlingRook)
+                    return Notation::fileToChar(fileOfCastlingRook);
+            }
+            Q_UNREACHABLE();
+        }
+    }
+    Q_UNREACHABLE();
+}
+
 void Game::setFen(const QString &fen)
 {
     m_activeArmy = White;
@@ -349,80 +461,90 @@ void Game::setFen(const QString &fen)
     m_bishopsBoard = BitBoard();
     m_knightsBoard = BitBoard();
     m_pawnsBoard = BitBoard();
+    m_hasWhiteKingCastle = false;
+    m_hasBlackKingCastle = false;
+    m_hasWhiteQueenCastle = false;
+    m_hasBlackQueenCastle = false;
 
     QStringList list = fen.split(' ');
-    Q_ASSERT(list.count() == 6);
+    Q_ASSERT(list.count() >= 4);
 
     QStringList ranks = list.at(0).split('/');
     Q_ASSERT(ranks.count() == 8);
+
+    QVector<Square> whiteRooks;
+    QVector<Square> blackRooks;
+    Square whiteKing;
+    Square blackKing;
 
     for (int i = 0; i < ranks.size(); ++i) {
         QString rank = ranks.at(i);
         int blank = 0;
         for (int j = 0; j < rank.size(); ++j) {
             QChar c = rank.at(j);
+            const int f = j + blank;
+            const int r = 7 - i;
+            const Square square = Square(f, r);
             if (c.isLetter() && c.isUpper()) /*white*/ {
                 PieceType piece = Notation::charToPiece(c);
-                Square square = Square(j + blank, 7 - i);
                 togglePieceAt(square.data(), White, piece, true);
+                if (piece == PieceType::Rook) {
+                    whiteRooks.append(square);
+                } else if (piece == PieceType::King)
+                    whiteKing = square;
             } else if (c.isLetter() && c.isLower()) /*black*/ {
                 PieceType piece = Notation::charToPiece(c.toUpper());
-                Square square = Square(j + blank, 7 - i);
                 togglePieceAt(square.data(), Black, piece, true);
+                if (piece == PieceType::Rook) {
+                    blackRooks.append(square);
+                } else if (piece == PieceType::King)
+                    blackKing = square;
             } else if (c.isNumber()) /*blank*/ {
                 blank += QString(c).toInt() - 1;
             }
         }
     }
 
-    m_activeArmy = list.at(1) == QLatin1String("w") ? White : Black;
+    Q_ASSERT(whiteKing.isValid());
+    Q_ASSERT(blackKing.isValid());
 
-    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true");
+    // Sort the rooks by file
+    std::stable_sort(whiteRooks.begin(), whiteRooks.end(),
+        [=](const Square &a, const Square &b) {
+        return a.file() < b.file();
+    });
+
+    std::stable_sort(blackRooks.begin(), blackRooks.end(),
+        [=](const Square &a, const Square &b) {
+        return a.file() < b.file();
+    });
+
+    m_activeArmy = list.at(1) == QLatin1String("w") ? White : Black;
 
     //Should work for regular fen and UCI fen for chess960...
     QString castling = list.at(2);
     if (castling != "-") {
-        QVector<QChar> whiteKingSide;
-        whiteKingSide << 'K';
-        if (isChess960) whiteKingSide << 'E' << 'F' << 'G' << 'H';
-        m_hasWhiteKingCastle = false;
-        for (QChar c : whiteKingSide) {
-            if (castling.contains(c)) {
-                m_hasWhiteKingCastle = true;
-                m_fileOfKingsRook = isChess960 ? quint8(whiteKingSide.indexOf(c)) + 3 : 7;
-            }
-        }
-
-        QVector<QChar> whiteQueenSide;
-        whiteQueenSide << 'Q';
-        if (isChess960) whiteQueenSide << 'A' << 'B' << 'C' << 'D';
-        m_hasWhiteQueenCastle = false;
-        for (QChar c : whiteQueenSide) {
-            if (castling.contains(c)) {
-                m_hasWhiteQueenCastle = true;
-                m_fileOfQueensRook = isChess960 ? quint8(whiteQueenSide.indexOf(c) - 1) : 0;
-            }
-        }
-
-        QVector<QChar> blackKingSide;
-        blackKingSide << 'k';
-        if (isChess960) blackKingSide << 'e' << 'f' << 'g' << 'h';
-        m_hasBlackKingCastle = false;
-        for (QChar c : blackKingSide) {
-            if (castling.contains(c)) {
-                m_hasBlackKingCastle = true;
-                m_fileOfKingsRook = isChess960 ? quint8(blackKingSide.indexOf(c)) + 3 : 7;
-            }
-        }
-
-        QVector<QChar> blackQueenSide;
-        blackQueenSide << 'q';
-        if (isChess960) blackQueenSide << 'a' << 'b' << 'c' << 'd';
-        m_hasBlackQueenCastle = false;
-        for (QChar c : blackQueenSide) {
-            if (castling.contains(c)) {
-                m_hasBlackQueenCastle = true;
-                m_fileOfQueensRook = isChess960 ? quint8(blackQueenSide.indexOf(c) - 1) : 0;
+        for (QChar c : castling) {
+            const Chess::Army castleArmy = c.isUpper() ? White : Black;
+            QPair<Chess::Castle, Square> pair;
+            if (castleArmy == White) {
+                pair = castlingFromFen(c.toLower(), whiteKing, whiteRooks);
+                if (pair.first == KingSide) {
+                    m_hasWhiteKingCastle = true;
+                    m_fileOfKingsRook = quint8(pair.second.file());
+                } else {
+                    m_hasWhiteQueenCastle = true;
+                    m_fileOfQueensRook = quint8(pair.second.file());
+                }
+            } else {
+                pair = castlingFromFen(c.toLower(), blackKing, blackRooks);
+                if (pair.first == KingSide) {
+                    m_hasBlackKingCastle = true;
+                    m_fileOfKingsRook = quint8(pair.second.file());
+                } else {
+                    m_hasBlackQueenCastle = true;
+                    m_fileOfQueensRook = quint8(pair.second.file());
+                }
             }
         }
     }
@@ -431,12 +553,18 @@ void Game::setFen(const QString &fen)
     if (enPassant != QLatin1String("-"))
         m_enPassantTarget = Notation::stringToSquare(enPassant);
 
-    m_halfMoveClock = quint16(list.at(4).toInt());
-    m_halfMoveNumber = quint16(qCeil(list.at(5).toInt() * 2.0));
+    if (list.count() > 4)
+        m_halfMoveClock = quint16(list.at(4).toInt());
+    if (list.count() > 5)
+        m_halfMoveNumber = quint16(qCeil(list.at(5).toInt() * 2.0));
 }
 
 QString Game::stateOfGameToFen(bool includeMoveNumbers) const
 {
+    QVector<Square> whiteRooks;
+    QVector<Square> blackRooks;
+    Square whiteKing;
+    Square blackKing;
 
     QStringList rankList;
     for (qint8 i = 0; i < 8; ++i) { //rank
@@ -457,6 +585,10 @@ QString Game::stateOfGameToFen(bool includeMoveNumbers) const
                 } else {
                     rank += 'P';
                 }
+                if (piece == PieceType::Rook)
+                    whiteRooks.append(square);
+                else if (piece == PieceType::King)
+                    whiteKing = square;
             } else if (hasPieceAt(index, Black)) {
                 PieceType piece = pieceTypeAt(index);
                 QChar ch = Notation::pieceToChar(piece);
@@ -469,6 +601,10 @@ QString Game::stateOfGameToFen(bool includeMoveNumbers) const
                 } else {
                     rank += 'p';
                 }
+                if (piece == PieceType::Rook)
+                    blackRooks.append(square);
+                else if (piece == PieceType::King)
+                    blackKing = square;
             } else {
                 blank++;
             }
@@ -482,19 +618,32 @@ QString Game::stateOfGameToFen(bool includeMoveNumbers) const
         rankList << rank;
     }
 
+    Q_ASSERT(whiteKing.isValid());
+    Q_ASSERT(blackKing.isValid());
+
+    // Sort the rooks by file
+    std::stable_sort(whiteRooks.begin(), whiteRooks.end(),
+        [=](const Square &a, const Square &b) {
+        return a.file() < b.file();
+    });
+
+    std::stable_sort(blackRooks.begin(), blackRooks.end(),
+        [=](const Square &a, const Square &b) {
+        return a.file() < b.file();
+    });
+
     QString ranks = rankList.join("/");
     QString activeArmy = (m_activeArmy == White ? QLatin1String("w") : QLatin1String("b"));
 
-    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true");
     QString castling;
     if (isCastleAvailable(White, KingSide))
-        isChess960 ? castling.append(Notation::fileToChar(m_fileOfKingsRook).toUpper()) : castling.append("K");
+        castling.append(fenFromCastling(KingSide, whiteKing, whiteRooks, m_fileOfKingsRook).toUpper());
     if (isCastleAvailable(White, QueenSide))
-        isChess960 ? castling.append(Notation::fileToChar(m_fileOfQueensRook).toUpper()) : castling.append("Q");
+        castling.append(fenFromCastling(QueenSide, whiteKing, whiteRooks, m_fileOfQueensRook).toUpper());
     if (isCastleAvailable(Black, KingSide))
-        isChess960 ? castling.append(Notation::fileToChar(m_fileOfKingsRook)) : castling.append("k");
+        castling.append(fenFromCastling(KingSide, blackKing, blackRooks, m_fileOfKingsRook));
     if (isCastleAvailable(Black, QueenSide))
-        isChess960 ? castling.append(Notation::fileToChar(m_fileOfQueensRook)) : castling.append("q");
+        castling.append(fenFromCastling(QueenSide, blackKing, blackRooks, m_fileOfQueensRook));
     if (castling.isEmpty())
         castling.append("-");
 
@@ -506,30 +655,6 @@ QString Game::stateOfGameToFen(bool includeMoveNumbers) const
         fen << QString::number(halfMoveClock()) << QString::number(qCeil(halfMoveNumber() / 2.0));
 
     return fen.join(" ");
-}
-
-BitBoard Game::board(Chess::Army army, Chess::Castle castle, bool kingsSquares) const
-{
-    // This should only be called if it is available otherwise the boards will be out of date
-    // as we don't update them when castling is not available
-    Q_ASSERT(isCastleAvailable(army, castle));
-
-    static BitBoard firstRank;
-    static BitBoard eighthRank;
-    static bool init = false;
-    if (!init) {
-        SquareList first;
-        first << Square(0, 0) << Square(1, 0) << Square(2, 0) << Square(3, 0) << Square(4, 0) << Square(5, 0) << Square(6, 0) << Square(7, 0);
-        firstRank.setBoard(first);
-
-        SquareList eight;
-        eight << Square(0, 7) << Square(1, 7) << Square(2, 7) << Square(3, 7) << Square(4, 7) << Square(5, 7) << Square(6, 7) << Square(7, 7);
-        eighthRank.setBoard(eight);
-
-        init = true;
-    }
-
-    return castleBoard(army, castle, kingsSquares) & BitBoard(army == White ? firstRank : eighthRank);
 }
 
 BitBoard Game::kingAttackBoard(Chess::Army army, const Movegen *gen) const
@@ -712,10 +837,11 @@ void Game::generateCastle(Chess::Army army, Chess::Castle castleSide, Node *pare
     mv.setPiece(King);
     mv.setStart(BitBoard(board(King) & board(army)).occupiedSquares().first());
 
+    // All castles are encoded internally as king takes chosen castling rook
     if (castleSide == KingSide)
-        mv.setEnd(army == White ? Square(6, 0) /*g1*/ : Square(6, 7) /*g8*/);
+        mv.setEnd(army == White ? Square(fileOfKingsRook(), 0) : Square(fileOfKingsRook(), 7));
     else
-        mv.setEnd(army == White ? Square(2, 0) /*c1*/ : Square(2, 7) /*c8*/);
+        mv.setEnd(army == White ? Square(fileOfQueensRook(), 0) : Square(fileOfQueensRook(), 7));
 
     mv.setCastle(true);
     mv.setCastleSide(castleSide);
@@ -812,40 +938,69 @@ void Game::setStaleMate(bool staleMate)
     m_lastMove.setStaleMate(staleMate);
 }
 
+BitBoard boardBetweenOnSameRank(const Square &a, const Square &b, bool inclusive)
+{
+    Q_ASSERT(a.rank() == b.rank());
+    BitBoard result;
+    if (inclusive) {
+        result.setBit(a.data(), true);
+        result.setBit(b.data(), true);
+    }
+
+    const int files = qAbs(a.file() - b.file()) - 1;
+    const int start = (a.file() < b.file() ? a.file() : b.file()) + 1;
+    for (int f = start; f < start + files; ++f)
+        result.setBit(Square(f, a.rank()).data(), true);
+
+    return result;
+}
+
 bool Game::isCastleLegal(Chess::Army army, Chess::Castle castle) const
 {
-    //Check if castle is available... ie, if neither king nor rook(s) have moved...
-    if (!isCastleAvailable(army, castle)) {
-        //qDebug() << "castle is unavailable!";
+    // 1) The king and the chosen rook are on the player's first rank.
+    // 2) Neither the king nor the chosen rook has previously moved.
+    if (!isCastleAvailable(army, castle))
         return false;
-    }
 
-    // The board representing the squares involved in castling for given army
-    BitBoard castleBoard = board(army, castle);
+    // Get the chosen rook
+    const BitBoard rookBoard(Square(castle == KingSide ? fileOfKingsRook() : fileOfQueensRook(), army == White ? 0 : 7)
+        & board(Rook) & board(army));
 
-    // The board of kings position
-    BitBoard kingBoard(board(King) & board(army));
-
-    // The board of rooks position in castle under question
-    BitBoard rookBoard(Square(castle == KingSide ? fileOfKingsRook() : fileOfQueensRook(), army == White ? 0 : 7));
-
-    // The position of the king and rook under question regardless if they are in right position
-    // for castling
-    BitBoard piecesBoard(kingBoard | rookBoard);
-
-    // The castleBoard minus the positions of king and rook under question. This board represents
-    // the squares in between the king and rook. We know at this point that the king and rook have
-    // not moved.
-    BitBoard castleBoardMinusPieces(castleBoard ^ piecesBoard);
-
-    //Check if all squares between king and rook(s) are unoccupied by anything other than king or rook...
-    if (!BitBoard(castleBoardMinusPieces & BitBoard(board(White) | board(Black))).isClear()) {
-        //qDebug() << "castle is impeded by occupied square!";
+    // If it does not exist, then castle is clearly illegal
+    if (rookBoard.isClear())
         return false;
-    }
 
-    // The board representing the squares involved in castling for given army
-    castleBoard = board(army, castle, true /*kingsSquares*/);
+    Q_ASSERT(rookBoard.occupiedSquares().count() == 1);
+    const Square chosenRook = rookBoard.occupiedSquares().first();
+
+    // Get the king
+    const BitBoard kingBoard(board(King) & board(army));
+    Q_ASSERT(rookBoard.occupiedSquares().count() == 1);
+    const Square king = kingBoard.occupiedSquares().first();
+
+    // Get the board between king and chosen rook
+    const BitBoard pieces = BitBoard(board(White) | board(Black));
+    const BitBoard between = boardBetweenOnSameRank(king, chosenRook, false /*inclusive*/)
+        & pieces;
+
+    // 3) There are no pieces between the king and the chosen rook.
+    if (!between.isClear())
+        return false;
+
+    const Square kingFrom = king;
+    const Square rookFrom = chosenRook;
+
+    const Square kingTo = Square((castle == KingSide ? 6 : 2), king.rank());
+    const BitBoard kingMovesThrough = boardBetweenOnSameRank(kingFrom, kingTo, true /*inclusive*/);
+
+    const Square rookTo = Square((castle == KingSide ? 5 : 3), chosenRook.rank());
+    const BitBoard rookMovesThrough = boardBetweenOnSameRank(rookFrom, rookTo, true /*inclusive*/);
+
+    // Rook and King cannot jump over anything but each other
+    const BitBoard throughMinusKAndR(BitBoard(BitBoard(kingMovesThrough | rookMovesThrough)
+        ^ rookBoard ^ kingBoard) & pieces);
+    if (!throughMinusKAndR.isClear())
+        return false;
 
     const Movegen *gen = Movegen::globalInstance();
     const Chess::Army attackArmy = army == White ? Black : White;
@@ -856,57 +1011,13 @@ bool Game::isCastleLegal(Chess::Army army, Chess::Castle castle) const
         knightAttackBoard(attackArmy, gen) |
         pawnAttackBoard(attackArmy, gen);
 
-    //Check if any squares between king and kings castle position are under attack...
-    if (!BitBoard(castleBoard & atb).isClear()) {
-        //qDebug() << "king can't move through check!";
+    // 4) The king is not currently in check.
+    // 5) The king does not pass through a square that is attacked by an enemy piece.
+    // 6) The king does not end up in check. (True of any legal move.)
+    if (!BitBoard(kingMovesThrough & atb).isClear())
         return false;
-    }
 
     return true;
-}
-
-BitBoard Game::castleBoard(Chess::Army army, Chess::Castle castle, bool kingSquares) const
-{
-    if (!isCastleAvailable(army, castle))
-        return BitBoard();
-
-    SquareList kings = BitBoard(board(King) & board(army)).occupiedSquares();
-    Square king = !kings.isEmpty() ? kings.first() : Square();
-    Q_ASSERT(king.isValid());
-
-    BitBoard cb;
-    int rank = army == White ? 0 : 7;
-
-    if (!kingSquares) {
-        int rook = castle == KingSide ? fileOfKingsRook() : fileOfQueensRook();
-        for (int i= 0; i < 8; ++i) {
-            if (king.file() < rook) {
-                if (i >= king.file() && i <= rook) {
-                    cb = cb | Square(i, rank);
-                }
-            } else {
-                if (i >= rook && i <= king.file()) {
-                    cb = cb | Square(i, rank);
-                }
-            }
-        }
-        return cb;
-    }
-
-    // Remove all squares except the ones between king position and file he ends up on
-    int kingsSpot = castle == KingSide ? 6 : 2; // file king ends up on
-    for (int i= 0; i < 8; ++i) {
-        if (king.file() < kingsSpot) {
-            if (i >= king.file() && i <= kingsSpot) {
-                cb = cb | Square(i, rank);
-            }
-        } else {
-            if (i >= kingsSpot && i <= king.file()) {
-                cb = cb | Square(i, rank);
-            }
-        }
-    }
-    return cb;
 }
 
 bool Game::isSameGame(const Game &other) const

@@ -124,8 +124,6 @@ private:
     bool fillOutMove(Chess::Army army, Move *move) const;
     bool fillOutStart(Chess::Army army, Move *move) const;
 
-    BitBoard castleBoard(Chess::Army army, Chess::Castle castle, bool kingSquares) const;
-
     void togglePieceAt(int index, Chess::Army army, Chess::PieceType piece, bool bit);
     BitBoard *boardPointer(Chess::PieceType piece);
 
