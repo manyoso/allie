@@ -130,7 +130,7 @@ __global__ void SE_Layer_NHWC(half* output, const half* skip, const half* input,
   }
 }
 
-void Se_Fp16_NHWC(int N, int C, int numFc1Out, half* output, const half* skip,
+bool Se_Fp16_NHWC(int N, int C, int numFc1Out, half* output, const half* skip,
                   const half* input, const half* w1, const half* b1,
                   const half* w2, const half* b2, const half* bPrev) {
   // TODO: Think of more elegant way to avoid this hardcoding :-/
@@ -142,6 +142,8 @@ void Se_Fp16_NHWC(int N, int C, int numFc1Out, half* output, const half* skip,
       // TODO: support other channel counts.
 #ifndef DISABLE_FOR_ALLIE
       throw Exception("channel count unsupported by SE layer");
+#else
+      return false;
 #endif
     }
   } else if (numFc1Out == 32) {
@@ -157,11 +159,15 @@ void Se_Fp16_NHWC(int N, int C, int numFc1Out, half* output, const half* skip,
     } else if (C == 256) {
       SE_Layer_NHWC<256, 32>
           <<<N, C>>>(output, skip, input, w1, b1, w2, b2, bPrev);
+    } else if (C == 320) {
+      SE_Layer_NHWC<320, 32>
+          <<<N, C>>>(output, skip, input, w1, b1, w2, b2, bPrev);
+    } else if (C == 352) {
+      SE_Layer_NHWC<352, 32>
+          <<<N, C>>>(output, skip, input, w1, b1, w2, b2, bPrev);
     } else {
       // TODO: support other channel counts.
-#ifndef DISABLE_FOR_ALLIE
-      throw Exception("channel count unsupported by SE layer");
-#endif
+      return false;
     }
   } else if (numFc1Out == 64) {
     if (C == 64) {
@@ -176,19 +182,19 @@ void Se_Fp16_NHWC(int N, int C, int numFc1Out, half* output, const half* skip,
     } else if (C == 256) {
       SE_Layer_NHWC<256, 64>
           <<<N, C>>>(output, skip, input, w1, b1, w2, b2, bPrev);
+    } else if (C == 320) {
+      SE_Layer_NHWC<320, 64>
+          <<<N, C>>>(output, skip, input, w1, b1, w2, b2, bPrev);
     } else {
       // TODO: support other channel counts.
-#ifndef DISABLE_FOR_ALLIE
-      throw Exception("channel count unsupported by SE layer");
-#endif
+      return false;
     }
   } else {
     // TODO: support other sizes.
-#ifndef DISABLE_FOR_ALLIE
-    throw Exception("numOutputs unsupported by SE layer");
-#endif
+    return false;
   }
   ReportCUDAErrors(cudaGetLastError());
+  return true;
 }
 
 }   // namespace cudnn_backend

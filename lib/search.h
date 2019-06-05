@@ -47,7 +47,7 @@ struct SearchSettings {
     static float cpuctBase;
     static float fpuReduction;
     static float policySoftmaxTemp;
-    static float savingsTimeFactor;
+    static float openingTimeFactor;
     static qint64 earlyExitMinimumTime;
     static int tryPlayoutLimit;
     static int vldMax;
@@ -55,23 +55,16 @@ struct SearchSettings {
 
 QDebug operator<<(QDebug, const Search &);
 
-enum Trend {
-    Worse = 0,
-    Better
-};
-
-QString trendToString(Trend t);
-
 struct WorkerInfo {
     int sumDepths = 0;
     int maxDepth = 0;
     int nodesSearched = 0;
-    int nodesSearchedTotal = 0;
     int nodesEvaluated = 0;
     int nodesCreated = 0;
     int numberOfBatches = 0;
     int nodesCacheHits = 0;
     int nodesTBHits = 0;
+    int searchId = 0;
     QString threadId;
 };
 
@@ -85,13 +78,14 @@ struct SearchInfo {
     int batchSize = -1;
     QString pv;
     int rawnps = -1;
-    Trend trend = Better;
-    float trendDegree = 0.0;
+    int nnnps = -1;
     QString bestMove;
     QString ponderMove;
     bool isResume = false;
     bool isDTZ = false;
+    bool bestIsMostVisited = true;
     WorkerInfo workerInfo;
+    int games = 0;
 };
 
 #endif // SEARCH_H

@@ -95,7 +95,6 @@ public:
     bool isCastleLegal(Chess::Army army, Chess::Castle castle) const;
     bool isCastleAvailable(Chess::Army army, Chess::Castle castle) const;
 
-    bool isSameGame(const Game &other) const;
     bool isSamePosition(const Game &other) const;
     bool operator==(const Game &other) const { return isSamePosition(other); }
     bool operator!=(const Game &other) const { return !isSamePosition(other); }
@@ -123,8 +122,6 @@ private:
 
     bool fillOutMove(Chess::Army army, Move *move) const;
     bool fillOutStart(Chess::Army army, Move *move) const;
-
-    BitBoard castleBoard(Chess::Army army, Chess::Castle castle, bool kingSquares) const;
 
     void togglePieceAt(int index, Chess::Army army, Chess::PieceType piece, bool bit);
     BitBoard *boardPointer(Chess::PieceType piece);

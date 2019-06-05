@@ -68,7 +68,7 @@ private slots:
     void testSizes();
     void testStartingPosition();
     void testStartingPositionBlack();
-    void test960();
+    void testCastlingAnd960();
     void testSearchForMateInOne();
     void testEarlyExit();
     void testInstaMove();

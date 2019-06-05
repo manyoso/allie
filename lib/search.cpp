@@ -28,7 +28,7 @@ float SearchSettings::cpuctInit = 3.4f;
 float SearchSettings::cpuctBase = 10000;
 float SearchSettings::fpuReduction = 1.2f;
 float SearchSettings::policySoftmaxTemp = 1 / 2.2f;
-float SearchSettings::savingsTimeFactor = 2.0f;
+float SearchSettings::openingTimeFactor = 1.5;
 qint64 SearchSettings::earlyExitMinimumTime = 200;
 int SearchSettings::tryPlayoutLimit = 32;
 int SearchSettings::vldMax = 10000;
@@ -38,13 +38,13 @@ QDebug operator<<(QDebug debug, const Search &search)
     if (!search.searchMoves.isEmpty())
         debug << "searchmoves: " << search.searchMoves;
     if (search.wtime != -1)
-        debug << "movestogo: " << search.wtime;
+        debug << "wtime: " << search.wtime;
     if (search.btime != -1)
-        debug << "movestogo: " << search.btime;
+        debug << "btime: " << search.btime;
     if (search.winc != -1)
-        debug << "movestogo: " << search.winc;
+        debug << "winc: " << search.winc;
     if (search.binc != -1)
-        debug << "movestogo: " << search.binc;
+        debug << "binc: " << search.binc;
     if (search.movestogo != -1)
         debug << "movestogo: " << search.movestogo;
     if (search.depth != -1)
@@ -59,13 +59,4 @@ QDebug operator<<(QDebug debug, const Search &search)
         debug << "infinite: " << search.infinite;
 
     return debug.space();
-}
-
-QString trendToString(Trend t)
-{
-    switch (t) {
-    case Worse: return "Worse";
-    case Better: return "Better";
-    }
-    Q_UNREACHABLE();
 }

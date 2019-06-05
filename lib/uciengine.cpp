@@ -66,13 +66,13 @@ QString UciOption::toString() const {
     case Check:
         {
             list << "check";
-            list << "default" << m_default;
+            list << "default" << m_value;
             break;
         }
     case Spin:
         {
             list << "spin";
-            list << "default" << m_default;
+            list << "default" << m_value;
             list << "min" << m_min;
             list << "max" << m_max;
 
@@ -81,7 +81,7 @@ QString UciOption::toString() const {
     case Combo:
         {
             list << "combo";
-            list << "default" << m_default;
+            list << "default" << m_value;
             for (QString v : m_var) {
                 list << "var" << v;
             }
@@ -95,7 +95,7 @@ QString UciOption::toString() const {
     case String:
         {
             list << "string";
-            list << "default" << m_default;
+            list << "default" << m_value;
             break;
         }
     }
@@ -421,16 +421,15 @@ void UciEngine::stopSearch()
 
 void UciEngine::calculateRollingAverage(const SearchInfo &info)
 {
-    const int n = History::globalInstance()->currentGame().halfMoveNumber() / 2;
-    if (!n)
-        return;
-
+    static int n = 0;
+    ++n;
     m_averageInfo.depth             = rollingAverage(m_averageInfo.depth, info.depth, n);
     m_averageInfo.seldepth          = rollingAverage(m_averageInfo.seldepth, info.seldepth, n);
     m_averageInfo.nodes             = rollingAverage(m_averageInfo.nodes, info.nodes, n);
     m_averageInfo.nps               = rollingAverage(m_averageInfo.nps, info.nps, n);
     m_averageInfo.batchSize         = rollingAverage(m_averageInfo.batchSize, info.batchSize, n);
     m_averageInfo.rawnps            = rollingAverage(m_averageInfo.rawnps, info.rawnps, n);
+    m_averageInfo.nnnps             = rollingAverage(m_averageInfo.nnnps, info.nnnps, n);
 
     WorkerInfo &avgW = m_averageInfo.workerInfo;
     const WorkerInfo &newW = info.workerInfo;
@@ -451,6 +450,9 @@ void UciEngine::sendBestMove(bool force)
             return;
     }
 
+    Q_ASSERT(!m_searchEngine->isStopped());
+    Q_ASSERT(m_clock->isActive());
+
     stopTheClock();
 
 #if defined(DEBUG_TIME)
@@ -469,6 +471,16 @@ void UciEngine::sendBestMove(bool force)
     if (Q_UNLIKELY(m_ioHandler))
         m_ioHandler->handleBestMove(m_lastInfo.bestMove);
 
+#if defined(DEBUG_TIME)
+    // This should only happen when we are completely out of time
+    if (!m_lastInfo.bestIsMostVisited) {
+        QString out;
+        QTextStream stream(&out);
+        stream << "info bestIsMostVisited " << (m_lastInfo.bestIsMostVisited ? "true" : "false") << endl;
+        output(out);
+    }
+#endif
+
     QString out;
     QTextStream stream(&out);
     if (m_lastInfo.ponderMove.isEmpty())
@@ -476,7 +488,6 @@ void UciEngine::sendBestMove(bool force)
     else
         stream << "bestmove " << m_lastInfo.bestMove << " ponder " << m_lastInfo.ponderMove << endl;
     output(out);
-    calculateRollingAverage(m_lastInfo);
 
     stopSearch(); // we block until the search has stopped
 }
@@ -489,11 +500,19 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     m_lastInfo = info;
 
+    // Check if we are in extended mode and best has become most visited
+    if (m_clock->isExtended() && m_lastInfo.bestIsMostVisited) {
+        sendBestMove(true /*force*/);
+        return;
+    }
+
     // Check if we've already exceeded time
     if (m_clock->hasExpired()) {
         sendBestMove(true /*force*/);
         return;
     }
+
+    Q_ASSERT(!m_searchEngine->isStopped());
 
     // Check if we've exceeded the ram limit for tree size
     const quint64 treeSizeLimit = Options::globalInstance()->option("TreeSize").value().toUInt() * quint64(1024) * quint64(1024);
@@ -517,7 +536,8 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     m_timeAtLastProgress = msecs;
 
     m_lastInfo.nps = qRound(qreal(m_lastInfo.nodes) / qMax(qint64(1), msecs) * 1000.0);
-    m_lastInfo.rawnps = qRound(qreal(m_lastInfo.workerInfo.nodesSearched) / qMax(qint64(1), msecs) * 1000.0);
+    m_lastInfo.rawnps = qRound(qreal(m_lastInfo.workerInfo.nodesCreated) / qMax(qint64(1), msecs) * 1000.0);
+    m_lastInfo.nnnps = qRound(qreal(m_lastInfo.workerInfo.nodesEvaluated) / qMax(qint64(1), msecs) * 1000.0);
 
     // Set the estimated number of nodes to be searched under deadline if we've been searching for
     // at least N msecs and we want to early exit according to following paper:
@@ -541,9 +561,6 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
 #if defined(DEBUG_TIME)
     stream << "info"
-        << " trend " << trendToString(m_lastInfo.trend)
-        << " trendDegree " << m_lastInfo.trendDegree
-        << " trendFactor " << m_clock->trendFactor()
         << " deadline " << m_clock->deadline()
         << " timeToDeadline " << m_clock->timeToDeadline()
         << endl;
@@ -553,7 +570,8 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
         stream << "info"
                << " isResume " << (m_lastInfo.isResume ? "true" : "false")
                << " rawnps " << m_lastInfo.rawnps
-               << " efficiency " << m_lastInfo.workerInfo.nodesSearched / float(m_lastInfo.workerInfo.nodesEvaluated)
+               << " nnnps " << m_lastInfo.nnnps
+               << " efficiency " << m_lastInfo.workerInfo.nodesCreated / float(m_lastInfo.workerInfo.nodesEvaluated)
                << " nodesSearched " << m_lastInfo.workerInfo.nodesSearched
                << " nodesEvaluated " << m_lastInfo.workerInfo.nodesEvaluated
                << " nodesCreated " << m_lastInfo.workerInfo.nodesCreated
@@ -576,7 +594,12 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
            << " pv " << m_lastInfo.pv
            << endl;
 
+    Q_ASSERT(m_clock->isActive());
     output(out);
+
+#if defined(AVERAGES)
+    calculateRollingAverage(m_lastInfo);
+#endif
 
     // Stop at specific targets if requested or if we have a dtz move
     if (targetReached)
@@ -588,12 +611,14 @@ void UciEngine::sendAverages()
     QString out;
     QTextStream stream(&out);
     stream << "info averages"
+           << " games " << m_averageInfo.games
            << " depth " << m_averageInfo.depth
            << " seldepth " << m_averageInfo.seldepth
            << " nodes " << m_averageInfo.nodes
            << " nps " << m_averageInfo.nps
-           << " batchSize " << m_averageInfo.batchSize
            << " rawnps " << m_averageInfo.rawnps
+           << " nnnps " << m_averageInfo.nnnps
+           << " batchSize " << m_averageInfo.batchSize
            << " efficiency " << m_averageInfo.workerInfo.nodesSearched / float(m_averageInfo.workerInfo.nodesEvaluated)
            << " nodesSearched " << m_averageInfo.workerInfo.nodesSearched
            << " nodesEvaluated " << m_averageInfo.workerInfo.nodesEvaluated
@@ -619,20 +644,14 @@ void UciEngine::uciNewGame()
     //qDebug() << "uciNewGame";
     m_gameInitialized = true;
 
+    m_searchEngine->reset();
     Hash::globalInstance()->reset();
-    if (!Options::globalInstance()->option("WeightFile").value().empty())
-    {	
-       NeuralNet::setWeights(Options::globalInstance()->option("WeightFile").value();
-    }
+    const QString weightsFile = Options::globalInstance()->option("WeightsFile").value();
+    if (!weightsFile.isEmpty())
+        NeuralNet::globalInstance()->setWeights(weightsFile);
     NeuralNet::globalInstance()->reset();
     TB::globalInstance()->reset();
-    m_searchEngine->reset();
-
-    m_averageInfo = SearchInfo();
-#if defined(AVERAGES)
-    if (m_averageInfo.depth != -1)
-        sendAverages();
-#endif
+    ++m_averageInfo.games;
 }
 
 void UciEngine::ponderHit()
@@ -646,7 +665,8 @@ void UciEngine::ponderHit()
 void UciEngine::stop()
 {
     //qDebug() << "stop";
-    sendBestMove(true /*force*/);
+    if (m_clock->isActive() && !m_searchEngine->isStopped())
+        sendBestMove(true /*force*/);
 }
 
 void UciEngine::quit()
@@ -772,6 +792,7 @@ void UciEngine::go(const Search& s)
     m_clock->setInfinite(s.infinite || s.depth != -1);
     m_clock->setMaterialScore(s.game.materialScore(Chess::White) + s.game.materialScore(Chess::Black));
     m_clock->setHalfMoveNumber(s.game.halfMoveNumber());
+    m_clock->resetExtension();
     m_clock->startDeadline(s.game.activeArmy());
     m_timeAtLastProgress = 0;
     m_depthTargeted = s.depth;

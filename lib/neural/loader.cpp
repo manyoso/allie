@@ -61,14 +61,14 @@ std::string DecompressGzip(const std::string& filename) {
   int bytes_read = 0;
 
   // Read whole file into a buffer.
-  gzFile file = gzopen(filename.c_str(), "rb");
+  const gzFile file = gzopen(filename.c_str(), "rb");
 #ifndef DISABLE_FOR_ALLIE
   if (!file) throw Exception("Cannot read weights from " + filename);
 #else
   if (!file) qDebug() << "Cannot read weights from " << QString::fromStdString(filename);
 #endif
   while (true) {
-    int sz = gzread(file, &buffer[bytes_read], buffer.size() - bytes_read);
+    const int sz = gzread(file, &buffer[bytes_read], buffer.size() - bytes_read);
     if (sz < 0) {
       int errnum;
 #ifndef DISABLE_FOR_ALLIE
@@ -116,11 +116,11 @@ WeightsFile ParseWeightsProto(const std::string& buffer) {
 #endif
 
 #ifndef DISABLE_FOR_ALLIE
-  auto min_version =
+  const auto min_version =
       GetVersionStr(net.min_version().major(), net.min_version().minor(),
                     net.min_version().patch(), "");
-  auto lc0_ver = GetVersionInt();
-  auto net_ver =
+  const auto lc0_ver = GetVersionInt();
+  const auto net_ver =
       GetVersionInt(net.min_version().major(), net.min_version().minor(),
                     net.min_version().patch());
 
@@ -201,9 +201,9 @@ std::string DiscoverWeightsFile() {
   const int kMinFileSize = 500000;  // 500 KB
 
 #ifndef DISABLE_FOR_ALLIE
-  std::string root_path = CommandLine::BinaryDirectory();
+  const std::string root_path = CommandLine::BinaryDirectory();
 #else
-  std::string root_path = QCoreApplication::applicationDirPath().toStdString();
+  const std::string root_path = QCoreApplication::applicationDirPath().toStdString();
 #endif
 
   // Open all files in <binary dir> amd <binary dir>/networks,
@@ -223,7 +223,7 @@ std::string DiscoverWeightsFile() {
   // read version for it. If version is 2 or if the file is our protobuf,
   // return it.
   for (const auto& candidate : time_and_filename) {
-    gzFile file = gzopen(candidate.second.c_str(), "rb");
+    const gzFile file = gzopen(candidate.second.c_str(), "rb");
 
     if (!file) continue;
     unsigned char buf[256];
@@ -240,14 +240,14 @@ std::string DiscoverWeightsFile() {
       CERR << "Found txt network file: " << candidate.second;
 #else
       QFileInfo info(QString::fromStdString(candidate.second));
-      fprintf(stderr, "Using leela net: %s\n", info.fileName().toLatin1().constData());
+      fprintf(stderr, "Using weights: %s\n", info.fileName().toLatin1().constData());
 #endif
       return candidate.second;
     }
 
     // First byte of the protobuf stream is 0x0d for fixed32, so we ignore it as
     // our own magic should suffice.
-    auto magic = buf[1] | (static_cast<uint32_t>(buf[2]) << 8) |
+    const auto magic = buf[1] | (static_cast<uint32_t>(buf[2]) << 8) |
                  (static_cast<uint32_t>(buf[3]) << 16) |
                  (static_cast<uint32_t>(buf[4]) << 24);
     if (magic == kWeightMagic) {
@@ -255,7 +255,7 @@ std::string DiscoverWeightsFile() {
       CERR << "Found pb network file: " << candidate.second;
 #else
       QFileInfo info(QString::fromStdString(candidate.second));
-      fprintf(stderr, "Using leela net: %s\n", info.fileName().toLatin1().constData());
+      fprintf(stderr, "Using weights: %s\n", info.fileName().toLatin1().constData());
 #endif
       return candidate.second;
     }
