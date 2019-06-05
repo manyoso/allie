@@ -24,7 +24,7 @@
 #include <QString>
 
 static int s_majorVersion = 0;
-static int s_minorVersion = 4;
+static int s_minorVersion = 5;
 static bool s_isDev = true;
 
 static QString versionString()

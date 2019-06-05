@@ -85,7 +85,7 @@ Options::Options()
     UciOption hash;
     hash.m_name = QLatin1Literal("Hash");
     hash.m_type = UciOption::Spin;
-    hash.m_default = QLatin1Literal("20");
+    hash.m_default = QLatin1Literal("512");
     hash.m_value = hash.m_default;
     hash.m_min = QLatin1Literal("0");
     hash.m_max = QLatin1Literal("65536");
@@ -112,6 +112,16 @@ Options::Options()
     moveOverhead.m_description = QLatin1String("Overhead to avoid timing out");
     insertOption(moveOverhead);
 
+    UciOption openingTimeFactor;
+    openingTimeFactor.m_name = QLatin1Literal("OpeningTimeFactor");
+    openingTimeFactor.m_type =  UciOption::String;
+    openingTimeFactor.m_default = QString::number(double(SearchSettings::openingTimeFactor));
+    openingTimeFactor.m_value = openingTimeFactor.m_default;
+    openingTimeFactor.m_min = QLatin1Literal("1");
+    openingTimeFactor.m_max = QLatin1Literal("3");
+    openingTimeFactor.m_description = QLatin1String("Time factor for extra time in opening");
+    insertOption(openingTimeFactor);
+
     UciOption ponder;
     ponder.m_name = QLatin1Literal("Ponder");
     ponder.m_type = UciOption::Check;
@@ -127,16 +137,6 @@ Options::Options()
     tb.m_value = tb.m_default;
     tb.m_description = QLatin1String("Path to the syzygy tablebase");
     insertOption(tb);
-
-    UciOption threads;
-    threads.m_name = QLatin1Literal("Threads");
-    threads.m_type = UciOption::Spin;
-    threads.m_default = QLatin1Literal("1");
-    threads.m_value = threads.m_default;
-    threads.m_min = QLatin1Literal("0");
-    threads.m_max = QLatin1Literal("256");
-    threads.m_description = QLatin1String("Number of threads to use");
-    insertOption(threads);
 
     UciOption treeSize;
     treeSize.m_name = QLatin1Literal("TreeSize");
@@ -164,13 +164,13 @@ Options::Options()
     useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
     insertOption(useHalfFloatingPoint);
 
-    UciOption weightFile;
-    weightFile.m_name = QLatin1Literal("WeightFile");
-    weightFile.m_type = UciOption::String;
-    weightFile.m_default = QLatin1Literal("");
-    weightFile.m_value = weightFile.m_default;
-    weightFile.m_description = QLatin1String("Provides a weight file to use");
-    insertOption(weightFile);
+    UciOption weightsFile;
+    weightsFile.m_name = QLatin1Literal("WeightsFile");
+    weightsFile.m_type = UciOption::String;
+    weightsFile.m_default = QLatin1Literal("");
+    weightsFile.m_value = weightsFile.m_default;
+    weightsFile.m_description = QLatin1String("Provides a weights file to use");
+    insertOption(weightsFile);
 }
 
 Options::~Options()

@@ -183,6 +183,7 @@ void NeuralNet::setWeights(const QString &pathToWeights)
 {
     QFileInfo info(pathToWeights);
     if (info.exists()) {
+        fprintf(stderr, "Using weights: %s\n", pathToWeights.toLatin1().constData());
         s_weights = LoadWeightsFromFile(pathToWeights.toStdString());
         m_weightsValid = true;
     } else {
@@ -264,17 +265,19 @@ void Computation::setPVals(int index, Node *node) const
 {
     Q_ASSERT(index < m_positions);
     Q_ASSERT(node->hasPotentials());
-    QVector<PotentialNode*> potentials = node->potentials();
+    QVector<PotentialNode> *potentials = node->potentials();
     QVector<QPair<float, PotentialNode*>> policyValues;
-    policyValues.reserve(potentials.size());
+    policyValues.reserve(potentials->size());
     float total = 0;
-    for (PotentialNode *n : potentials) {
-        Move mv = n->move();
+    for (int i = 0; i < potentials->count(); ++i) {
+        // We get a non-const reference to the actual value and change it in place
+        PotentialNode *potential = &(*potentials)[i];
+        Move mv = potential->move();
         if (node->game().activeArmy() == Chess::Black)
             mv.mirror(); // nn index expects the board to be flipped
         const float p = fastpow(m_computation->GetPVal(index, moveToNNIndex(mv)), SearchSettings::policySoftmaxTemp);
         total += p;
-        policyValues.append(qMakePair(p, n));
+        policyValues.append(qMakePair(p, potential));
     }
 
     QVector<QPair<float, PotentialNode*>>::const_iterator it = policyValues.begin();

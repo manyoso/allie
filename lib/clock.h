@@ -52,7 +52,6 @@ public:
     bool hasExpired() const;
     qint64 deadline() const { return m_deadline; }
     qint64 timeToDeadline() const;
-    qint64 trendFactor() const;
 
     void setMaterialScore(int score) { m_materialScore = score; }
     void setHalfMoveNumber(int half) { m_halfMoveNumber = half; }
@@ -63,8 +62,14 @@ public:
     bool isActive() const { return m_isActive; }
     void stop();
 
+    bool isExtended() const { return m_isExtended; }
+    void resetExtension() { m_isExtended = false; }
+
 Q_SIGNALS:
     void timeout();
+
+private Q_SLOTS:
+    void maybeTimeout();
 
 private:
     int expectedHalfMovesTillEOG() const;
@@ -80,6 +85,7 @@ private:
 
     qint64 m_moveTime;
     bool m_infinite;
+    bool m_isExtended;
 
     SearchInfo m_info;
     qint64 m_deadline;

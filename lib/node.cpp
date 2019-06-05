@@ -56,7 +56,6 @@ Node::Node(Node *parent, const Game &game)
 
 Node::~Node()
 {
-    qDeleteAll(m_potentials);
     m_potentials.clear();
 }
 
@@ -178,7 +177,6 @@ void Node::setRawQValue(float qValue)
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "sq " << toString() << " v:" << qValue;
 #endif
-    backPropagateDirty();
 }
 
 void Node::backPropagateValue(float v)
@@ -238,18 +236,38 @@ void Node::scoreMiniMax(float score, bool isExact)
         m_qValue = score;
     else
         m_qValue = (m_visited * m_qValue + score) / float(m_visited + 1);
-    ++m_visited;
 }
 
-float Node::minimax(Node *node, bool *isExact)
+float Node::minimax(Node *node, bool *isExact, int depth, WorkerInfo *info)
 {
     Q_ASSERT(node);
     Q_ASSERT(node->hasRawQValue());
 
     const bool isTrueTerminal = node->isTrueTerminal();
 
-    // First we look to see if this node has been scored or if it is a dirty terminal
-    if (!node->hasQValue() || (isTrueTerminal && node->m_isDirty)) {
+    // First we look to see if this node has been scored
+    if (!node->hasQValue()) {
+        // Record info
+        ++(info->nodesSearched);
+        ++(info->nodesCreated);
+        info->sumDepths += depth;
+        info->maxDepth = qMax(info->maxDepth, depth);
+        if (node->m_isTB)
+            ++(info->nodesTBHits);
+
+        Q_ASSERT(node->m_isDirty);
+        *isExact = node->isTrueTerminal();
+        node->setQValueAndPropagate();
+        return node->m_qValue;
+    }
+
+    // Next look if it is a dirty terminal
+    if (isTrueTerminal && node->m_isDirty) {
+        // Record info
+        ++(info->nodesSearched);
+        if (node->m_isTB)
+            ++(info->nodesTBHits);
+
         Q_ASSERT(node->m_isDirty);
         *isExact = node->isTrueTerminal();
         node->setQValueAndPropagate();
@@ -275,13 +293,14 @@ float Node::minimax(Node *node, bool *isExact)
         Node *child = node->m_children.at(index);
 
         // If the child doesn't have a raw qValue then it has not been scored yet so just continue
-        if (!child->hasRawQValue()) {
+        // or if it does have one, but not a qValue and is not marked dirty yet
+        if (!child->hasRawQValue() || (!child->hasQValue() && !child->m_isDirty)) {
             everythingScored = false;
             continue;
         }
 
         bool subtreeIsExact = false;
-        float score = minimax(child, &subtreeIsExact);
+        float score = minimax(child, &subtreeIsExact, depth + 1, info);
 
         // Check if we have a new best child
         if (score > best) {
@@ -298,6 +317,9 @@ float Node::minimax(Node *node, bool *isExact)
     // Score the node based on minimax of children
     node->scoreMiniMax(-best, shouldPropagateExact);
 
+    // Record info
+    ++(info->nodesSearched);
+
     *isExact = shouldPropagateExact;
     return node->m_qValue;
 }
@@ -310,6 +332,7 @@ void Node::validateTree(Node *node)
     Q_ASSERT(node->hasRawQValue());
     Q_ASSERT(!node->m_isDirty);
     Q_ASSERT(node->hasQValue());
+    quint32 childVisits = 0;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
 
@@ -318,7 +341,10 @@ void Node::validateTree(Node *node)
             continue;
 
         validateTree(child);
+        childVisits += child->m_visited;
     }
+
+    Q_ASSERT(node->m_visited == childVisits + 1);
 }
 
 class PlayoutNode {
@@ -385,14 +411,25 @@ public:
         return m_node->weightedExplorationScore();
     }
 
-    // Creates the node if necessary
-    Node *actualNode(bool *created) const
+    quint32 visits() const
     {
-        if (isPotential()) {
-            *created = true;
+        if (isPotential())
+            return 0;
+        return m_node->visits();
+    }
+
+    quint32 virtualLoss() const
+    {
+        if (isPotential())
+            return 0;
+        return m_node->virtualLoss();
+    }
+
+    // Creates the node if necessary
+    Node *actualNode() const
+    {
+        if (isPotential())
             return m_parent->generateChild(m_potential);
-        }
-        *created = false;
         return m_node;
     }
 
@@ -412,39 +449,9 @@ private:
     PotentialNode *m_potential;
 };
 
-inline int virtualLossDistance(float wec, const PlayoutNode &a, const PlayoutNode &b)
+QPair<Node*, Node*> Node::topTwoChildren() const
 {
-    Q_UNUSED(a);
-    // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
-    // in weighted exploration score
-    // We have...
-    //     wec = q + ((kpuct * sqrt(N)) * p / (n + 1))
-    // Solving for n...
-    //     n = (q + p * kpuct * sqrt(N) - wec) / (wec - q) where wec - q != 0
-    const float q = b.qValue();
-    const float p = b.pValue();
-    const float uCoeff = b.uCoeff();
-    if (qFuzzyCompare(wec - q, 0.0f))
-        return 1;
-    else if (q > wec)
-        return SearchSettings::vldMax;
-    const float nf = -(q + p * uCoeff - wec) / (wec - q);
-    const int n = qMax(1, qCeil(qreal(nf)));
-    return n;
-}
-
-bool Node::shouldEarlyExit(quint32 maxPlayouts) const
-{
-    Q_ASSERT(isRootNode());
-    if (hasPotentials())
-        return false;
-
-    if (m_children.count() < 2)
-        return true;
-
-    if (maxPlayouts == std::numeric_limits<quint32>::max())
-        return false;
-
+    Q_ASSERT(m_children.count() > 1);
     // Sort the first two children by score
     QVector<Node*> children = m_children;
     std::partial_sort(children.begin(), children.begin() + 2, children.end(),
@@ -454,26 +461,50 @@ bool Node::shouldEarlyExit(quint32 maxPlayouts) const
 
     Node *firstChild = children.at(0);
     Node *secondChild = children.at(1);
-    if (firstChild->m_visited < secondChild->m_visited)
-        return false;
-
-    const quint32 visitsToCatchUP = firstChild->m_visited - secondChild->m_visited;
-    const bool r = visitsToCatchUP > maxPlayouts;
-    return r;
+    return qMakePair(firstChild, secondChild);
 }
 
-Node *Node::playout(int *depth, bool *createdNode)
+inline int virtualLossDistance(float swec, const PlayoutNode &a)
+{
+    // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
+    // in weighted exploration score
+    // We have...
+    //     wec = q + ((kpuct * sqrt(N)) * p / (n + 1))
+    // Solving for n...
+    //     n = (q + p * kpuct * sqrt(N) - wec) / (wec - q) where wec - q != 0
+
+    float wec = swec - std::numeric_limits<float>::epsilon();
+    const int currentVisits = int(a.visits() + a.virtualLoss());
+
+    const float q = a.qValue();
+    const float p = a.pValue();
+    const float uCoeff = a.uCoeff();
+    if (qFuzzyCompare(wec - q, 0.0f))
+        return 1;
+    else if (q > wec)
+        return SearchSettings::vldMax;
+    const float nf = (q + p * uCoeff - wec) / (wec - q);
+    int n = qMax(1, qCeil(qreal(nf))) - currentVisits;
+    if (n > SearchSettings::vldMax)
+        return SearchSettings::vldMax;
+
+#ifndef NDEBUG
+    const float after = q + uCoeff * p / (currentVisits + n + 1);
+    Q_ASSERT(after < swec);
+#endif
+
+    return n;
+}
+
+Node *Node::playout(Node *root)
 {
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
     int vldMax = SearchSettings::vldMax;
 
 start_playout:
-    int d = 0;
     int vld = vldMax;
-    Node *n = this;
+    Node *n = root;
     forever {
-        ++d;
-
         // If we've never been scored or this is an exact node, then this is our playout node
         if (!n->setScoringOrScored() || n->isTrueTerminal()) {
             ++n->m_virtualLoss;
@@ -514,19 +545,19 @@ start_playout:
         }
 
         // Otherwise calculate the virtualLossDistance to advance past this node
-        Q_ASSERT(hasChildren() || hasPotentials());
+        Q_ASSERT(n->hasChildren() || n->hasPotentials());
 
         PlayoutNode firstNode = nullptr;
         PlayoutNode secondNode = nullptr;
-        float bestScore = -2.0f;
-        float secondBestScore = -2.0f;
+        float bestScore = -std::numeric_limits<float>::max();
+        float secondBestScore = -std::numeric_limits<float>::max();;
 
         // First look at the actual children
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
             PlayoutNode PlayoutNode(child);
             float score = PlayoutNode.weightedExplorationScore();
-            Q_ASSERT(score > -2.f);
+            Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondNode = firstNode;
                 secondBestScore = bestScore;
@@ -542,10 +573,11 @@ start_playout:
 
         // Then look at the first two potential children as they have now been sorted by pval
         for (int i = 0; i < n->m_potentials.count() && i < 2; ++i) {
-            PotentialNode *potential = n->m_potentials.at(i);
+            // We get a non-const reference to the actual value
+            PotentialNode *potential = &n->m_potentials[i];
             PlayoutNode PlayoutNode(n, potential);
             float score = PlayoutNode.weightedExplorationScore();
-            Q_ASSERT(score > -2.f);
+            Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondNode = firstNode;
                 secondBestScore = bestScore;
@@ -560,7 +592,7 @@ start_playout:
         Q_ASSERT(!firstNode.isNull());
         if (!secondNode.isNull()) {
             const int vldNew
-                = virtualLossDistance(bestScore, firstNode, secondNode);
+                = virtualLossDistance(secondBestScore, firstNode);
             if (!vld)
                 vld = vldNew;
             else
@@ -569,15 +601,9 @@ start_playout:
         }
 
         // Retrieve the actual first node
-        bool created = false;
-        n = firstNode.actualNode(&created);
-
-        // If we created any nodes, then update to indicate
-        if (created)
-            *createdNode = true;
+        n = firstNode.actualNode();
     }
 
-    *depth = d;
     return n;
 }
 
@@ -668,6 +694,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // If this root has never been scored, then do so now to prevent asserts in back propagation
     if (!hasQValue()) {
         setRawQValue(0.0f);
+        backPropagateDirty();
         setQValueFromRaw();
         ++m_visited;
     }
@@ -749,7 +776,7 @@ void Node::generatePotential(const Move &move)
     if (g.isChecked(m_game.activeArmy()))
         return; // illegal
 
-    m_potentials.append(new PotentialNode(move));
+    m_potentials.append(PotentialNode(move));
 }
 
 Node *Node::generateChild(PotentialNode *potential)
@@ -761,8 +788,8 @@ Node *Node::generateChild(PotentialNode *potential)
     Node *child = new Node(this, g);
     child->setPValue(potential->pValue());
     m_children.append(child);
-    m_potentials.removeAll(potential);
-    delete potential;
+    Q_ASSERT(m_potentials.contains(*potential));
+    m_potentials.removeAll(*potential);
     return child;
 }
 

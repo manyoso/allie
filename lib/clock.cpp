@@ -36,15 +36,15 @@ Clock::Clock(QObject *parent)
       m_blackIncrement(-1),
       m_moveTime(false),
       m_infinite(false),
+      m_isExtended(false),
       m_deadline(0),
-      m_trendFactor(0),
       m_materialScore(0),
       m_halfMoveNumber(0)
 {
     m_timeout = new QTimer(this);
     m_timeout->setTimerType(Qt::PreciseTimer);
     m_timeout->setSingleShot(true);
-    connect(m_timeout, &QTimer::timeout, this, &Clock::timeout);
+    connect(m_timeout, &QTimer::timeout, this, &Clock::maybeTimeout);
 }
 
 Clock::~Clock()
@@ -131,11 +131,6 @@ qint64 Clock::timeToDeadline() const
     return m_deadline - elapsed();
 }
 
-qint64 Clock::trendFactor() const
-{
-    return m_trendFactor;
-}
-
 bool Clock::lessThanMoveOverhead() const
 {
     return timeToDeadline() < Options::globalInstance()->option("MoveOverhead").value().toInt();
@@ -150,6 +145,35 @@ void Clock::stop()
 {
     m_isActive = false;
     m_timeout->stop();
+}
+
+void Clock::maybeTimeout()
+{
+    // If best is most visited just timeout as usual
+    if (m_info.bestIsMostVisited) {
+        emit timeout();
+        return;
+    }
+
+    // If we've already been extended, then maximum time is up!
+    if (m_isExtended) {
+        emit timeout();
+        return;
+    }
+
+    // Otherwise, try and extend...
+    const qint64 overhead = Options::globalInstance()->option("MoveOverhead").value().toInt();
+    const qint64 t = time(m_onTheClock);
+    const qint64 maximum = qMax(qint64(0), t - overhead);
+
+    // We have no extra time!
+    if (!maximum) {
+        emit timeout();
+        return;
+    }
+
+    m_isExtended = true;
+    m_timeout->start(qMax(int(0), int(maximum - elapsed())));
 }
 
 int Clock::expectedHalfMovesTillEOG() const
@@ -177,22 +201,14 @@ void Clock::calculateDeadline(bool isPartial)
     const qint64 t = time(m_onTheClock);
     const qint64 inc = increment(m_onTheClock);
     const qint64 maximum = t - overhead;
-    const qint64 ideal = qRound((t / expectedHalfMovesTillEOG() + inc) * SearchSettings::savingsTimeFactor);
-
-    // Largest factor is a quarter of remaining time
-    qint64 trendFactor = qRound((maximum / 4) * m_info.trendDegree);
-    if (m_info.trend != Better)
-        m_trendFactor += trendFactor;
-    else
-        m_trendFactor = m_trendFactor / 2;
-    m_trendFactor = qMax(qint64(0), m_trendFactor);
+    const qint64 ideal = qRound((t / expectedHalfMovesTillEOG() + inc) * SearchSettings::openingTimeFactor);
 
     // Calculate the actual deadline
     qint64 deadline = 5000;
     if (m_moveTime != -1)
         deadline = m_moveTime - overhead;
     else if (t != -1 && m_info.depth >= minimumDepth)
-        deadline = qMin(maximum, ideal /*+ m_trendFactor*/);
+        deadline = qMin(maximum, ideal);
     else if (t != -1)
         deadline = maximum;
     m_deadline = qMax(qint64(0), deadline);
