@@ -650,7 +650,7 @@ void UciEngine::uciNewGame()
     if (!weightsFile.isEmpty())
     {
         NeuralNet::globalInstance()->setWeights(weightsFile);
-        qDebug() << "uciNewGame: Reading weights from:" << QString::fromStdString(weightsFile);
+        qDebug() << "uciNewGame: Reading weights from:" << weightsFile;
     }	
     NeuralNet::globalInstance()->reset();
     TB::globalInstance()->reset();
