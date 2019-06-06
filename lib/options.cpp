@@ -167,7 +167,7 @@ Options::Options()
     UciOption weightsFile;
     weightsFile.m_name = QLatin1Literal("WeightsFile");
     weightsFile.m_type = UciOption::String;
-    weightsFile.m_default = QLatin1Literal("");
+    weightsFile.m_default = GetDefaultWeightFile();
     weightsFile.m_value = weightsFile.m_default;
     weightsFile.m_description = QLatin1String("Provides a weights file to use");
     insertOption(weightsFile);
@@ -206,3 +206,12 @@ QVector<UciOption> Options::options() const
 {
     return m_options.values().toVector();
 }
+
+QString GetDefaultWeightFile()
+{
+    std::string defaultWeightFile;
+    defaultWeightFile = DiscoverWeightsFile();
+
+    return defaultWeightFile.toLatin1().constData();	
+}
+
