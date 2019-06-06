@@ -651,7 +651,6 @@ void UciEngine::uciNewGame()
     {
         NeuralNet::globalInstance()->setWeights(weightsFile);
         qDebug() << "uciNewGame: Reading weights from:" << weightsFile;
-        Options::globalInstance()->setOption("WeightsFile", weightsFile);
     }	
     NeuralNet::globalInstance()->reset();
     TB::globalInstance()->reset();
