@@ -64,7 +64,9 @@ private:
     NeuralNet();
     ~NeuralNet();
     lczero::Network *createNewGPUNetwork(int id, bool fp16) const;
+#if defined(USE_OPENBLAS)
     lczero::Network *createNewCPUNetwork() const;
+#endif
     QVector<lczero::Network*> m_availableNetworks;
     QMutex m_mutex;
     QWaitCondition m_condition;
