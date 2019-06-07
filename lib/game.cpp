@@ -835,7 +835,7 @@ void Game::generateCastle(Chess::Army army, Chess::Castle castleSide, Node *pare
 {
     Move mv;
     mv.setPiece(King);
-    mv.setStart(BitBoard(board(King) & board(army)).occupiedSquares().first());
+    mv.setStart(BitBoard(board(King) & board(army)).first());
 
     // All castles are encoded internally as king takes chosen castling rook
     if (castleSide == KingSide)
@@ -970,13 +970,13 @@ bool Game::isCastleLegal(Chess::Army army, Chess::Castle castle) const
     if (rookBoard.isClear())
         return false;
 
-    Q_ASSERT(rookBoard.occupiedSquares().count() == 1);
-    const Square chosenRook = rookBoard.occupiedSquares().first();
+    Q_ASSERT(rookBoard.count() == 1);
+    const Square chosenRook = rookBoard.first();
 
     // Get the king
     const BitBoard kingBoard(board(King) & board(army));
-    Q_ASSERT(rookBoard.occupiedSquares().count() == 1);
-    const Square king = kingBoard.occupiedSquares().first();
+    Q_ASSERT(rookBoard.count() == 1);
+    const Square king = kingBoard.first();
 
     // Get the board between king and chosen rook
     const BitBoard pieces = BitBoard(board(White) | board(Black));

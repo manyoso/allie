@@ -67,7 +67,6 @@ public:
         return testBit(squareToIndex(square));
     }
 
-    SquareList occupiedSquares() const;
     void setBoard(const SquareList &squareList);
     void setSquare(const Square &square);
 
@@ -94,7 +93,15 @@ public:
 
     inline quint64 data() const { return m_data; }
 
-    int count() const;
+    inline int count() const
+    {
+        return int(qPopulationCount(m_data));
+    }
+
+    inline Square first() const
+    {
+        return quint8(qCountTrailingZeroBits(m_data));
+    }
 
     inline bool testBit(int i) const
     {
