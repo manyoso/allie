@@ -92,7 +92,7 @@ public:
     Node(Node *parent, const Game &game);
     ~Node();
 
-    Game game() const { return m_game; }
+    const Game &game() const { return m_game; }
 
     QVector<Game> previousMoves(bool fullHistory) const; // slow
 

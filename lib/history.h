@@ -51,7 +51,7 @@ private:
     {
     }
 
-    Game at(int index) const
+    const Game &at(int index) const
     {
         Q_ASSERT(index >= 0);
         Q_ASSERT(index < m_history.count());
@@ -72,7 +72,7 @@ private:
 class HistoryIterator {
 public:
     bool operator!=(const HistoryIterator& other) const;
-    Game operator*();
+    const Game &operator*();
     void operator++();
 
     static HistoryIterator begin(const Node *data);
@@ -112,13 +112,13 @@ inline bool HistoryIterator::operator!=(const HistoryIterator& other) const
     return node != other.node || historyPosition != other.historyPosition;
 }
 
-inline Game HistoryIterator::operator*()
+inline const Game &HistoryIterator::operator*()
 {
     if (node)
         return node->game();
     else if (historyPosition != -1)
         return History::globalInstance()->at(historyPosition);
-    return Game();
+    Q_UNREACHABLE();
 }
 
 inline void HistoryIterator::operator++()

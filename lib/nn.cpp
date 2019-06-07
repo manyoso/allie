@@ -42,7 +42,7 @@ const int s_moveHistory = 8;
 const int s_planesPerPos = 13;
 const int s_planeBase = s_planesPerPos * s_moveHistory;
 
-void encodeGame(int i, const Game &g, InputPlanes *result, Chess::Army us, Chess::Army them,
+inline void encodeGame(int i, const Game &g, InputPlanes *result, Chess::Army us, Chess::Army them,
     bool nextMoveIsBlack)
 {
     BitBoard ours = us == White ? g.board(White) : g.board(Black);
@@ -87,15 +87,15 @@ void encodeGame(int i, const Game &g, InputPlanes *result, Chess::Army us, Chess
     // FIXME: Encode enpassant target
 }
 
-InputPlanes gameToInputPlanes(const Node *node)
+inline InputPlanes gameToInputPlanes(const Node *node)
 {
-    Game game = node->game();
+    const Game &game = node->game();
     InputPlanes result(s_planeBase + s_moveHistory);
 
     // *us* refers to the perspective of whoever is next to move
-    bool nextMoveIsBlack = game.activeArmy() == Black;
-    Chess::Army us = nextMoveIsBlack ? Black : White;
-    Chess::Army them = nextMoveIsBlack ? White : Black;
+    const bool nextMoveIsBlack = game.activeArmy() == Black;
+    const Chess::Army us = nextMoveIsBlack ? Black : White;
+    const Chess::Army them = nextMoveIsBlack ? White : Black;
 
     HistoryIterator it = HistoryIterator::begin(node);
     int gamesEncoded = 0;
