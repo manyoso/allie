@@ -34,7 +34,7 @@ namespace lczero {
 class Node;
 class Computation {
 public:
-    Computation(lczero::Network *network = nullptr);
+    Computation(lczero::Network *network);
     ~Computation();
 
     int addPositionToEvaluate(const Node *node);
@@ -46,7 +46,6 @@ public:
     void setPVals(int index, Node *node) const;
 
 private:
-    bool m_acquired;
     int m_positions;
     lczero::Network *m_network;
     lczero::NetworkComputation *m_computation;

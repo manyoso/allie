@@ -813,7 +813,10 @@ void TestGames::testHashInsertAndRetrieve()
     QCOMPARE(node1->potentials()->count(), 20);
 
     // Go to the NN for evaluation
-    Computation computation;
+
+    lczero::Network *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
+    QVERIFY(network);
+    Computation computation(network);
     computation.addPositionToEvaluate(node1);
     computation.evaluate();
     QCOMPARE(computation.positions(), 1);
@@ -823,6 +826,7 @@ void TestGames::testHashInsertAndRetrieve()
     computation.setPVals(0, node1);
     node1->backPropagateDirty();
     node1->setQValueAndPropagate();
+    NeuralNet::globalInstance()->releaseNetwork(network);
 
     // Insert node1 into the hash
     Hash::globalInstance()->insert(node1);

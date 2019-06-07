@@ -208,10 +208,9 @@ void NeuralNet::releaseNetwork(Network *network)
 
 Computation::Computation(Network *network)
     : m_positions(0),
-    m_network(network),
-    m_computation(nullptr)
+    m_network(network)
 {
-    m_acquired = m_network != nullptr;
+    m_computation = m_network->NewComputation().release();
 }
 
 Computation::~Computation()
@@ -221,14 +220,6 @@ Computation::~Computation()
 
 int Computation::addPositionToEvaluate(const Node *node)
 {
-    if (!m_computation) {
-        Q_ASSERT(m_acquired == (m_network != nullptr));
-        if (!m_network) {
-            m_network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
-        }
-        m_computation = m_network->NewComputation().release();
-    }
-
     m_computation->AddInput(gameToInputPlanes(node));
     return m_positions++;
 }
@@ -248,8 +239,6 @@ void Computation::clear()
     m_positions = 0;
     delete m_computation;
     m_computation = nullptr;
-    if (!m_acquired)
-        NeuralNet::globalInstance()->releaseNetwork(m_network); // release back into the pool
     m_network = nullptr;
 }
 
