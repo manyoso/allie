@@ -81,9 +81,9 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             computation.addPositionToEvaluate(node);
         }
 
-    #if defined(DEBUG_EVAL)
+#if defined(DEBUG_EVAL)
         qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
-    #endif
+#endif
         computation.evaluate();
 
         Q_ASSERT(computation.positions() == batch.count());
