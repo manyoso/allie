@@ -229,8 +229,6 @@ int Computation::addPositionToEvaluate(const Node *node)
         m_computation = m_network->NewComputation().release();
     }
 
-    const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
-    Q_ASSERT(m_positions <= maximumBatchSize);
     m_computation->AddInput(gameToInputPlanes(node));
     return m_positions++;
 }
