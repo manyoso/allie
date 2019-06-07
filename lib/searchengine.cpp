@@ -115,7 +115,7 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
 
         // Gather minimax scores;
         bool isExact = false;
-        Node::minimax(m_tree->root, &isExact, 0 /*depth*/, &info);
+        Node::minimax(m_tree->root, 0 /*depth*/, &isExact, &info);
 #if defined(DEBUG_VALIDATE_TREE)
         Node::validateTree(m_tree->root);
 #endif
@@ -170,7 +170,7 @@ void SearchWorker::fetchAndMinimax(QVector<Node*> nodes, bool sync)
             QMutexLocker locker(&m_tree->mutex);
             // Gather minimax scores;
             bool isExact = false;
-            Node::minimax(m_tree->root, &isExact, 0 /*depth*/, &info);
+            Node::minimax(m_tree->root, 0 /*depth*/, &isExact, &info);
 #if defined(DEBUG_VALIDATE_TREE)
             Node::validateTree(m_tree->root);
 #endif

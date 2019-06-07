@@ -238,7 +238,7 @@ void Node::scoreMiniMax(float score, bool isExact)
         m_qValue = (m_visited * m_qValue + score) / float(m_visited + 1);
 }
 
-float Node::minimax(Node *node, bool *isExact, int depth, WorkerInfo *info)
+float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
 {
     Q_ASSERT(node);
     Q_ASSERT(node->hasRawQValue());
@@ -300,7 +300,7 @@ float Node::minimax(Node *node, bool *isExact, int depth, WorkerInfo *info)
         }
 
         bool subtreeIsExact = false;
-        float score = minimax(child, &subtreeIsExact, depth + 1, info);
+        float score = minimax(child, depth + 1, &subtreeIsExact, info);
 
         // Check if we have a new best child
         if (score > best) {
