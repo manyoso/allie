@@ -50,5 +50,6 @@ std::string DiscoverWeightsFile();
 
 Network *createCudaFP16Network(const WeightsFile& file, int id);
 Network *createCudaNetwork(const WeightsFile& file, int id);
+Network *createBlasNetwork(const WeightsFile& file);
 
 }  // namespace lczero

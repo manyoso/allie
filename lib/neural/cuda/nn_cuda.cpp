@@ -45,7 +45,7 @@
 #else
 #include "neural/loader.h"
 #include "neural/network_legacy.h"
-#include "neural/policy_map.h"
+#include "neural/shared/policy_map.h"
 #endif
 
 //#define DEBUG_RAW_NPS
@@ -670,6 +670,12 @@ class CudnnNetwork : public Network {
     cudnnDestroy(cudnn_);
     cublasDestroy(cublas_);
   }
+
+#ifdef DISABLE_FOR_ALLIE
+  bool isCPU() const override {
+    return false;
+  }
+#endif
 
   std::unique_ptr<NetworkComputation> NewComputation() override {
     // Set correct gpu id for this computation (as it might have been called

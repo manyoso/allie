@@ -147,7 +147,7 @@ NeuralNet::~NeuralNet()
     qDeleteAll(m_availableNetworks);
 }
 
-Network *NeuralNet::createNewNetwork(int id, bool useFP16) const
+Network *NeuralNet::createNewGPUNetwork(int id, bool useFP16) const
 {
     Q_ASSERT(m_weightsValid);
     if (!m_weightsValid)
@@ -157,6 +157,15 @@ Network *NeuralNet::createNewNetwork(int id, bool useFP16) const
         return createCudaFP16Network(s_weights, id);
     else
         return createCudaNetwork(s_weights, id);
+}
+
+Network *NeuralNet::createNewCPUNetwork() const
+{
+    Q_ASSERT(m_weightsValid);
+    if (!m_weightsValid)
+        qFatal("Could not load NN weights!");
+
+    return createBlasNetwork(s_weights);
 }
 
 void NeuralNet::reset()
@@ -176,7 +185,10 @@ void NeuralNet::reset()
     qDeleteAll(m_availableNetworks);
     m_availableNetworks.clear();
     for (int i = 0; i < numberOfGPUCores; ++i)
-        m_availableNetworks.append(createNewNetwork(i, m_usingFP16));
+        m_availableNetworks.append(createNewGPUNetwork(i, m_usingFP16));
+
+    if (!numberOfGPUCores)
+        m_availableNetworks.append(createNewCPUNetwork());
 }
 
 void NeuralNet::setWeights(const QString &pathToWeights)

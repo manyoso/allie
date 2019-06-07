@@ -68,6 +68,7 @@ class NetworkComputation {
 
 class Network {
  public:
+  virtual bool isCPU() const = 0;
   virtual std::unique_ptr<NetworkComputation> NewComputation() = 0;
   virtual ~Network(){};
 };

@@ -26,6 +26,7 @@ include(zlib.pri)
 PROTOS += $$PWD/proto/net.proto
 include(protobuf.pri)
 include(cuda.pri)
+include(blas.pri)
 
 CONFIG(release, debug|release) {
   CONFIG += optimize_full
@@ -59,11 +60,18 @@ HEADERS += \
     $$PWD/neural/network.h \
     $$PWD/neural/network_legacy.h \
     $$PWD/neural/nn_policy.h \
-    $$PWD/neural/policy_map.h \
     $$PWD/neural/weights_adapter.h \
+    $$PWD/neural/blas/blas.h \
+    $$PWD/neural/blas/convolution1.h \
+    $$PWD/neural/blas/fully_connected_layer.h \
+    $$PWD/neural/blas/se_unit.h \
+    $$PWD/neural/blas/winograd_convolution3.h \
     $$PWD/neural/cuda/cuda_common.h \
     $$PWD/neural/cuda/kernels.h \
     $$PWD/neural/cuda/layers.h \
+    $$PWD/neural/shared/activation.h \
+    $$PWD/neural/shared/policy_map.h \
+    $$PWD/neural/shared/winograd_filter.h \
     $$PWD/fathom/tbconfig.h \
     $$PWD/fathom/tbcore.h \
     $$PWD/fathom/tbprobe.h
@@ -87,10 +95,17 @@ SOURCES += \
     $$PWD/tb.cpp \
     $$PWD/uciengine.cpp \
     $$PWD/zobrist.cpp \
-    $$PWD/neural/cuda/layers.cpp \
-    $$PWD/neural/cuda/nn_cuda.cpp \
     $$PWD/neural/network_legacy.cpp \
     $$PWD/neural/loader.cpp \
     $$PWD/neural/nn_policy.cpp \
     $$PWD/neural/weights_adapter.cpp \
+    $$PWD/neural/blas/convolution1.cpp \
+    $$PWD/neural/blas/fully_connected_layer.cpp \
+    $$PWD/neural/blas/nn_blas.cpp \
+    $$PWD/neural/blas/se_unit.cpp \
+    $$PWD/neural/blas/winograd_convolution3.cpp \
+    $$PWD/neural/cuda/layers.cpp \
+    $$PWD/neural/cuda/nn_cuda.cpp \
+    $$PWD/neural/shared/activation.cpp \
+    $$PWD/neural/shared/winograd_filter.cpp \
     $$PWD/fathom/tbprobe.c
