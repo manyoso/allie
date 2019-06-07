@@ -253,9 +253,6 @@ std::string DiscoverWeightsFile() {
     if (magic == kWeightMagic) {
 #ifndef DISABLE_FOR_ALLIE
       CERR << "Found pb network file: " << candidate.second;
-#else
-      QFileInfo info(QString::fromStdString(candidate.second));
-      fprintf(stderr, "Using weights: %s\n", info.fileName().toLatin1().constData());
 #endif
       return candidate.second;
     }

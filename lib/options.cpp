@@ -19,6 +19,7 @@
 */
 
 #include "options.h"
+#include "neural/loader.h"
 
 #include "hash.h"
 #include "node.h"
@@ -34,6 +35,9 @@ Options* Options::globalInstance()
 
 Options::Options()
 {
+    // Set the weights file default
+    SearchSettings::weightsFile = QString::fromStdString(lczero::DiscoverWeightsFile());
+
     UciOption cpuctBase;
     cpuctBase.m_name = QLatin1Literal("CpuctBase");
     cpuctBase.m_type = UciOption::String;
@@ -167,7 +171,7 @@ Options::Options()
     UciOption weightsFile;
     weightsFile.m_name = QLatin1Literal("WeightsFile");
     weightsFile.m_type = UciOption::String;
-    weightsFile.m_default = QLatin1Literal("");
+    weightsFile.m_default = SearchSettings::weightsFile;
     weightsFile.m_value = weightsFile.m_default;
     weightsFile.m_description = QLatin1String("Provides a weights file to use");
     insertOption(weightsFile);

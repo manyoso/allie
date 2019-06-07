@@ -170,11 +170,7 @@ Network *NeuralNet::createNewCPUNetwork() const
 
 void NeuralNet::reset()
 {
-    if (!m_weightsValid) {
-        s_weights = LoadWeightsFromFile(DiscoverWeightsFile());
-        m_weightsValid = true;
-    }
-
+    Q_ASSERT(m_weightsValid);
     const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt();
     const bool useFP16 = Options::globalInstance()->option("UseFP16").value() == "true";
     if (numberOfGPUCores == m_availableNetworks.count()

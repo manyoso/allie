@@ -33,8 +33,6 @@
 
 using namespace Chess;
 
-static Game s_startPos = Game(QLatin1String("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
-
 Game::Game(const QString &fen)
     : m_halfMoveClock(0),
     m_halfMoveNumber(2),
@@ -48,6 +46,7 @@ Game::Game(const QString &fen)
     m_activeArmy(Chess::White)
 {
     if (fen.isEmpty()) {
+        static Game s_startPos = Game(QLatin1String("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
         *this = s_startPos;
     } else {
         setFen(fen);

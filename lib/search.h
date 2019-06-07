@@ -51,6 +51,7 @@ struct SearchSettings {
     static qint64 earlyExitMinimumTime;
     static int tryPlayoutLimit;
     static int vldMax;
+    static QString weightsFile;
 };
 
 QDebug operator<<(QDebug, const Search &);
