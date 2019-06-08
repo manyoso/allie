@@ -370,12 +370,6 @@ void SearchWorker::search()
     emit searchStopped();
 }
 
-void SearchWorker::printTree(int depth) const
-{
-    if (m_tree->root)
-        qDebug().noquote() << m_tree->root->printTree(depth);
-}
-
 WorkerThread::WorkerThread(int id)
 {
     worker = new SearchWorker(id);
@@ -604,10 +598,22 @@ void SearchEngine::searchStopped()
     m_condition.wakeAll();
 }
 
-void SearchEngine::printTree(int depth)
+void SearchEngine::printTree(const QVector<QString> &node, int depth, bool printPotentials)
 {
-    if (m_tree->root)
-        qDebug().noquote() << m_tree->root->printTree(depth);
+    m_tree->mutex.lock();
+    if (m_tree->root) {
+        Node *n = m_tree->root;
+        if (!node.isEmpty())
+            n = n->findChild(node);
+
+        if (n) {
+            qDebug() << "printing" << node.toList().join(" ") << "at depth" << depth << "with potentials" << printPotentials;
+            qDebug().noquote() << n->printTree(n->depth(), depth, printPotentials);
+        } else {
+            qDebug() << "could not find" << node.toList().join(" ") << "in tree";
+        }
+    }
+    m_tree->mutex.unlock();
 }
 
 void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)

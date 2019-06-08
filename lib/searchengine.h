@@ -47,7 +47,6 @@ public:
 
 public Q_SLOTS:
     void startSearch(Tree *tree, int searchId);
-    void printTree(int depth) const;
 
 Q_SIGNALS:
     void sendInfo(const WorkerInfo &info);
@@ -110,7 +109,7 @@ public Q_SLOTS:
     void startSearch(const Search &search);
     void stopSearch();
     void searchStopped();
-    void printTree(int depth);
+    void printTree(const QVector<QString> &node, int depth, bool printPotentials);
     void receivedWorkerInfo(const WorkerInfo &info);
     void workerReachedMaxBatchSize();
     void startPonder() {}

@@ -168,7 +168,8 @@ public:
     static void sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnlyy);
 
     QString toString(Chess::NotationType = Chess::Computer) const;
-    QString printTree(int depth) /*const*/; // recursive
+    Node *findChild(const QVector<QString> &child);
+    QString printTree(int topDepth, int depth, bool printPotentials) /*const*/; // recursive
 
     bool isCheckMate() const { return m_game.lastMove().isCheckMate(); }
     bool isStaleMate() const { return m_game.lastMove().isStaleMate(); }

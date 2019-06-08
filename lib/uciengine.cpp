@@ -341,15 +341,24 @@ void UciEngine::readyRead(const QString &line)
         output(History::globalInstance()->currentGame().stateOfGameToFen() + "\n");
     } else if (line.startsWith("tree")) {
         int depth = 1;
+        QVector<QString> node;
+        const bool printPotentials = line.startsWith("treep");
+
         QList<QString> tree = line.split(' ');
-        if (tree.count() == 2) {
+        tree.pop_front();
+        for (QString arg : tree) {
             bool success;
-            int d  = tree.at(1).toInt(&success);
-            if (success)
+            int d  = arg.toInt(&success);
+            if (success) {
                 depth = d;
+                break;
+            } else {
+                node << arg;
+            }
         }
+
         if (m_searchEngine)
-            m_searchEngine->printTree(depth);
+            m_searchEngine->printTree(node, depth, printPotentials /*printPotentials*/);
     }
 }
 

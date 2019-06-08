@@ -807,19 +807,43 @@ QString Node::toString(Chess::NotationType notation) const
     return string;
 }
 
-QString Node::printTree(int depth) /*const*/
+Node *Node::findChild(const QVector<QString> &child)
+{
+    Node *n = this;
+
+    for (QString c : child) {
+
+        bool found = false;
+        for (Node *node : n->m_children) {
+            if (node->m_game.toString(Chess::Computer) == c) {
+                n = node;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            n = nullptr;
+            break;
+        }
+    }
+
+    return n;
+}
+
+QString Node::printTree(int topDepth, int depth, bool printPotentials) /*const*/
 {
     QString tree;
     QTextStream stream(&tree);
     stream.setRealNumberNotation(QTextStream::FixedNotation);
     stream << "\n";
-    const int d = this->depth();
+    const int d = this->depth() - topDepth;
     for (int i = 0; i < d; ++i)
         stream << qSetFieldWidth(7) << "      |";
 
     Move mv = m_game.lastMove();
 
-    QString move = QString("%1").arg(mv.isValid() ? Notation::moveToString(mv) : "start");
+    QString move = QString("%1").arg(mv.isValid() ? Notation::moveToString(mv, Chess::Computer) : "start");
     QString i = QString("%1").arg(mv.isValid() ? QString::number(moveToNNIndex(mv)) : "----");
     stream
         << right << qSetFieldWidth(6) << move
@@ -840,28 +864,29 @@ QString Node::printTree(int depth) /*const*/
         if (!children.isEmpty()) {
             sortByScore(children, false /*partialSortFirstOnly*/);
             for (Node *child : children)
-                stream << child->printTree(depth);
+                stream << child->printTree(topDepth, depth, printPotentials);
         }
-#if 0
-        QVector<PotentialNode> potentials = m_potentials;
-        if (!potentials.isEmpty()) {
-            std::stable_sort(potentials.begin(), potentials.end(),
-                [=](const PotentialNode &a, const PotentialNode &b) {
-                return a.pValue() > b.pValue();
-            });
-            for (PotentialNode p : potentials) {
-                stream << "\n";
-                const int d = this->depth() + 1;
-                for (int i = 0; i < d; ++i)
-                    stream << qSetFieldWidth(7) << "      |";
-                stream << right << qSetFieldWidth(6) << p.toString()
-                    << qSetFieldWidth(2) << " ("
-                    << qSetFieldWidth(4) << moveToNNIndex(p.move())
-                    << qSetFieldWidth(1) << ")"
-                    << qSetFieldWidth(4) << left << " p: " << p.pValue() * 100 << qSetFieldWidth(1) << left << "%";
+        if (printPotentials) {
+            QVector<PotentialNode> potentials = m_potentials;
+            if (!potentials.isEmpty()) {
+                std::stable_sort(potentials.begin(), potentials.end(),
+                    [=](const PotentialNode &a, const PotentialNode &b) {
+                    return a.pValue() > b.pValue();
+                });
+                for (PotentialNode p : potentials) {
+                    stream << "\n";
+                    const int d = this->depth() + 1;
+                    for (int i = 0; i < d; ++i) {
+                        stream << qSetFieldWidth(7) << "      |";
+                    }
+                    stream << right << qSetFieldWidth(6) << p.toString()
+                        << qSetFieldWidth(2) << " ("
+                        << qSetFieldWidth(4) << moveToNNIndex(p.move())
+                        << qSetFieldWidth(1) << ")"
+                        << qSetFieldWidth(4) << left << " p: " << p.pValue() * 100 << qSetFieldWidth(1) << left << "%";
+                }
             }
         }
-#endif
     }
 
     return tree;
