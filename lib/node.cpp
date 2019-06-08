@@ -231,8 +231,9 @@ void Node::backPropagateDirty()
 void Node::scoreMiniMax(float score, bool isExact)
 {
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
+    Q_ASSERT(!m_isExact || isExact);
     m_isExact = isExact;
-    if (isExact)
+    if (m_isExact)
         m_qValue = score;
     else
         m_qValue = (m_visited * m_qValue + score) / float(m_visited + 1);
@@ -269,18 +270,22 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
             ++(info->nodesTBHits);
 
         Q_ASSERT(node->m_isDirty);
-        *isExact = node->isTrueTerminal();
+        *isExact = node->isExact();
         node->setQValueAndPropagate();
         return node->m_qValue;
     }
 
     // If we are an exact node, then we are terminal so just return the score
-    if (isTrueTerminal)
+    if (isTrueTerminal) {
+        *isExact = node->isExact();
         return node->m_qValue;
+    }
 
     // However, if the subtree is not dirty, then we can just return our score
-    if (!node->m_isDirty)
+    if (!node->m_isDirty) {
+        *isExact = node->isExact();
         return node->m_qValue;
+    }
 
     // At this point we should have children
     Q_ASSERT(node->hasChildren());
@@ -320,7 +325,7 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     // Record info
     ++(info->nodesSearched);
 
-    *isExact = shouldPropagateExact;
+    *isExact = node->isExact();
     return node->m_qValue;
 }
 
