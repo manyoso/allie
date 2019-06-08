@@ -184,7 +184,7 @@ void Node::backPropagateValue(float v)
     Q_ASSERT(hasQValue());
     Q_ASSERT(m_visited);
     const float currentQValue = m_qValue;
-    m_qValue = (m_visited * currentQValue + v) / float(m_visited + 1);
+    m_qValue = qBound(-1.f, (m_visited * currentQValue + v) / float(m_visited + 1), 1.f);
     incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "bp " << toString() << " n:" << m_visited
@@ -236,7 +236,7 @@ void Node::scoreMiniMax(float score, bool isExact)
     if (m_isExact)
         m_qValue = score;
     else
-        m_qValue = (m_visited * m_qValue + score) / float(m_visited + 1);
+        m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
 }
 
 float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
