@@ -168,7 +168,8 @@ bool Node::isThreeFold() const
 void Node::setQValueFromRaw()
 {
     Q_ASSERT(hasRawQValue());
-    m_qValue = m_rawQValue;
+    if (!hasQValue())
+        m_qValue = m_rawQValue;
 }
 
 void Node::setRawQValue(float qValue)
@@ -183,6 +184,7 @@ void Node::backPropagateValue(float v)
 {
     Q_ASSERT(hasQValue());
     Q_ASSERT(m_visited);
+    Q_ASSERT(!m_isExact);
     const float currentQValue = m_qValue;
     m_qValue = qBound(-1.f, (m_visited * currentQValue + v) / float(m_visited + 1), 1.f);
     incrementVisited();
@@ -244,7 +246,7 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     Q_ASSERT(node);
     Q_ASSERT(node->hasRawQValue());
 
-    const bool isTrueTerminal = node->isTrueTerminal();
+    const bool nodeIsExact = node->isExact();
 
     // First we look to see if this node has been scored
     if (!node->hasQValue()) {
@@ -257,33 +259,33 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
             ++(info->nodesTBHits);
 
         Q_ASSERT(node->m_isDirty);
-        *isExact = node->isTrueTerminal();
+        *isExact = nodeIsExact;
         node->setQValueAndPropagate();
         return node->m_qValue;
     }
 
     // Next look if it is a dirty terminal
-    if (isTrueTerminal && node->m_isDirty) {
+    if (nodeIsExact && node->m_isDirty) {
         // Record info
         ++(info->nodesSearched);
         if (node->m_isTB)
             ++(info->nodesTBHits);
 
         Q_ASSERT(node->m_isDirty);
-        *isExact = node->isExact();
+        *isExact = nodeIsExact;
         node->setQValueAndPropagate();
         return node->m_qValue;
     }
 
     // If we are an exact node, then we are terminal so just return the score
-    if (isTrueTerminal) {
-        *isExact = node->isExact();
+    if (nodeIsExact) {
+        *isExact = nodeIsExact;
         return node->m_qValue;
     }
 
     // However, if the subtree is not dirty, then we can just return our score
     if (!node->m_isDirty) {
-        *isExact = node->isExact();
+        *isExact = nodeIsExact;
         return node->m_qValue;
     }
 
@@ -317,7 +319,7 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     // We only propagate exact certainty if the best score from subtree is exact AND either the best
     // score is > 0 (a proven win) OR the potential children of this node have all been played out
     const bool miniMaxComplete = everythingScored && node->m_potentials.isEmpty();
-    const bool shouldPropagateExact = bestIsExact && (best > 0 || miniMaxComplete);
+    const bool shouldPropagateExact = bestIsExact && (best > 0 || miniMaxComplete) && !node->isRootNode();
 
     // Score the node based on minimax of children
     node->scoreMiniMax(-best, shouldPropagateExact);
@@ -511,7 +513,7 @@ start_playout:
     Node *n = root;
     forever {
         // If we've never been scored or this is an exact node, then this is our playout node
-        if (!n->setScoringOrScored() || n->isTrueTerminal()) {
+        if (!n->setScoringOrScored() || n->isExact()) {
             ++n->m_virtualLoss;
 #if defined(DEBUG_PLAYOUT)
             qDebug() << "score hit" << n->toString() << "n" << n->m_visited

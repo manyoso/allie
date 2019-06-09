@@ -192,7 +192,7 @@ bool SearchWorker::handlePlayout(Node *playout)
     // If we *re-encounter* a true term node that overrides the NN (checkmate/stalemate/drawish...)
     // then let's just *reset* (which is noop since it is exact) the value, increment and propagate
     // which is *not* noop
-    if (playout->isTrueTerminal()) {
+    if (playout->isExact()) {
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding exact playout" << playout->toString();
 #endif
@@ -206,7 +206,7 @@ bool SearchWorker::handlePlayout(Node *playout)
 
     // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
     // then let's just back propagate dirty
-    if (playout->isTrueTerminal()) {
+    if (playout->isExact()) {
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding exact playout 2" << playout->toString();
 #endif
