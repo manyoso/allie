@@ -89,7 +89,6 @@ private:
 
     SearchInfo m_info;
     qint64 m_deadline;
-    qint64 m_trendFactor;
     int m_materialScore;
     int m_halfMoveNumber;
     Chess::Army m_onTheClock;

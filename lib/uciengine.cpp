@@ -798,7 +798,7 @@ void UciEngine::go(const Search& s)
     m_clock->setIncrement(Chess::White, s.winc);
     m_clock->setIncrement(Chess::Black, s.binc);
     m_clock->setMoveTime(s.movetime);
-    m_clock->setInfinite(s.infinite || s.depth != -1);
+    m_clock->setInfinite(s.infinite || s.depth != -1 || s.nodes != -1);
     m_clock->setMaterialScore(s.game.materialScore(Chess::White) + s.game.materialScore(Chess::Black));
     m_clock->setHalfMoveNumber(s.game.halfMoveNumber());
     m_clock->resetExtension();
