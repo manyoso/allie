@@ -503,49 +503,48 @@ inline int virtualLossDistance(float swec, const PlayoutNode &a)
     return n;
 }
 
-Node *Node::playout(Node *root)
+Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit)
 {
-    int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
-    int vldMax = SearchSettings::vldMax;
-
 start_playout:
-    int vld = vldMax;
+    int vld = *vldMax;
     Node *n = root;
     forever {
         // If we've never been scored or this is an exact node, then this is our playout node
         if (!n->setScoringOrScored() || n->isExact()) {
             ++n->m_virtualLoss;
-#if defined(DEBUG_PLAYOUT)
-            qDebug() << "score hit" << n->toString() << "n" << n->m_visited
-                     << "virtualLoss" << n->m_virtualLoss;
-#endif
             break;
         }
 
         // Otherwise, increase virtual loss
         const bool alreadyPlayingOut = n->isAlreadyPlayingOut();
-        const qint64 increment = alreadyPlayingOut ? qint64(vld - 1) : 1;
-        n->m_virtualLoss += increment;
-#if defined(DEBUG_PLAYOUT)
-        qDebug() << "increment hit" << n->toString() << "n" << n->m_visited
-                 << "virtualLoss" << n->m_virtualLoss;
-#endif
+        const qint64 increment = alreadyPlayingOut ? vld : 1;
+        if (alreadyPlayingOut) {
+            if (increment > 1) {
+                Node *parent = n->m_parent;
+                while (parent) {
+                    parent->m_virtualLoss += increment - 1;
+                    parent = parent->m_parent;
+                }
+            }
+        } else {
+            n->m_virtualLoss += increment;
+        }
 
         // If we've already calculated virtualLossDistance or we are not extendable,
         // then decrement the try and vld limits and check if we should exit
         if (alreadyPlayingOut || n->isNotExtendable()) {
-            --tryPlayoutLimit;
+            --(*tryPlayoutLimit);
 #if defined(DEBUG_PLAYOUT)
-            qDebug() << "decreasing try for" << n->toString() << tryPlayoutLimit;
+            qDebug() << "decreasing try for" << n->toString() << *tryPlayoutLimit;
 #endif
-            if (tryPlayoutLimit <= 0)
+            if (*tryPlayoutLimit <= 0)
                 return nullptr;
 
-            vldMax -= n->m_virtualLoss;
+            *vldMax -= increment;
 #if defined(DEBUG_PLAYOUT)
-            qDebug() << "decreasing vldMax for" << n->toString() << vldMax;
+            qDebug() << "decreasing vldMax for" << n->toString() << *vldMax;
 #endif
-            if (vldMax <= 0)
+            if (*vldMax <= 0)
                 return nullptr;
 
             goto start_playout;

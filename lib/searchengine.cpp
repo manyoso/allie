@@ -240,6 +240,8 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork)
 
     int exactOrCached = 0;
     QVector<Node*> nodes;
+    int vldMax = SearchSettings::vldMax;
+    int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
     while (nodes.count() < size && exactOrCached < size) {
         m_tree->mutex.lock();
 #if defined(USE_DUMMY_NODES)
@@ -256,7 +258,7 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork)
         if (currentLeaf->m_children.count() > 20)
             currentLeaf = playout;
 #else
-        Node *playout = Node::playout(m_tree->root);
+        Node *playout = Node::playout(m_tree->root, &vldMax, &tryPlayoutLimit);
         const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
 #endif
 
