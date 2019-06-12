@@ -408,7 +408,7 @@ inline void Node::sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly)
 
 inline bool Node::isAlreadyPlayingOut() const
 {
-    return m_virtualLoss > 0 && !hasQValue();
+    return !m_visited && m_virtualLoss > 0;
 }
 
 inline bool Node::hasQValue() const

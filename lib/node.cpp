@@ -168,7 +168,7 @@ bool Node::isThreeFold() const
 void Node::setQValueFromRaw()
 {
     Q_ASSERT(hasRawQValue());
-    if (!hasQValue())
+    if (!m_visited)
         m_qValue = m_rawQValue;
 }
 
@@ -210,8 +210,8 @@ void Node::setQValueAndPropagate()
     Q_ASSERT(hasRawQValue());
     if (m_parent && !m_visited)
         m_parent->m_policySum += pValue();
-    incrementVisited();
     setQValueFromRaw();
+    incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "bp " << toString() << " n:" << m_visited
         << "v:" << m_rawQValue << "oq:" << 0.0 << "fq:" << m_qValue;
@@ -249,7 +249,7 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     const bool nodeIsExact = node->isExact();
 
     // First we look to see if this node has been scored
-    if (!node->hasQValue()) {
+    if (!node->m_visited) {
         // Record info
         ++(info->nodesSearched);
         ++(info->nodesCreated);
@@ -300,8 +300,8 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
         Node *child = node->m_children.at(index);
 
         // If the child doesn't have a raw qValue then it has not been scored yet so just continue
-        // or if it does have one, but not a qValue and is not marked dirty yet
-        if (!child->hasRawQValue() || (!child->hasQValue() && !child->m_isDirty)) {
+        // or if it does have one, but not visited and is not marked dirty yet
+        if (!child->hasRawQValue() || (!child->m_visited && !child->m_isDirty)) {
             everythingScored = false;
             continue;
         }
@@ -698,7 +698,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     }
 
     // If this root has never been scored, then do so now to prevent asserts in back propagation
-    if (!hasQValue()) {
+    if (!m_visited) {
         setRawQValue(0.0f);
         backPropagateDirty();
         setQValueFromRaw();
