@@ -181,6 +181,7 @@ public:
     bool hasNoisyChildren() const;
     bool checkAndGenerateDTZ(int *dtz);
     void generatePotentials();
+    void reservePotentialMoves(int totalSize);
     void generatePotential(const Move &move);
     Node *generateChild(PotentialNode *potential);
 
