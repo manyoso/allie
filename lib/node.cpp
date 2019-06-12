@@ -356,25 +356,41 @@ void Node::validateTree(Node *node)
 
 class PlayoutNode {
 public:
-    PlayoutNode(Node* parent, PotentialNode* potential)
+    inline PlayoutNode()
+        : m_node(nullptr),
+        m_parent(nullptr),
+        m_potential(nullptr)
+    {
+        m_calculatedQValue = -2.f;
+        m_calculatedUValue = -2.f;
+        m_calculatedWEC = -2.f;
+    }
+
+    inline PlayoutNode(Node* parent, PotentialNode* potential)
         : m_node(nullptr),
         m_parent(parent),
         m_potential(potential)
     {
+        m_calculatedQValue = calculatedQValue();
+        m_calculatedUValue = calculatedUValue();
+        m_calculatedWEC = calculatedWEC();
     }
 
-    PlayoutNode(Node* node)
+    inline PlayoutNode(Node* node)
         : m_node(node),
         m_parent(nullptr),
         m_potential(nullptr)
     {
-        Q_ASSERT(!m_node || !m_node->isRootNode());
+        Q_ASSERT(m_node && !m_node->isRootNode());
+        m_calculatedQValue = calculatedQValue();
+        m_calculatedUValue = calculatedUValue();
+        m_calculatedWEC = calculatedWEC();
     }
 
-    bool isPotential() const { return m_potential; }
-    bool isNull() const { return !m_node && !m_potential; }
+    inline bool isPotential() const { return m_potential; }
+    inline bool isNull() const { return !m_node && !m_potential; }
 
-    QString toString() const
+    inline QString toString() const
     {
         if (isNull())
             return QLatin1String("Null");
@@ -383,49 +399,43 @@ public:
         return m_node->toString();
     }
 
-    float uCoeff() const
+    inline float uCoeff() const
     {
         if (isPotential())
             return m_parent->uCoeff();
         return m_node->parent()->uCoeff();
     }
 
-    float pValue() const
+    inline float pValue() const
     {
         if (isPotential())
             return m_potential->pValue();
         return m_node->pValue();
     }
 
-    float qValue() const
+    inline float qValue() const
     {
-        if (isPotential())
-            return m_parent->qValueDefault();
-        return m_node->qValue();
+        return m_calculatedQValue;
     }
 
-    float uValue() const
+    inline float uValue() const
     {
-        if (isPotential())
-            return m_parent->uCoeff() * m_potential->pValue();
-        return m_node->uValue();
+        return m_calculatedUValue;
     }
 
-    float weightedExplorationScore() const
+    inline float weightedExplorationScore() const
     {
-        if (isPotential())
-            return qValue() + uValue();
-        return m_node->weightedExplorationScore();
+        return m_calculatedWEC;
     }
 
-    quint32 visits() const
+    inline quint32 visits() const
     {
         if (isPotential())
             return 0;
         return m_node->visits();
     }
 
-    quint32 virtualLoss() const
+    inline quint32 virtualLoss() const
     {
         if (isPotential())
             return 0;
@@ -433,27 +443,50 @@ public:
     }
 
     // Creates the node if necessary
-    Node *actualNode() const
+    inline Node *actualNode() const
     {
         if (isPotential())
             return m_parent->generateChild(m_potential);
         return m_node;
     }
 
-    bool operator==(const PlayoutNode &other) const
+    inline bool operator==(const PlayoutNode &other) const
     {
         return m_node == other.m_node && m_parent == other.m_parent && m_potential == other.m_potential;
     }
 
-    bool operator!=(const PlayoutNode &other) const
+    inline bool operator!=(const PlayoutNode &other) const
     {
         return m_node != other.m_node || m_parent != other.m_parent || m_potential != other.m_potential;
+    }
+
+private:
+    inline float calculatedQValue() const
+    {
+        if (isPotential())
+            return m_parent->qValueDefault();
+        return m_node->qValue();
+    }
+
+    inline float calculatedUValue() const
+    {
+        if (isPotential())
+            return m_parent->uCoeff() * m_potential->pValue();
+        return m_node->uValue();
+    }
+
+    inline float calculatedWEC() const
+    {
+        return qValue() + uValue();
     }
 
 private:
     Node *m_node;
     Node *m_parent;
     PotentialNode *m_potential;
+    float m_calculatedQValue;
+    float m_calculatedUValue;
+    float m_calculatedWEC;
 };
 
 QPair<Node*, Node*> Node::topTwoChildren() const
@@ -553,8 +586,8 @@ start_playout:
         // Otherwise calculate the virtualLossDistance to advance past this node
         Q_ASSERT(n->hasChildren() || n->hasPotentials());
 
-        PlayoutNode firstNode = nullptr;
-        PlayoutNode secondNode = nullptr;
+        PlayoutNode firstNode;
+        PlayoutNode secondNode;
         float bestScore = -std::numeric_limits<float>::max();
         float secondBestScore = -std::numeric_limits<float>::max();;
 
