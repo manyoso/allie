@@ -313,8 +313,8 @@ bool Game::fillOutMove(Chess::Army army, Move *move) const
             } else if (fileStart == 4 && fileEnd == 2) {
                 move->setCastle(true);
                 move->setCastleSide(QueenSide);
-            } else if (Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true")
-                && !BitBoard(board(army) & board(Rook) & move->end()).isClear()) {
+            } else if (!BitBoard(board(army) & board(Rook) & move->end()).isClear()
+                && Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true")) {
                 if (fileEnd == fileOfKingsRook()) {
                     move->setCastleSide(KingSide);
                     move->setCastle(true);
