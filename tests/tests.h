@@ -61,9 +61,10 @@ private:
     QString m_lastBestMove;
 };
 
-class TestGames: public QObject {
+class Tests: public QObject {
     Q_OBJECT
 private slots:
+    // Test Games
     void testBasicStructures();
     void testSizes();
     void testStartingPosition();
@@ -83,7 +84,13 @@ private slots:
     void testMateWithKBBvK();
     void testMateWithKQQvK();
     void testTB();
+
+    // TestHash
     void testHashInsertAndRetrieve();
+
+    // TestMath
+    void testFastLog();
+    void testFastPow();
 
 private:
     void checkGame(const QString &fen, const QVector<QString> &mv);
