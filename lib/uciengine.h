@@ -134,7 +134,7 @@ Q_SIGNALS:
 
 private:
     void stopTheClock();
-    void startSearch(const Search &s);
+    void startSearch();
     void stopSearch();
     void calculateRollingAverage(const SearchInfo &info);
     void setPosition(const QString &position, const QVector<QString> &moves);
@@ -148,6 +148,8 @@ private:
 private:
     SearchInfo m_averageInfo;
     SearchInfo m_lastInfo;
+    SearchInfo m_instantInfo;
+    float m_instantRawNPS;
     bool m_debug;
     bool m_gameInitialized;
     QString m_debugFile;

@@ -1,6 +1,6 @@
 /*
   This file is part of Allie Chess.
-  Copyright (C) 2018, 2019 Adam Treat
+  Copyright (C) 2019 Adam Treat
 
   Allie Chess is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -18,23 +18,10 @@
   Additional permission under GNU GPL version 3 section 7
 */
 
-#ifndef ZOBRIST_H
-#define ZOBRIST_H
+#include <QtTest/QtTest>
 
-#include <QVector>
-
-#include "game.h"
-
-class Zobrist {
-public:
-    static Zobrist *globalInstance();
-    quint64 hash(const Game::Position &position) const;
-
-private:
-    Zobrist();
-    QVector<QVector<quint64>> m_pieceKeys;
-    QVector<quint64> m_otherKeys;
-    friend class MyZobrist;
+class TestHash: public QObject {
+    Q_OBJECT
+private slots:
+    void testHashTwoInsertAndRetrieve();
 };
-
-#endif

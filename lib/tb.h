@@ -40,8 +40,8 @@ public:
 
     bool isEnabled() const { return m_enabled; }
 
-    Probe probe(const Game &game) const;
-    Probe probeDTZ(const Game &game, Move *suggestedMove, int *dtz) const;
+    Probe probe(const Game &game, const Game::Position &p) const;
+    Probe probeDTZ(const Game &game, const Game::Position &p, Move *suggestedMove, int *dtz) const;
 
 private:
     TB();

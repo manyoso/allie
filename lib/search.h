@@ -38,7 +38,6 @@ struct Search {
     qint64 mate = -1;
     qint64 movetime = -1;
     bool infinite = false;
-    Game game;
 };
 
 struct SearchSettings {
@@ -61,7 +60,7 @@ struct WorkerInfo {
     int maxDepth = 0;
     int nodesSearched = 0;
     int nodesEvaluated = 0;
-    int nodesCreated = 0;
+    int nodesVisited = 0;
     int numberOfBatches = 0;
     int nodesCacheHits = 0;
     int nodesTBHits = 0;
@@ -87,6 +86,9 @@ struct SearchInfo {
     bool bestIsMostVisited = true;
     WorkerInfo workerInfo;
     int games = 0;
+
+    void calculateSpeeds(qint64 time);
+    static SearchInfo nodeAndBatchDiff(const SearchInfo &a, const SearchInfo &b);
 };
 
 #endif // SEARCH_H

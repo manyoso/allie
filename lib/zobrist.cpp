@@ -62,89 +62,89 @@ Zobrist::Zobrist()
     m_otherKeys.append(distribution(generator));
 }
 
-quint64 Zobrist::hash(const Game &game) const
+quint64 Zobrist::hash(const Game::Position &position) const
 {
     quint64 h = 0;
 
     {
-        BitBoard pieces = game.board(King);
+        BitBoard pieces = position.board(King);
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             int squareIndex = BitBoard::squareToIndex(*sq);
-            int pieceIndex = game.board(White).testBit(squareIndex) ? 0 : 1;
+            int pieceIndex = position.board(White).testBit(squareIndex) ? 0 : 1;
             h ^= m_pieceKeys[squareIndex][pieceIndex];
         }
     }
 
     {
-        BitBoard pieces = game.board(Queen);
+        BitBoard pieces = position.board(Queen);
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             int squareIndex = BitBoard::squareToIndex(*sq);
-            int pieceIndex = game.board(White).testBit(squareIndex) ? 2 : 3;
+            int pieceIndex = position.board(White).testBit(squareIndex) ? 2 : 3;
             h ^= m_pieceKeys[squareIndex][pieceIndex];
         }
     }
 
     {
-        BitBoard pieces = game.board(Rook);
+        BitBoard pieces = position.board(Rook);
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             int squareIndex = BitBoard::squareToIndex(*sq);
-            int pieceIndex = game.board(White).testBit(squareIndex) ? 4 : 5;
+            int pieceIndex = position.board(White).testBit(squareIndex) ? 4 : 5;
             h ^= m_pieceKeys[squareIndex][pieceIndex];
         }
     }
 
     {
-        BitBoard pieces = game.board(Bishop);
+        BitBoard pieces = position.board(Bishop);
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             int squareIndex = BitBoard::squareToIndex(*sq);
-            int pieceIndex = game.board(White).testBit(squareIndex) ? 6 : 7;
+            int pieceIndex = position.board(White).testBit(squareIndex) ? 6 : 7;
             h ^= m_pieceKeys[squareIndex][pieceIndex];
         }
     }
 
     {
-        BitBoard pieces = game.board(Knight);
+        BitBoard pieces = position.board(Knight);
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             int squareIndex = BitBoard::squareToIndex(*sq);
-            int pieceIndex = game.board(White).testBit(squareIndex) ? 8 : 9;
+            int pieceIndex = position.board(White).testBit(squareIndex) ? 8 : 9;
             h ^= m_pieceKeys[squareIndex][pieceIndex];
         }
     }
 
     {
-        BitBoard pieces = game.board(Pawn);
+        BitBoard pieces = position.board(Pawn);
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             int squareIndex = BitBoard::squareToIndex(*sq);
-            int pieceIndex = game.board(White).testBit(squareIndex) ? 10 : 11;
+            int pieceIndex = position.board(White).testBit(squareIndex) ? 10 : 11;
             h ^= m_pieceKeys[squareIndex][pieceIndex];
         }
     }
 
     // activearmy
-    if (game.activeArmy() == Black)
+    if (position.activeArmy() == Black)
         h ^= m_otherKeys[0];
     // enpassant
-    if (game.enPassantTarget().isValid()) {
-        Square sq = game.enPassantTarget();
+    if (position.enPassantTarget().isValid()) {
+        Square sq = position.enPassantTarget();
         h ^= quint64(sq.file()) ^ quint64(sq.rank()) ^ m_otherKeys[1];
     }
     // white kingside castle
-    if (game.isCastleAvailable(White, KingSide))
+    if (position.isCastleAvailable(White, KingSide))
         h ^= m_otherKeys[2];
     // black kingside castle
-    if (game.isCastleAvailable(Black, KingSide))
+    if (position.isCastleAvailable(Black, KingSide))
         h ^= m_otherKeys[3];
     // white queenside castle
-    if (game.isCastleAvailable(White, QueenSide))
+    if (position.isCastleAvailable(White, QueenSide))
         h ^= m_otherKeys[4];
     // black queenside castle
-    if (game.isCastleAvailable(Black, QueenSide))
+    if (position.isCastleAvailable(Black, QueenSide))
         h ^= m_otherKeys[5];
 
     return h;

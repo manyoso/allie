@@ -91,7 +91,7 @@ Move dtzToMoveRepresentation(unsigned result)
     return mv;
 }
 
-TB::Probe TB::probe(const Game &game) const
+TB::Probe TB::probe(const Game &game, const Game::Position &p) const
 {
     if (!m_enabled)
         return NotFound;
@@ -99,58 +99,59 @@ TB::Probe TB::probe(const Game &game) const
     if (game.halfMoveClock() != 0)
         return NotFound;
 
-    if (game.m_hasWhiteKingCastle || game.m_hasBlackKingCastle
-        || game.m_hasWhiteQueenCastle || game.m_hasBlackQueenCastle)
+    if (p.m_hasWhiteKingCastle || p.m_hasBlackKingCastle
+        || p.m_hasWhiteQueenCastle || p.m_hasBlackQueenCastle)
         return NotFound;
 
-    if (unsigned(BitBoard(game.m_whitePositionBoard | game.m_blackPositionBoard).count()) > TB_LARGEST)
+    if (unsigned(BitBoard(p.m_whitePositionBoard | p.m_blackPositionBoard).count()) > TB_LARGEST)
         return NotFound;
 
-    const quint8 enpassant = !game.m_enPassantTarget.isValid() ? 0 : game.m_enPassantTarget.data();
+    const quint8 enpassant = !p.m_enPassantTarget.isValid() ? 0 : p.m_enPassantTarget.data();
 
     const unsigned result = tb_probe_wdl(
-        game.m_whitePositionBoard.data(),
-        game.m_blackPositionBoard.data(),
-        game.m_kingsBoard.data(),
-        game.m_queensBoard.data(),
-        game.m_rooksBoard.data(),
-        game.m_bishopsBoard.data(),
-        game.m_knightsBoard.data(),
-        game.m_pawnsBoard.data(),
+        p.m_whitePositionBoard.data(),
+        p.m_blackPositionBoard.data(),
+        p.m_kingsBoard.data(),
+        p.m_queensBoard.data(),
+        p.m_rooksBoard.data(),
+        p.m_bishopsBoard.data(),
+        p.m_knightsBoard.data(),
+        p.m_pawnsBoard.data(),
         0 /*half move clock*/,
         0 /*castling rights*/,
         enpassant,
-        game.m_activeArmy == Chess::White);
+        p.m_activeArmy == Chess::White);
     return wdlToProbeResult(result);
 }
 
-TB::Probe TB::probeDTZ(const Game &game, Move *suggestedMove, int *dtz) const
+TB::Probe TB::probeDTZ(const Game &game, const Game::Position &p, Move *suggestedMove,
+    int *dtz) const
 {
     if (!m_enabled)
         return NotFound;
 
-    if (game.m_hasWhiteKingCastle || game.m_hasBlackKingCastle
-        || game.m_hasWhiteQueenCastle || game.m_hasBlackQueenCastle)
+    if (p.m_hasWhiteKingCastle || p.m_hasBlackKingCastle
+        || p.m_hasWhiteQueenCastle || p.m_hasBlackQueenCastle)
         return NotFound;
 
-    if (unsigned(BitBoard(game.m_whitePositionBoard | game.m_blackPositionBoard).count()) > TB_LARGEST)
+    if (unsigned(BitBoard(p.m_whitePositionBoard | p.m_blackPositionBoard).count()) > TB_LARGEST)
         return NotFound;
 
-    const quint8 enpassant = !game.m_enPassantTarget.isValid() ? 0 : game.m_enPassantTarget.data();
+    const quint8 enpassant = !p.m_enPassantTarget.isValid() ? 0 : p.m_enPassantTarget.data();
 
     const unsigned result = tb_probe_root(
-        game.m_whitePositionBoard.data(),
-        game.m_blackPositionBoard.data(),
-        game.m_kingsBoard.data(),
-        game.m_queensBoard.data(),
-        game.m_rooksBoard.data(),
-        game.m_bishopsBoard.data(),
-        game.m_knightsBoard.data(),
-        game.m_pawnsBoard.data(),
+        p.m_whitePositionBoard.data(),
+        p.m_blackPositionBoard.data(),
+        p.m_kingsBoard.data(),
+        p.m_queensBoard.data(),
+        p.m_rooksBoard.data(),
+        p.m_bishopsBoard.data(),
+        p.m_knightsBoard.data(),
+        p.m_pawnsBoard.data(),
         unsigned(game.halfMoveClock()),
         0 /*castling rights*/,
         enpassant,
-        game.m_activeArmy == Chess::White,
+        p.m_activeArmy == Chess::White,
         nullptr /*alternative results*/);
 
     switch (result) {

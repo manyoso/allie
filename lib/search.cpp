@@ -29,10 +29,32 @@ float SearchSettings::cpuctBase = 10000;
 float SearchSettings::fpuReduction = 1.2f;
 float SearchSettings::policySoftmaxTemp = 1 / 2.2f;
 float SearchSettings::openingTimeFactor = 1.75;
-qint64 SearchSettings::earlyExitMinimumTime = 200;
+qint64 SearchSettings::earlyExitMinimumTime = 500;
 int SearchSettings::tryPlayoutLimit = 32;
 int SearchSettings::vldMax = 10000;
 QString SearchSettings::weightsFile = QString();
+
+void SearchInfo::calculateSpeeds(qint64 t)
+{
+    time = t;
+    nps = qRound(qreal(nodes) / qMax(qint64(1), t) * 1000.0);
+    rawnps = qRound(qreal(workerInfo.nodesVisited) / qMax(qint64(1), t) * 1000.0);
+    nnnps = qRound(qreal(workerInfo.nodesEvaluated) / qMax(qint64(1), t) * 1000.0);
+}
+
+SearchInfo SearchInfo::nodeAndBatchDiff(const SearchInfo &a, const SearchInfo &b)
+{
+    // The instant diff looks at the nodes and batches
+    SearchInfo diff = b;
+    diff.nodes = a.nodes - b.nodes;
+    diff.workerInfo.nodesSearched = a.workerInfo.nodesSearched - b.workerInfo.nodesSearched;
+    diff.workerInfo.nodesEvaluated = a.workerInfo.nodesEvaluated - b.workerInfo.nodesEvaluated;
+    diff.workerInfo.nodesVisited = a.workerInfo.nodesVisited - b.workerInfo.nodesVisited;
+    diff.workerInfo.numberOfBatches = a.workerInfo.numberOfBatches - b.workerInfo.numberOfBatches;
+    diff.workerInfo.nodesCacheHits = a.workerInfo.nodesCacheHits - b.workerInfo.nodesCacheHits;
+    diff.workerInfo.nodesTBHits = a.workerInfo.nodesTBHits - b.workerInfo.nodesTBHits;
+    return diff;
+}
 
 QDebug operator<<(QDebug debug, const Search &search)
 {

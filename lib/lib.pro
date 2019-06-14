@@ -49,9 +49,8 @@ HEADERS += \
     $$PWD/search.h \
     $$PWD/searchengine.h \
     $$PWD/square.h \
+    $$PWD/tree.h \
     $$PWD/tb.h \
-    $$PWD/treeiterator.h \
-    $$PWD/treeutils.h \
     $$PWD/uciengine.h \
     $$PWD/zobrist.h \
     $$PWD/neural/allie_common.h \
@@ -86,6 +85,7 @@ SOURCES += \
     $$PWD/searchengine.cpp \
     $$PWD/square.cpp \
     $$PWD/tb.cpp \
+    $$PWD/tree.cpp \
     $$PWD/uciengine.cpp \
     $$PWD/zobrist.cpp \
     $$PWD/neural/network_legacy.cpp \

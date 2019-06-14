@@ -42,17 +42,17 @@ const int s_moveHistory = 8;
 const int s_planesPerPos = 13;
 const int s_planeBase = s_planesPerPos * s_moveHistory;
 
-inline void encodeGame(int i, const Game &g, InputPlanes *result, Chess::Army us, Chess::Army them,
-    bool nextMoveIsBlack)
+inline void encodeGame(int i, const Game &g, const Game::Position &p,
+    InputPlanes *result, Chess::Army us, Chess::Army them, bool nextMoveIsBlack)
 {
-    BitBoard ours = us == White ? g.board(White) : g.board(Black);
-    BitBoard theirs = them == White ? g.board(White) : g.board(Black);
-    BitBoard pawns = g.board(Pawn);
-    BitBoard knights = g.board(Knight);
-    BitBoard bishops = g.board(Bishop);
-    BitBoard rooks = g.board(Rook);
-    BitBoard queens = g.board(Queen);
-    BitBoard kings = g.board(King);
+    BitBoard ours = us == White ? p.board(White) : p.board(Black);
+    BitBoard theirs = them == White ? p.board(White) : p.board(Black);
+    BitBoard pawns = p.board(Pawn);
+    BitBoard knights = p.board(Knight);
+    BitBoard bishops = p.board(Bishop);
+    BitBoard rooks = p.board(Rook);
+    BitBoard queens = p.board(Queen);
+    BitBoard kings = p.board(King);
 
     // If we are evaluating from black's perspective we need to flip the boards...
     if (nextMoveIsBlack) {
@@ -90,34 +90,39 @@ inline void encodeGame(int i, const Game &g, InputPlanes *result, Chess::Army us
 inline InputPlanes gameToInputPlanes(const Node *node)
 {
     const Game &game = node->game();
+    const Game::Position &position = node->position()->position();
     InputPlanes result(s_planeBase + s_moveHistory);
 
     // *us* refers to the perspective of whoever is next to move
-    const bool nextMoveIsBlack = game.activeArmy() == Black;
+    const bool nextMoveIsBlack = position.activeArmy() == Black;
     const Chess::Army us = nextMoveIsBlack ? Black : White;
     const Chess::Army them = nextMoveIsBlack ? White : Black;
 
     HistoryIterator it = HistoryIterator::begin(node);
     int gamesEncoded = 0;
     Game lastGameEncoded = game;
+    Game::Position lastPositionEncoded = position;
     for (; it != HistoryIterator::end() && gamesEncoded < s_moveHistory; ++it, ++gamesEncoded) {
-        encodeGame(gamesEncoded, *it, &result, us, them, nextMoveIsBlack);
-        lastGameEncoded = *it;
+        Game g = it.game();
+        Game::Position p = it.position();
+        encodeGame(gamesEncoded, g, p, &result, us, them, nextMoveIsBlack);
+        lastGameEncoded = g;
+        lastPositionEncoded = p;
     }
 
     // Add fake history by repeating the position to fill it up as long as the last position in the
     // real history is not the startpos
     if (lastGameEncoded != Game()) {
         while (gamesEncoded < s_moveHistory) {
-            encodeGame(gamesEncoded, lastGameEncoded, &result, us, them, nextMoveIsBlack);
+            encodeGame(gamesEncoded, lastGameEncoded, lastPositionEncoded, &result, us, them, nextMoveIsBlack);
             ++gamesEncoded;
         }
     }
 
-    if (game.isCastleAvailable(us, QueenSide)) result[s_planeBase + 0].SetAll();
-    if (game.isCastleAvailable(us, KingSide)) result[s_planeBase + 1].SetAll();
-    if (game.isCastleAvailable(them, QueenSide)) result[s_planeBase + 2].SetAll();
-    if (game.isCastleAvailable(them, KingSide)) result[s_planeBase + 3].SetAll();
+    if (position.isCastleAvailable(us, QueenSide)) result[s_planeBase + 0].SetAll();
+    if (position.isCastleAvailable(us, KingSide)) result[s_planeBase + 1].SetAll();
+    if (position.isCastleAvailable(them, QueenSide)) result[s_planeBase + 2].SetAll();
+    if (position.isCastleAvailable(them, KingSide)) result[s_planeBase + 3].SetAll();
     if (us == Chess::Black) result[s_planeBase + 4].SetAll();
     result[s_planeBase + 5].Fill(game.halfMoveClock());
     // Plane s_planeBase + 6 used to be movecount plane, now it's all zeros.
@@ -262,23 +267,25 @@ float Computation::qVal(int index) const
 void Computation::setPVals(int index, Node *node) const
 {
     Q_ASSERT(index < m_positions);
-    Q_ASSERT(node->hasPotentials());
-    QVector<PotentialNode> *potentials = node->potentials();
-    QVector<QPair<float, PotentialNode*>> policyValues;
-    policyValues.reserve(potentials->size());
+    Q_ASSERT(node);
+    Q_ASSERT(node->hasChildren());
+    const Game::Position &p = node->position()->position();
+    QVector<Node::Child> *children = node->children();
+    QVector<QPair<float, Node::Child*>> policyValues;
+    policyValues.reserve(children->size());
     float total = 0;
-    for (int i = 0; i < potentials->count(); ++i) {
+    for (int i = 0; i < children->count(); ++i) {
         // We get a non-const reference to the actual value and change it in place
-        PotentialNode *potential = &(*potentials)[i];
-        Move mv = potential->move();
-        if (node->game().activeArmy() == Chess::Black)
+        Node::Child *child = &(*children)[i];
+        Move mv = child->move();
+        if (p.activeArmy() == Chess::Black)
             mv.mirror(); // nn index expects the board to be flipped
         const float p = fastpow(m_computation->GetPVal(index, moveToNNIndex(mv)), SearchSettings::policySoftmaxTemp);
         total += p;
-        policyValues.append(qMakePair(p, potential));
+        policyValues.append(qMakePair(p, child));
     }
 
-    QVector<QPair<float, PotentialNode*>>::const_iterator it = policyValues.begin();
+    QVector<QPair<float, Node::Child*>>::const_iterator it = policyValues.begin();
     const float scale = 1.0f / total;
     float normalizedTotal = 0;
     for (; it != policyValues.end(); ++it) {

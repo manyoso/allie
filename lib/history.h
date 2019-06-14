@@ -30,16 +30,16 @@ class History {
 public:
     static History *globalInstance();
 
-    QVector<Game> games() const { return m_history; }
+    QVector<StandaloneGame> games() const { return m_history; }
 
-    Game currentGame() const
+    StandaloneGame currentGame() const
     {
         if (m_history.isEmpty())
-            return Game();
+            return StandaloneGame();
         return m_history.last();
     }
 
-    void addGame(const Game &game);
+    void addGame(const StandaloneGame &game);
 
     void clear()
     {
@@ -51,7 +51,7 @@ private:
     {
     }
 
-    const Game &at(int index) const
+    const StandaloneGame &at(int index) const
     {
         Q_ASSERT(index >= 0);
         Q_ASSERT(index < m_history.count());
@@ -64,7 +64,7 @@ private:
     }
 
     ~History() {}
-    QVector<Game> m_history;
+    QVector<StandaloneGame> m_history;
     friend class MyHistory;
     friend class HistoryIterator;
 };
@@ -72,7 +72,8 @@ private:
 class HistoryIterator {
 public:
     bool operator!=(const HistoryIterator& other) const;
-    const Game &operator*();
+    const Game &game();
+    const Game::Position &position();
     void operator++();
 
     static HistoryIterator begin(const Node *data);
@@ -112,12 +113,21 @@ inline bool HistoryIterator::operator!=(const HistoryIterator& other) const
     return node != other.node || historyPosition != other.historyPosition;
 }
 
-inline const Game &HistoryIterator::operator*()
+inline const Game &HistoryIterator::game()
 {
     if (node)
         return node->game();
     else if (historyPosition != -1)
         return History::globalInstance()->at(historyPosition);
+    Q_UNREACHABLE();
+}
+
+inline const Game::Position &HistoryIterator::position()
+{
+    if (node)
+        return node->position()->position();
+    else if (historyPosition != -1)
+        return History::globalInstance()->at(historyPosition).position();
     Q_UNREACHABLE();
 }
 

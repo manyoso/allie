@@ -283,7 +283,7 @@ Chess::PieceType Notation::charToPiece(const QChar &ch, Chess::NotationType nota
     Q_UNUSED(err);
     PieceType piece = Chess::Unknown;
 
-    QVector<QChar> pieces;
+    static QVector<QChar> pieces;
     pieces << 'U' << 'K' << 'Q' << 'R' << 'B' << 'N' << 'P';
 
     switch (notation) {
@@ -307,7 +307,7 @@ QChar Notation::pieceToChar(Chess::PieceType piece, Chess::NotationType notation
 {
     QChar ch;
 
-    QVector<QChar> pieces;
+    static QVector<QChar> pieces;
     pieces << 'U' << 'K' << 'Q' << 'R' << 'B' << 'N' << 'P';
 
     switch (notation) {
@@ -329,7 +329,7 @@ int Notation::charToFile(const QChar &ch, Chess::NotationType notation, bool *ok
 {
     int file = 0;
 
-    QVector<QChar> files;
+    static QVector<QChar> files;
     files << 'a' << 'b' << 'c' << 'd' << 'e' << 'f' << 'g' << 'h';
 
     switch (notation) {
@@ -359,7 +359,7 @@ QChar Notation::fileToChar(int file, Chess::NotationType notation)
                "Notation::fileToChar(int file, ...) range error",
                QString("%1").arg(QString::number(file)).toLatin1().constData());
 
-    QVector<QChar> files;
+    static QVector<QChar> files;
     files << 'a' << 'b' << 'c' << 'd' << 'e' << 'f' << 'g' << 'h';
 
     switch (notation) {
@@ -379,7 +379,7 @@ int Notation::charToRank(const QChar &ch, Chess::NotationType notation, bool *ok
 {
     int rank = 0;
 
-    QVector<QChar> ranks;
+    static QVector<QChar> ranks;
     ranks << '1' << '2' << '3' << '4' << '5' << '6' << '7' << '8';
 
     switch (notation) {
@@ -405,7 +405,7 @@ QChar Notation::rankToChar(int rank, Chess::NotationType notation)
 {
     QChar ch;
 
-    QVector<QChar> ranks;
+    static QVector<QChar> ranks;
     ranks << '1' << '2' << '3' << '4' << '5' << '6' << '7' << '8';
 
     switch (notation) {

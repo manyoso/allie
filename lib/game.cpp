@@ -33,27 +33,7 @@
 
 using namespace Chess;
 
-Game::Game(const QString &fen)
-    : m_halfMoveClock(0),
-    m_halfMoveNumber(2),
-    m_fileOfKingsRook(0),
-    m_fileOfQueensRook(0),
-    m_repetitions(-1),
-    m_hasWhiteKingCastle(false),
-    m_hasBlackKingCastle(false),
-    m_hasWhiteQueenCastle(false),
-    m_hasBlackQueenCastle(false),
-    m_activeArmy(Chess::White)
-{
-    if (fen.isEmpty()) {
-        static Game s_startPos = Game(QLatin1String("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
-        *this = s_startPos;
-    } else {
-        setFen(fen);
-    }
-}
-
-bool Game::hasPieceAt(int index, Chess::Army army) const
+bool Game::Position::hasPieceAt(int index, Chess::Army army) const
 {
     switch (army) {
     case White:
@@ -65,7 +45,7 @@ bool Game::hasPieceAt(int index, Chess::Army army) const
     return false;
 }
 
-PieceType Game::pieceTypeAt(int index) const
+PieceType Game::Position::pieceTypeAt(int index) const
 {
     // From most numerous piece type to least
     Chess::PieceType type = Pawn;
@@ -101,78 +81,71 @@ PieceType Game::pieceTypeAt(int index) const
     return Unknown;
 }
 
-bool Game::hasPieceTypeAt(int index, Chess::PieceType piece) const
+bool Game::Position::hasPieceTypeAt(int index, Chess::PieceType piece) const
 {
     return board(piece).testBit(index);
 }
 
-bool Game::makeMove(const Move &move)
+bool Game::Position::makeMove(Move *move)
 {
-    Move mv = move;
-    bool ok = fillOutMove(activeArmy(), &mv);
+    bool ok = fillOutMove(activeArmy(), move);
     if (!ok) {
-        qDebug() << "ERROR! move is malformed" << Notation::moveToString(move, Chess::Computer);
+        qDebug() << "ERROR! move is malformed" << Notation::moveToString(*move, Chess::Computer);
         return false;
     }
-    processMove(activeArmy(), mv);
+    processMove(activeArmy(), move);
     return true;
 }
 
-void Game::processMove(Chess::Army army, const Move &move)
+void Game::Position::processMove(Chess::Army army, Move *move)
 {
-    m_lastMove = move;
     m_enPassantTarget = Square();
 
     if (army == White) {
-        if (move.piece() == King) {
+        if (move->piece() == King) {
             m_hasWhiteKingCastle = false;
             m_hasWhiteQueenCastle = false;
-        } else if (move.piece() == Rook) {
-            if (move.start() == Square(m_fileOfQueensRook, 0))
+        } else if (move->piece() == Rook) {
+            if (move->start() == Square(m_fileOfQueensRook, 0))
                 m_hasWhiteQueenCastle = false;
-            else if (move.start() == Square(m_fileOfKingsRook, 0))
+            else if (move->start() == Square(m_fileOfKingsRook, 0))
                 m_hasWhiteKingCastle = false;
-        } else if (move.piece() == Pawn && qAbs(move.start().rank() - move.end().rank()) == 2) {
-            m_enPassantTarget = Square(move.end().file(), move.end().rank() - 1);
+        } else if (move->piece() == Pawn && qAbs(move->start().rank() - move->end().rank()) == 2) {
+            m_enPassantTarget = Square(move->end().file(), move->end().rank() - 1);
         }
 
-        int start = move.start().data();
-        int end = move.end().data();
+        int start = move->start().data();
+        int end = move->end().data();
 
-        bool capture = hasPieceAt(end, Black) || move.isEnPassant();
+        bool capture = hasPieceAt(end, Black) || move->isEnPassant();
         if (capture) {
-            m_lastMove.setCapture(true); // set the flag now that we know it
+            move->setCapture(true); // set the flag now that we know it
             int capturedPieceIndex = end;
-            if (move.isEnPassant())
-                capturedPieceIndex = Square(move.end().file(), move.end().rank() - 1).data();
+            if (move->isEnPassant())
+                capturedPieceIndex = Square(move->end().file(), move->end().rank() - 1).data();
 
             PieceType type = pieceTypeAt(capturedPieceIndex);
             Q_ASSERT(type != Unknown);
             togglePieceAt(capturedPieceIndex, Black, type, false);
             if (type == Rook) {
-                if (move.end().file() == m_fileOfKingsRook)
+                if (move->end().file() == m_fileOfKingsRook)
                     m_hasBlackKingCastle = false;
                 else
                     m_hasBlackQueenCastle = false;
             }
         }
 
-        if (move.piece() != Pawn && !capture)
-            ++m_halfMoveClock;
-        else
-            m_halfMoveClock = 0;
+        togglePieceAt(start, White, move->piece(), false);
 
-        togglePieceAt(start, White, move.piece(), false);
-
-        if (move.isCastle()) { //have to move the rook
-            if (move.castleSide() == KingSide) {
+        if (move->isCastle()) { //have to move the rook
+            if (move->castleSide() == KingSide) {
                 Square rook(m_fileOfKingsRook, 0);
                 togglePieceAt(BitBoard::squareToIndex(rook), White, Rook, false);
                 rook = Square(5, 0); //f1
                 togglePieceAt(BitBoard::squareToIndex(rook), White, Rook, true);
                 Square king(6, 0); //g1
                 togglePieceAt(BitBoard::squareToIndex(king), White, King, true);
-            } else if (move.castleSide() == QueenSide) {
+            } else if (move->castleSide() == QueenSide) {
                 Square rook(m_fileOfQueensRook, 0);
                 togglePieceAt(BitBoard::squareToIndex(rook), White, Rook, false);
                 rook = Square(3, 0); //d1
@@ -180,61 +153,56 @@ void Game::processMove(Chess::Army army, const Move &move)
                 Square king(2, 0); //c1
                 togglePieceAt(BitBoard::squareToIndex(king), White, King, true);
             }
-        } else if (move.promotion() != Unknown) {
-            togglePieceAt(end, White, move.promotion(), true);
-        } else if (!move.isCastle()) {
-            togglePieceAt(end, White, move.piece(), true);
+        } else if (move->promotion() != Unknown) {
+            togglePieceAt(end, White, move->promotion(), true);
+        } else if (!move->isCastle()) {
+            togglePieceAt(end, White, move->piece(), true);
         }
     } else if (army == Black) {
-        if (move.piece() == King) {
+        if (move->piece() == King) {
             m_hasBlackKingCastle = false;
             m_hasBlackQueenCastle = false;
-        } else if (move.piece() == Rook) {
-            if (move.start() == Square(m_fileOfQueensRook, 7))
+        } else if (move->piece() == Rook) {
+            if (move->start() == Square(m_fileOfQueensRook, 7))
                 m_hasBlackQueenCastle = false;
-            else if (move.start() == Square(m_fileOfKingsRook, 7))
+            else if (move->start() == Square(m_fileOfKingsRook, 7))
                 m_hasBlackKingCastle = false;
-        } else if (move.piece() == Pawn && qAbs(move.start().rank() - move.end().rank()) == 2) {
-            m_enPassantTarget = Square(move.end().file(), move.end().rank() + 1);
+        } else if (move->piece() == Pawn && qAbs(move->start().rank() - move->end().rank()) == 2) {
+            m_enPassantTarget = Square(move->end().file(), move->end().rank() + 1);
         }
 
-        int start = move.start().data();
-        int end = move.end().data();
+        int start = move->start().data();
+        int end = move->end().data();
 
-        bool capture = hasPieceAt(end, White) || move.isEnPassant();
+        bool capture = hasPieceAt(end, White) || move->isEnPassant();
         if (capture) {
-            m_lastMove.setCapture(true); // set the flag now that we know it
+            move->setCapture(true); // set the flag now that we know it
             int capturedPieceIndex = end;
-            if (move.isEnPassant())
-                capturedPieceIndex = Square(move.end().file(), move.end().rank() + 1).data();
+            if (move->isEnPassant())
+                capturedPieceIndex = Square(move->end().file(), move->end().rank() + 1).data();
 
             PieceType type = pieceTypeAt(capturedPieceIndex);
             Q_ASSERT(type != Unknown);
             togglePieceAt(capturedPieceIndex, White, type, false);
             if (type == Rook) {
-                if (move.end().file() == m_fileOfKingsRook)
+                if (move->end().file() == m_fileOfKingsRook)
                     m_hasWhiteKingCastle = false;
                 else
                     m_hasWhiteQueenCastle = false;
             }
         }
 
-        if (move.piece() != Pawn && !capture)
-            ++m_halfMoveClock;
-        else
-            m_halfMoveClock = 0;
+        togglePieceAt(start, Black, move->piece(), false);
 
-        togglePieceAt(start, Black, move.piece(), false);
-
-        if (move.isCastle()) { //have to move the rook
-            if (move.castleSide() == KingSide) {
+        if (move->isCastle()) { //have to move the rook
+            if (move->castleSide() == KingSide) {
                 Square rook(m_fileOfKingsRook, 7);
                 togglePieceAt(BitBoard::squareToIndex(rook), Black, Rook, false);
                 rook = Square(5, 7); //f8
                 togglePieceAt(BitBoard::squareToIndex(rook), Black, Rook, true);
                 Square king(6, 7); //g8
                 togglePieceAt(BitBoard::squareToIndex(king), Black, King, true);
-            } else if (move.castleSide() == QueenSide) {
+            } else if (move->castleSide() == QueenSide) {
                 Square rook(m_fileOfQueensRook, 7);
                 togglePieceAt(BitBoard::squareToIndex(rook), Black, Rook, false);
                 rook = Square(3, 7); //d8
@@ -242,19 +210,17 @@ void Game::processMove(Chess::Army army, const Move &move)
                 Square king(2, 7); //c8
                 togglePieceAt(BitBoard::squareToIndex(king), Black, King, true);
             }
-        } else if (move.promotion() != Unknown) {
-            togglePieceAt(end, Black, move.promotion(), true);
+        } else if (move->promotion() != Unknown) {
+            togglePieceAt(end, Black, move->promotion(), true);
         } else {
-            togglePieceAt(end, Black, move.piece(), true);
+            togglePieceAt(end, Black, move->piece(), true);
         }
     }
 
-    m_repetitions = -1;
-    m_halfMoveNumber++;
     m_activeArmy = m_activeArmy == White ? Black : White;
 }
 
-bool Game::fillOutMove(Chess::Army army, Move *move) const
+bool Game::Position::fillOutMove(Chess::Army army, Move *move) const
 {
     if (move->isCastle() && !move->isValid()) {
         if (move->castleSide() == KingSide)
@@ -331,7 +297,7 @@ bool Game::fillOutMove(Chess::Army army, Move *move) const
     return true;
 }
 
-bool Game::fillOutStart(Chess::Army army, Move *move) const
+bool Game::Position::fillOutStart(Chess::Army army, Move *move) const
 {
     if (!move->isValid()) {
         qDebug() << "invalid move...";
@@ -441,12 +407,10 @@ QChar fenFromCastling(Chess::Castle castle, const Square &king, const QVector<Sq
     Q_UNREACHABLE();
 }
 
-void Game::setFen(const QString &fen)
+void Game::Position::setFenOfPosition(const QStringList &list)
 {
     m_activeArmy = White;
 
-    m_halfMoveClock = 0;
-    m_halfMoveNumber = 2; // fen assumes fullmovenumber starts with 1
     m_fileOfKingsRook = 0;
     m_fileOfQueensRook = 0;
 
@@ -465,7 +429,6 @@ void Game::setFen(const QString &fen)
     m_hasWhiteQueenCastle = false;
     m_hasBlackQueenCastle = false;
 
-    QStringList list = fen.split(' ');
     Q_ASSERT(list.count() >= 4);
 
     QStringList ranks = list.at(0).split('/');
@@ -551,14 +514,9 @@ void Game::setFen(const QString &fen)
     QString enPassant = list.at(3);
     if (enPassant != QLatin1String("-"))
         m_enPassantTarget = Notation::stringToSquare(enPassant);
-
-    if (list.count() > 4)
-        m_halfMoveClock = quint16(list.at(4).toInt());
-    if (list.count() > 5)
-        m_halfMoveNumber = quint16(qCeil(list.at(5).toInt() * 2.0));
 }
 
-QString Game::stateOfGameToFen(bool includeMoveNumbers) const
+QStringList Game::Position::stateOfPositionToFen() const
 {
     QVector<Square> whiteRooks;
     QVector<Square> blackRooks;
@@ -648,15 +606,12 @@ QString Game::stateOfGameToFen(bool includeMoveNumbers) const
 
     QString enPassant = enPassantTarget().isValid() ? Notation::squareToString(enPassantTarget()) : QLatin1String("-");
 
-    QStringList fen;
-    fen << ranks << activeArmy << castling << enPassant;
-    if (includeMoveNumbers)
-        fen << QString::number(halfMoveClock()) << QString::number(qCeil(halfMoveNumber() / 2.0));
-
-    return fen.join(" ");
+    QStringList fenOfPosition;
+    fenOfPosition << ranks << activeArmy << castling << enPassant;
+    return fenOfPosition;
 }
 
-BitBoard Game::kingAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::kingAttackBoard(Chess::Army army, const Movegen *gen) const
 {
     BitBoard bits;
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
@@ -670,7 +625,7 @@ BitBoard Game::kingAttackBoard(Chess::Army army, const Movegen *gen) const
     return bits;
 }
 
-BitBoard Game::queenAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::queenAttackBoard(Chess::Army army, const Movegen *gen) const
 {
     BitBoard bits;
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
@@ -682,7 +637,7 @@ BitBoard Game::queenAttackBoard(Chess::Army army, const Movegen *gen) const
     return bits;
 }
 
-BitBoard Game::rookAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::rookAttackBoard(Chess::Army army, const Movegen *gen) const
 {
     BitBoard bits;
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
@@ -694,7 +649,7 @@ BitBoard Game::rookAttackBoard(Chess::Army army, const Movegen *gen) const
     return bits;
 }
 
-BitBoard Game::bishopAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::bishopAttackBoard(Chess::Army army, const Movegen *gen) const
 {
     BitBoard bits;
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
@@ -706,7 +661,7 @@ BitBoard Game::bishopAttackBoard(Chess::Army army, const Movegen *gen) const
             return bits;
 }
 
-BitBoard Game::knightAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::knightAttackBoard(Chess::Army army, const Movegen *gen) const
 {
     BitBoard bits;
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
@@ -718,7 +673,7 @@ BitBoard Game::knightAttackBoard(Chess::Army army, const Movegen *gen) const
     return bits;
 }
 
-BitBoard Game::pawnAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::pawnAttackBoard(Chess::Army army, const Movegen *gen) const
 {
     BitBoard bits;
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
@@ -733,7 +688,7 @@ BitBoard Game::pawnAttackBoard(Chess::Army army, const Movegen *gen) const
     return bits;
 }
 
-void Game::pseudoLegalMoves(Node *parent) const
+void Game::Position::pseudoLegalMoves(Node *parent) const
 {
     const Chess::Army army = activeArmy();
     const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
@@ -830,8 +785,8 @@ void Game::pseudoLegalMoves(Node *parent) const
     // For castle moves
     totalMoves += 2;
 
-    // Reserve conservative estimate for number of potentials
-    parent->reservePotentialMoves(totalMoves);
+    // Reserve conservative estimate for number of children
+    parent->reserveChildren(totalMoves);
 
     for (QPair<Square, BitBoard> piece : kingMoves) {
         BitBoard::Iterator newSq = piece.second.begin();
@@ -887,7 +842,7 @@ void Game::pseudoLegalMoves(Node *parent) const
         generateCastle(army, QueenSide, parent);
 }
 
-void Game::generateCastle(Chess::Army army, Chess::Castle castleSide, Node *parent) const
+void Game::Position::generateCastle(Chess::Army army, Chess::Castle castleSide, Node *parent) const
 {
     Move mv;
     mv.setPiece(King);
@@ -902,10 +857,10 @@ void Game::generateCastle(Chess::Army army, Chess::Castle castleSide, Node *pare
     mv.setCastle(true);
     mv.setCastleSide(castleSide);
     Q_ASSERT(parent);
-    parent->generatePotential(mv);
+    parent->generateChild(mv);
 }
 
-void Game::generateMove(Chess::PieceType piece, const Square &start, const Square &end, Node *parent) const
+void Game::Position::generateMove(Chess::PieceType piece, const Square &start, const Square &end, Node *parent) const
 {
     const Chess::Army army = activeArmy();
     const bool isPromotion = piece == Pawn && (army == White ? end.rank() == 7 : end.rank() == 0);
@@ -918,20 +873,20 @@ void Game::generateMove(Chess::PieceType piece, const Square &start, const Squar
     mv.setCapture(isCapture);
     Q_ASSERT(parent);
     if (!isPromotion) {
-        parent->generatePotential(mv);
+        parent->generateChild(mv);
     } else {
         mv.setPromotion(Queen);
-        parent->generatePotential(mv);
+        parent->generateChild(mv);
         mv.setPromotion(Knight);
-        parent->generatePotential(mv);
+        parent->generateChild(mv);
         mv.setPromotion(Rook);
-        parent->generatePotential(mv);
+        parent->generateChild(mv);
         mv.setPromotion(Bishop);
-        parent->generatePotential(mv);
+        parent->generateChild(mv);
     }
 }
 
-bool Game::isChecked(Chess::Army army)
+bool Game::Position::isChecked(Chess::Army army) const
 {
     const Chess::Army friends = army == White ? White : Black;
     const Chess::Army enemies = army == Black ? White : Black;
@@ -939,59 +894,36 @@ bool Game::isChecked(Chess::Army army)
     const Movegen *gen = Movegen::globalInstance();
     {
         const BitBoard b(kingBoard & queenAttackBoard(enemies, gen));
-        if (!b.isClear()) {
-            m_lastMove.setCheck(true);
+        if (!b.isClear())
             return true;
-        }
     }
     {
         const BitBoard b(kingBoard & rookAttackBoard(enemies, gen));
-        if (!b.isClear()) {
-            m_lastMove.setCheck(true);
+        if (!b.isClear())
             return true;
-        }
     }
     {
         const BitBoard b(kingBoard & bishopAttackBoard(enemies, gen));
-        if (!b.isClear()) {
-            m_lastMove.setCheck(true);
+        if (!b.isClear())
             return true;
-        }
     }
     {
         const BitBoard b(kingBoard & knightAttackBoard(enemies, gen));
-        if (!b.isClear()) {
-            m_lastMove.setCheck(true);
+        if (!b.isClear())
             return true;
-        }
     }
     {
         // Checks for illegality...
         const BitBoard b(kingBoard & kingAttackBoard(enemies, gen));
-        if (!b.isClear()) {
-            m_lastMove.setCheck(true);
+        if (!b.isClear())
             return true;
-        }
     }
     {
         const BitBoard b(kingBoard & pawnAttackBoard(enemies, gen));
-        if (!b.isClear()) {
-            m_lastMove.setCheck(true);
+        if (!b.isClear())
             return true;
-        }
     }
-    m_lastMove.setCheck(false);
     return false;
-}
-
-void Game::setCheckMate(bool checkMate)
-{
-    m_lastMove.setCheckMate(checkMate);
-}
-
-void Game::setStaleMate(bool staleMate)
-{
-    m_lastMove.setStaleMate(staleMate);
 }
 
 BitBoard boardBetweenOnSameRank(const Square &a, const Square &b, bool inclusive)
@@ -1011,7 +943,7 @@ BitBoard boardBetweenOnSameRank(const Square &a, const Square &b, bool inclusive
     return result;
 }
 
-bool Game::isCastleLegal(Chess::Army army, Chess::Castle castle) const
+bool Game::Position::isCastleLegal(Chess::Army army, Chess::Castle castle) const
 {
     // 1) The king and the chosen rook are on the player's first rank.
     // 2) Neither the king nor the chosen rook has previously moved.
@@ -1076,7 +1008,7 @@ bool Game::isCastleLegal(Chess::Army army, Chess::Castle castle) const
     return true;
 }
 
-bool Game::isSamePosition(const Game &other) const
+bool Game::Position::isSamePosition(const Position &other) const
 {
     // FIXME: For purposes of 3-fold it does not matter if the queens rook and kings rook have
     // swapped places, but it does matter for purposes of hash
@@ -1095,15 +1027,15 @@ bool Game::isSamePosition(const Game &other) const
         && m_hasWhiteKingCastle == other.m_hasWhiteKingCastle
         && m_hasBlackKingCastle == other.m_hasBlackKingCastle
         && m_hasWhiteQueenCastle == other.m_hasWhiteQueenCastle
-        && m_hasBlackQueenCastle ==  other.m_hasBlackQueenCastle;
+        && m_hasBlackQueenCastle == other.m_hasBlackQueenCastle;
 }
 
-quint64 Game::hash() const
+quint64 Game::Position::positionHash() const
 {
     return Zobrist::globalInstance()->hash(*this);
 }
 
-int Game::materialScore(Chess::Army army) const
+int Game::Position::materialScore(Chess::Army army) const
 {
     int score = 0;
 
@@ -1135,7 +1067,7 @@ int Game::materialScore(Chess::Army army) const
     return score;
 }
 
-bool Game::isDeadPosition() const
+bool Game::Position::isDeadPosition() const
 {
     // If queens, rooks, or pawns are on the board, then we are good
     if (!board(Queen).isClear())
@@ -1155,6 +1087,70 @@ bool Game::isDeadPosition() const
     // If only 3 pieces remain with none of the above, then no one can mate
     // ie, it has to be either KBvK, or KNvK, KvK
     return true;
+}
+
+bool Game::makeMove(const Move &move, Position *position)
+{
+    Move mv = move;
+    bool success = position->makeMove(&mv);
+    if (!success)
+        return false;
+
+    m_lastMove = mv;
+    if (m_lastMove.piece() != Pawn && !m_lastMove.isCapture())
+        ++m_halfMoveClock;
+    else
+        m_halfMoveClock = 0;
+
+    m_repetitions = -1;
+    m_halfMoveNumber++;
+    return true;
+}
+
+void Game::setFen(const QString &fen, Position *position)
+{
+    m_halfMoveClock = 0;
+    m_halfMoveNumber = 2; // fen assumes fullmovenumber starts with 1
+
+    QStringList list = fen.split(' ');
+    position->setFenOfPosition(list);
+
+    if (list.count() > 4)
+        m_halfMoveClock = quint8(list.at(4).toInt());
+    if (list.count() > 5)
+        m_halfMoveNumber = quint16(qCeil(list.at(5).toInt() * 2.0));
+}
+
+QString Game::stateOfGameToFen(const Position *position, bool includeMoveNumbers) const
+{
+    QStringList fen = position->stateOfPositionToFen();
+    if (includeMoveNumbers)
+        fen << QString::number(halfMoveClock()) << QString::number(qCeil(halfMoveNumber() / 2.0));
+
+    return fen.join(" ");
+}
+
+bool Game::isChecked(Chess::Army army, const Position *position)
+{
+    m_lastMove.setCheck(position->isChecked(army));
+    return m_lastMove.isCheck();
+}
+
+void Game::setCheckMate(bool checkMate)
+{
+    m_lastMove.setCheckMate(checkMate);
+}
+
+void Game::setStaleMate(bool staleMate)
+{
+    m_lastMove.setStaleMate(staleMate);
+}
+
+bool Game::isSameGame(const Game &other) const
+{
+    return m_halfMoveClock == other.m_halfMoveClock
+        && m_halfMoveNumber == other.m_halfMoveNumber
+        && m_lastMove == other.m_lastMove;
 }
 
 QString Game::toString(NotationType type) const

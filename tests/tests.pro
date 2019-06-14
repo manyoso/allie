@@ -27,8 +27,11 @@ HEADERS += \
 
 SOURCES += \
     main.cpp \
+    testbasics.cpp \
     testgames.cpp \
-    testmath.cpp
+    testhash.cpp \
+    testmath.cpp \
+    tests.cpp
 
 win32 {
     PRE_TARGETDEPS += $$PWD/../lib $$DESTDIR/margean.lib

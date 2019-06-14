@@ -28,14 +28,14 @@
 #include <QMutex>
 #include <QWaitCondition>
 
-#include "clock.h"
-#include "node.h"
 #include "search.h"
 
 namespace lczero {
 class Network;
 };
 
+class Node;
+class Tree;
 class SearchWorker : public QObject {
     Q_OBJECT
 public:
@@ -50,22 +50,23 @@ public Q_SLOTS:
 
 Q_SIGNALS:
     void sendInfo(const WorkerInfo &info);
-    void searchStopped();
+    void searchWorkerStopped();
     void reachedMaxBatchSize();
+    void requestStop();
 
 private Q_SLOTS:
     void search();
 
 private:
-    void fetchBatch(const QVector<Node*> &batch,
+    void fetchBatch(const QVector<quint64> &batch,
         lczero::Network *network, Tree *tree, int searchId);
-    void fetchFromNN(const QVector<Node*> &fetch, bool sync);
-    void fetchAndMinimax(QVector<Node*> nodes, bool sync);
-    bool fillOutTree();
+    void fetchFromNN(const QVector<quint64> &fetch, bool sync);
+    void fetchAndMinimax(QVector<quint64> nodes, bool sync);
+    bool fillOutTree(bool *hardExit);
 
     // Playout methods
     bool handlePlayout(Node *node);
-    QVector<Node*> playoutNodes(int size, bool *didWork);
+    QVector<quint64> playoutNodes(int size, bool *didWork, bool *hardExit);
     void ensureRootAndChildrenScored();
 
     int m_id;
@@ -106,10 +107,10 @@ public:
 
 public Q_SLOTS:
     void reset();
-    void startSearch(const Search &search);
+    void startSearch();
     void stopSearch();
-    void searchStopped();
-    void printTree(const QVector<QString> &node, int depth, bool printPotentials);
+    void searchWorkerStopped();
+    void printTree(const QVector<QString> &node, int depth, bool printPotentials, bool lock = true) const;
     void receivedWorkerInfo(const WorkerInfo &info);
     void workerReachedMaxBatchSize();
     void startPonder() {}
@@ -120,7 +121,6 @@ Q_SIGNALS:
     void requestStop();
 
 private:
-    static void gcNode(Node *node);
     void resetSearch(const Search &search);
     bool tryResumeSearch(const Search &search);
 

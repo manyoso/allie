@@ -259,6 +259,7 @@ void IOWorker::readyReadOutput(const QString &output)
 
 UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     : QObject(parent),
+    m_instantRawNPS(0.0f),
     m_debug(false),
     m_gameInitialized(false),
     m_debugFile(debugFile),
@@ -338,7 +339,8 @@ void UciEngine::readyRead(const QString &line)
     }
     // non-uci additions
     else if (line == QLatin1Literal("board")) {
-        output(History::globalInstance()->currentGame().stateOfGameToFen() + "\n");
+        const StandaloneGame game = History::globalInstance()->currentGame();
+        output(game.stateOfGameToFen() + "\n");
     } else if (line.startsWith("tree")) {
         int depth = 1;
         QVector<QString> node;
@@ -414,11 +416,11 @@ void UciEngine::stopTheClock()
     m_clock->stop();
 }
 
-void UciEngine::startSearch(const Search &s)
+void UciEngine::startSearch()
 {
     Q_ASSERT(m_searchEngine && m_gameInitialized);
     if (m_searchEngine)
-        m_searchEngine->startSearch(s);
+        m_searchEngine->startSearch();
 }
 
 void UciEngine::stopSearch()
@@ -444,7 +446,7 @@ void UciEngine::calculateRollingAverage(const SearchInfo &info)
     const WorkerInfo &newW = info.workerInfo;
     avgW.nodesSearched     = rollingAverage(avgW.nodesSearched, newW.nodesSearched, n);
     avgW.nodesEvaluated    = rollingAverage(avgW.nodesEvaluated, newW.nodesEvaluated, n);
-    avgW.nodesCreated      = rollingAverage(avgW.nodesCreated, newW.nodesCreated, n);
+    avgW.nodesVisited      = rollingAverage(avgW.nodesVisited, newW.nodesVisited, n);
     avgW.nodesTBHits       = rollingAverage(avgW.nodesTBHits, newW.nodesTBHits, n);
     avgW.nodesCacheHits    = rollingAverage(avgW.nodesCacheHits, newW.nodesCacheHits, n);
 }
@@ -523,16 +525,9 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     Q_ASSERT(!m_searchEngine->isStopped());
 
-    // Check if we've exceeded the ram limit for tree size
-    const quint64 treeSizeLimit = Options::globalInstance()->option("TreeSize").value().toUInt() * quint64(1024) * quint64(1024);
-    if (treeSizeLimit && quint64(info.workerInfo.nodesCreated) * sizeof(Node) > treeSizeLimit) {
-        sendBestMove(true /*force*/);
-        return;
-    }
-
     // Otherwise begin updating info
     qint64 msecs = m_clock->elapsed();
-    m_lastInfo.time = msecs;
+    m_lastInfo.calculateSpeeds(msecs);
     m_clock->updateDeadline(m_lastInfo, isPartial);
 
     const bool targetReached = (m_depthTargeted != -1 && m_lastInfo.depth >= m_depthTargeted)
@@ -542,19 +537,21 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     if (!targetReached && (isPartial && (msecs - m_timeAtLastProgress) < 2500))
         return;
 
+    m_instantInfo = SearchInfo::nodeAndBatchDiff(m_lastInfo, m_instantInfo);
+    m_instantInfo.calculateSpeeds(msecs - m_timeAtLastProgress);
     m_timeAtLastProgress = msecs;
 
-    m_lastInfo.nps = qRound(qreal(m_lastInfo.nodes) / qMax(qint64(1), msecs) * 1000.0);
-    m_lastInfo.rawnps = qRound(qreal(m_lastInfo.workerInfo.nodesCreated) / qMax(qint64(1), msecs) * 1000.0);
-    m_lastInfo.nnnps = qRound(qreal(m_lastInfo.workerInfo.nodesEvaluated) / qMax(qint64(1), msecs) * 1000.0);
+    // Calculate instant raw nps as an exponential moving average
+    static const float esf = 0.5f;
+    m_instantRawNPS = qFuzzyCompare(m_instantRawNPS, 0.0f) ? m_lastInfo.rawnps : (esf /*smoothing factor*/ * m_instantInfo.rawnps) + (1.0f - esf /*smoothing factor*/) * m_instantRawNPS;
 
     // Set the estimated number of nodes to be searched under deadline if we've been searching for
     // at least N msecs and we want to early exit according to following paper:
     // https://link.springer.com/chapter/10.1007/978-3-642-31866-5_4
     const bool hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
-    if (!hasTarget && !m_clock->isInfinite() && msecs > SearchSettings::earlyExitMinimumTime) {
+    if (!hasTarget && !m_clock->isInfinite() && msecs > qMax(SearchSettings::earlyExitMinimumTime, m_clock->deadline() / 4)) {
         const qint64 timeToRemaining = m_clock->deadline() - msecs;
-        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_lastInfo.rawnps));
+        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_instantRawNPS));
         m_searchEngine->setEstimatedNodes(e);
     }
 
@@ -580,15 +577,15 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
                << " isResume " << (m_lastInfo.isResume ? "true" : "false")
                << " rawnps " << m_lastInfo.rawnps
                << " nnnps " << m_lastInfo.nnnps
-               << " efficiency " << m_lastInfo.workerInfo.nodesCreated / float(m_lastInfo.workerInfo.nodesEvaluated)
+               << " efficiency " << m_lastInfo.workerInfo.nodesVisited / float(m_lastInfo.workerInfo.nodesEvaluated)
                << " nodesSearched " << m_lastInfo.workerInfo.nodesSearched
                << " nodesEvaluated " << m_lastInfo.workerInfo.nodesEvaluated
-               << " nodesCreated " << m_lastInfo.workerInfo.nodesCreated
+               << " nodesVisited " << m_lastInfo.workerInfo.nodesVisited
                << " nodesCacheHits " << m_lastInfo.workerInfo.nodesCacheHits
                << endl;
     }
 
-    const Game &g = History::globalInstance()->currentGame();
+    const Game g = History::globalInstance()->currentGame();
 
     stream << "info"
            << " depth " << m_lastInfo.depth
@@ -631,7 +628,7 @@ void UciEngine::sendAverages()
            << " efficiency " << m_averageInfo.workerInfo.nodesSearched / float(m_averageInfo.workerInfo.nodesEvaluated)
            << " nodesSearched " << m_averageInfo.workerInfo.nodesSearched
            << " nodesEvaluated " << m_averageInfo.workerInfo.nodesEvaluated
-           << " nodesCreated " << m_averageInfo.workerInfo.nodesCreated
+           << " nodesVisited " << m_averageInfo.workerInfo.nodesVisited
            << " nodesTBHits " << m_averageInfo.workerInfo.nodesTBHits
            << " nodesCacheHits " << m_averageInfo.workerInfo.nodesCacheHits
            << endl;
@@ -699,7 +696,7 @@ void UciEngine::setPosition(const QString& position, const QVector<QString> &mov
         fen = position;
 
     if (!moves.isEmpty()) {
-        Game game(fen);
+        StandaloneGame game(fen);
         QVector<QString> movesMinusLast = moves;
         for (QString move : movesMinusLast) {
             Move mv = Notation::stringToMove(move, Chess::Computer);
@@ -708,7 +705,7 @@ void UciEngine::setPosition(const QString& position, const QVector<QString> &mov
             Q_ASSERT(success);
         }
     } else {
-        History::globalInstance()->addGame(Game(fen));
+        History::globalInstance()->addGame(StandaloneGame(fen));
     }
 }
 
@@ -761,7 +758,6 @@ void UciEngine::parseGo(const QString &line)
     search.mate = getNextIntAfterSearch(goLine, "mate");
     search.movetime = getNextIntAfterSearch(goLine, "movetime");
     search.infinite = goLine.contains("infinite");
-    search.game = History::globalInstance()->currentGame();
 
     go(search);
 }
@@ -792,6 +788,8 @@ void UciEngine::go(const Search& s)
     if (!m_gameInitialized)
         uciNewGame();
 
+    const StandaloneGame currentGame = History::globalInstance()->currentGame();
+    const Game::Position &p = currentGame.position();
     // Start the clock immediately
     m_clock->setTime(Chess::White, s.wtime);
     m_clock->setTime(Chess::Black, s.btime);
@@ -799,16 +797,18 @@ void UciEngine::go(const Search& s)
     m_clock->setIncrement(Chess::Black, s.binc);
     m_clock->setMoveTime(s.movetime);
     m_clock->setInfinite(s.infinite || s.depth != -1 || s.nodes != -1);
-    m_clock->setMaterialScore(s.game.materialScore(Chess::White) + s.game.materialScore(Chess::Black));
-    m_clock->setHalfMoveNumber(s.game.halfMoveNumber());
+    m_clock->setMaterialScore(p.materialScore(Chess::White) + p.materialScore(Chess::Black));
+    m_clock->setHalfMoveNumber(currentGame.halfMoveNumber());
     m_clock->resetExtension();
-    m_clock->startDeadline(s.game.activeArmy());
+    m_clock->startDeadline(p.activeArmy());
+    m_instantRawNPS = 0.0f;
     m_timeAtLastProgress = 0;
     m_depthTargeted = s.depth;
     m_nodesTargeted = s.nodes;
     m_lastInfo = SearchInfo();
+    m_instantInfo = SearchInfo();
 
-    startSearch(s);
+    startSearch();
 }
 
 void UciEngine::input(const QString &in)
