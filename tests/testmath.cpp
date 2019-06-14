@@ -23,7 +23,7 @@
 #include <sys/time.h>
 #include <math.h>
 
-#include "testmath.h"
+#include "tests.h"
 
 #include "fastapprox/fastonebigheader.h"
 
@@ -91,7 +91,7 @@ static double test_fastpow()
     return err;
 }
 
-void TestMath::testFastLog()
+void Tests::testFastLog()
 {
     double error = test_fastlog();
     QVERIFY(error < 1e-4);
@@ -106,7 +106,7 @@ void TestMath::testFastLog()
 //    qDebug() << "fastlog elapsed" << timer.elapsed() << "error" << error;
 }
 
-void TestMath::testFastPow()
+void Tests::testFastPow()
 {
     double error = test_fastpow();
     QVERIFY(error < 1e-4);

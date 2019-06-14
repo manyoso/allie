@@ -22,8 +22,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 INCLUDEPATH += $$PWD/../lib
 
 HEADERS += \
-    testgames.h \
-    testmath.h
+    tests.h \
     $$PWD/../lib/version.h
 
 SOURCES += \

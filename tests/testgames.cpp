@@ -28,11 +28,11 @@
 #include "notation.h"
 #include "options.h"
 #include "searchengine.h"
-#include "testgames.h"
+#include "tests.h"
 #include "treeiterator.h"
 #include "uciengine.h"
 
-void TestGames::testBasicStructures()
+void Tests::testBasicStructures()
 {
     Square s;
     QVERIFY(!s.isValid());
@@ -110,7 +110,7 @@ void TestGames::testBasicStructures()
     QVERIFY(mv.castleSide() == Chess::QueenSide);
 }
 
-void TestGames::testSizes()
+void Tests::testSizes()
 {
     QCOMPARE(sizeof(Square), ulong(1));
     QCOMPARE(sizeof(Move), ulong(4));
@@ -120,7 +120,7 @@ void TestGames::testSizes()
     QCOMPARE(sizeof(Node), ulong(136));
 }
 
-void TestGames::testStartingPosition()
+void Tests::testStartingPosition()
 {
     Game g;
     QCOMPARE(g.stateOfGameToFen(), QLatin1String("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"));
@@ -138,7 +138,7 @@ void TestGames::testStartingPosition()
     qDeleteAll(gc);
 }
 
-void TestGames::testStartingPositionBlack()
+void Tests::testStartingPositionBlack()
 {
     Game g("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1");
     QCOMPARE(g.stateOfGameToFen(), QLatin1String("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq - 0 1"));
@@ -156,7 +156,7 @@ void TestGames::testStartingPositionBlack()
     qDeleteAll(gc);
 }
 
-void TestGames::testCastlingAnd960()
+void Tests::testCastlingAnd960()
 {
     // begin regular positions
     {
@@ -448,7 +448,7 @@ void TestGames::testCastlingAnd960()
     Options::globalInstance()->setOption("UCI_Chess960", QLatin1Literal("false"));
 }
 
-void TestGames::testSearchForMateInOne()
+void Tests::testSearchForMateInOne()
 {
     const QLatin1String mateInOne = QLatin1String("8/8/5K2/3P3k/2P5/8/6Q1/8 w - - 12 68");
     Game g(mateInOne);
@@ -476,7 +476,7 @@ void TestGames::testSearchForMateInOne()
         || handler.lastInfo().score == QLatin1String("cp 12800"));
 }
 
-void TestGames::testInstaMove()
+void Tests::testInstaMove()
 {
     const QLatin1String oneLegalMove = QLatin1String("position fen rnbqk2r/pppp1p1p/4pn1p/8/1bPP4/N7/PP2PPPP/R2QKBNR w KQkq - 3 5");
     UciEngine engine(this, QString());
@@ -498,7 +498,7 @@ void TestGames::testInstaMove()
     QVERIFY(handler.lastInfo().score != QLatin1String("cp 0"));
 }
 
-void TestGames::testEarlyExit()
+void Tests::testEarlyExit()
 {
     const QLatin1String oneLegalMove = QLatin1String("position fen 7k/rrrr2nr/8/8/8/8/8/5RK1 w - - 0 1");
     UciEngine engine(this, QString());
@@ -523,7 +523,7 @@ void TestGames::testEarlyExit()
     QCOMPARE(handler.lastInfo().score, QLatin1String("mate 1"));
 }
 
-void TestGames::testHistory()
+void Tests::testHistory()
 {
     QLatin1String fen = QLatin1String("4k3/8/8/8/8/1R6/8/4K3 b - - 0 40");
     QVector<QString> moves = QString("e8d7 e1f1 d7d6 b3b2 d6c6 b2b8 c6d6 b8b7 d6c6 b7b3 c6d7 b3a3 d7c7 a3a6 c7c8").split(" ").toVector();
@@ -575,7 +575,7 @@ void TestGames::testHistory()
     qDeleteAll(gc);
 }
 
-void TestGames::testThreeFold()
+void Tests::testThreeFold()
 {
     History::globalInstance()->clear();
 
@@ -593,7 +593,7 @@ void TestGames::testThreeFold()
     QVERIFY(n.isThreeFold());
 }
 
-void TestGames::testThreeFold2()
+void Tests::testThreeFold2()
 {
     History::globalInstance()->clear();
 
@@ -611,7 +611,7 @@ void TestGames::testThreeFold2()
     QVERIFY(n.isThreeFold());
 }
 
-void TestGames::testThreeFold3()
+void Tests::testThreeFold3()
 {
     History::globalInstance()->clear();
 
@@ -629,7 +629,7 @@ void TestGames::testThreeFold3()
     QVERIFY(n.isThreeFold());
 }
 
-void TestGames::testThreeFold4()
+void Tests::testThreeFold4()
 {
     History::globalInstance()->clear();
 
@@ -664,7 +664,7 @@ void TestGames::testThreeFold4()
     QVERIFY(found);
 }
 
-void TestGames::checkGame(const QString &fen, const QVector<QString> &mv)
+void Tests::checkGame(const QString &fen, const QVector<QString> &mv)
 {
     QVector<QString> moves = mv;
     UciEngine engine(this, QString());
@@ -744,7 +744,7 @@ void TestGames::checkGame(const QString &fen, const QVector<QString> &mv)
         .arg(resultString).arg(position).toLatin1().constData());
 }
 
-void TestGames::testMateWithKRvK()
+void Tests::testMateWithKRvK()
 {
     QString fen = QLatin1String("4k3/8/8/8/8/1R6/8/4K3 b - - 0 40");
 
@@ -753,7 +753,7 @@ void TestGames::testMateWithKRvK()
     checkGame(fen, moves);
 }
 
-void TestGames::testMateWithKQvK()
+void Tests::testMateWithKQvK()
 {
     QString fen = QLatin1String("4k3/8/8/8/8/1Q6/8/4K3 b - - 0 40");
 
@@ -762,7 +762,7 @@ void TestGames::testMateWithKQvK()
     checkGame(fen, moves);
 }
 
-void TestGames::testMateWithKBNvK()
+void Tests::testMateWithKBNvK()
 {
     QString fen = QLatin1String("4k3/8/8/8/8/1N6/8/4K2B b - - 0 40");
 
@@ -771,7 +771,7 @@ void TestGames::testMateWithKBNvK()
     checkGame(fen, moves);
 }
 
-void TestGames::testMateWithKBBvK()
+void Tests::testMateWithKBBvK()
 {
     QString fen = QLatin1String("4k3/8/8/8/8/1B6/8/4K1B1 b - - 0 40");
 
@@ -780,7 +780,7 @@ void TestGames::testMateWithKBBvK()
     checkGame(fen, moves);
 }
 
-void TestGames::testMateWithKQQvK()
+void Tests::testMateWithKQQvK()
 {
     QString fen = QLatin1String("4k3/8/8/8/8/1Q6/8/4K2Q b - - 0 40");
 
@@ -789,7 +789,7 @@ void TestGames::testMateWithKQQvK()
     checkGame(fen, moves);
 }
 
-void TestGames::testTB()
+void Tests::testTB()
 {
     // TB positions tested manually
     // 8/8/1K6/2P2Q1p/P6k/1pq5/2P5/8 w - - 2 88
@@ -799,7 +799,7 @@ void TestGames::testTB()
     QVERIFY(true);
 }
 
-void TestGames::testHashInsertAndRetrieve()
+void Tests::testHashInsertAndRetrieve()
 {
     // Create a position
     Game game;
