@@ -20,6 +20,7 @@
 
 #include "node.h"
 
+#include "hash.h"
 #include "history.h"
 #include "notation.h"
 #include "neural/nn_policy.h"
@@ -37,26 +38,348 @@ float cpToScore(int cp)
     return float(qAtan(double(cp) / 290.680623072) / 1.548090806);
 }
 
-Node::Node(Node *parent, const Game &game)
-    : m_game(game),
-    m_parent(parent),
-    m_visited(0),
-    m_virtualLoss(0),
-    m_qValue(-2.0f),
-    m_rawQValue(-2.0f),
-    m_pValue(-2.0f),
-    m_policySum(0),
-    m_uCoeff(-2.0f),
-    m_isExact(false),
-    m_isTB(false),
-    m_isDirty(false)
+Node::Position::Position()
 {
-    m_scoringOrScored.clear();
+    initialize(0, Game::Position());
+}
+
+Node::Position::~Position()
+{
+}
+
+void Node::Position::initialize(quint64 nodeHash, const Game::Position &position)
+{
+    m_position = position;
+    m_nodes.clear();
+    if (nodeHash)
+        m_nodes.append(nodeHash);
+#if defined(DEBUG_CHURN)
+    if (nodeHash) {
+        QString string;
+        QTextStream stream(&string);
+        stream << "ctor p ";
+        stream << positionHash();
+        stream << " [";
+        stream << nodeHash;
+        stream << "]";
+        qDebug().noquote() << string;
+    }
+#endif
+}
+
+bool Node::Position::deinitialize()
+{
+#if defined(DEBUG_CHURN)
+    QString string;
+    QTextStream stream(&string);
+    stream << "dtor p ";
+    stream << positionHash();
+    stream << " [";
+    int i = 0;
+    for (quint64 node : m_nodes) {
+        if (i)
+            stream << " ";
+        stream << node;
+        ++i;
+    }
+    stream << "]";
+    qDebug().noquote() << string;
+#endif
+    return nodesNotInHash();
+}
+
+Node::Position *Node::Position::relink(quint64 positionHash)
+{
+    // Update the reference for this position in LRU hash
+    Q_ASSERT(Hash::globalInstance()->containsNodePosition(positionHash));
+    Node::Position *p = Hash::globalInstance()->nodePosition(positionHash, true /*relink*/);
+#if defined(DEBUG_CHURN)
+    QString string;
+    QTextStream stream(&string);
+    stream << "relk p ";
+    stream << positionHash;
+    stream << " [";
+    int i = 0;
+    for (quint64 node : p->m_nodes) {
+        if (i)
+            stream << " ";
+        stream << node;
+        ++i;
+    }
+    stream << "]";
+    qDebug().noquote() << string;
+#endif
+    return p;
+}
+
+bool Node::Position::nodesNotInHash() const
+{
+    for (quint64 node : m_nodes)
+        if (Hash::globalInstance()->containsNode(node))
+            return false;
+    return true;
+}
+
+QVector<const Node*> Node::Position::embodiedNodes() const
+{
+    if (m_nodes.isEmpty())
+        return QVector<const Node*>();
+
+    QVector<const Node*> result;
+    Hash &hash = *Hash::globalInstance();
+    for (int i = 0; i < m_nodes.count(); ++i) {
+        const quint64 node = m_nodes.at(i);
+        if (hash.containsNode(node))
+            result.append(hash.node(node));
+    }
+    return result;
+}
+
+Node::Node()
+{
+    initialize(0, 0, Game(), nullptr);
 }
 
 Node::~Node()
 {
-    m_potentials.clear();
+}
+
+quint64 Node::nextHash()
+{
+    static quint64 s_nextHash = 0;
+    return ++s_nextHash;
+}
+
+void Node::initialize(quint64 hash, quint64 parentHash, const Game &game, Node::Position *position)
+{
+    m_game = game;
+    m_parent = parentHash;
+    m_position = position;
+    m_hash = hash;
+    m_children.clear();
+    m_visited = 0;
+    m_virtualLoss = 0;
+    m_qValue = -2.0f;
+    m_rawQValue = -2.0f;
+    m_pValue = -2.0f;
+    m_policySum = 0;
+    m_uCoeff = -2.0f;
+    m_pruned = 0;
+    m_isExact = false;
+    m_isTB = false;
+    m_isDirty = false;
+    m_scoringOrScored.clear();
+#if defined(DEBUG_CHURN)
+    if (m_hash) {
+        QString string;
+        QTextStream stream(&string);
+        stream << "ctor n ";
+        stream << m_position->positionHash();
+        stream << " [";
+        stream << m_hash;
+        stream << "]";
+        qDebug().noquote() << string;
+    }
+#endif
+}
+
+bool Node::deinitialize()
+{
+    if (hasEmbodiedParent()) {
+        Node *parent = embodiedParent();
+        Q_ASSERT(parent->m_pruned < parent->m_children.count());
+        ++parent->m_pruned;
+        if (parent->m_pruned == parent->m_children.count())
+            Hash::globalInstance()->unlinkNode(parent->m_hash);
+    }
+
+    Q_ASSERT(!m_isDirty);
+#if defined(DEBUG_CHURN)
+        QString string;
+        QTextStream stream(&string);
+        stream << "dtor n ";
+        stream << m_position->positionHash();
+        stream << " [";
+        stream << m_hash;
+        stream << "]";
+        qDebug().noquote() << string;
+#endif
+    return true;
+}
+
+Node *Node::relink(quint64 hash)
+{
+    // Update the reference for this node in LRU hash
+    Q_ASSERT(Hash::globalInstance()->containsNode(hash));
+    Node *n = Hash::globalInstance()->node(hash, true /*relink*/);
+#if defined(DEBUG_CHURN)
+    QString string;
+    QTextStream stream(&string);
+    stream << "relk n ";
+    stream << n->m_position->positionHash();
+    stream << " [";
+    stream << n->m_hash;
+    stream << "]";
+    qDebug().noquote() << string;
+#else
+    qt_noop();
+#endif
+    Node::Position::relink(n->position()->positionHash());
+    return n;
+}
+
+Node *Node::embodiedBestChild() const
+{
+    QVector<Node*> children = embodiedChildren();
+    if (children.isEmpty())
+        return nullptr;
+    sortByScore(children, true /*partialSortFirstOnly*/);
+    return children.first();
+}
+
+QVector<Node*> Node::embodiedChildren() const
+{
+    if (m_children.isEmpty())
+        return QVector<Node*>();
+
+    QVector<Node*> result;
+    Hash &hash = *Hash::globalInstance();
+    for (int i = 0; i < m_children.count(); ++i) {
+        const Node::Child child = m_children.at(i);
+        if (!child.isPotential() && hash.containsNode(child.hash()))
+            result.append(hash.node(child.hash()));
+    }
+    return result;
+}
+
+bool Node::hasEmbodiedChild(Node::Child *childRef) const
+{
+    Q_ASSERT(childRef);
+    if (childRef->isPotential())
+        return false;
+
+    Hash &hash = *Hash::globalInstance();
+    return hash.containsNode(childRef->hash());
+}
+
+Node* Node::embodiedChild(Node::Child *childRef) const
+{
+    Q_ASSERT(hasEmbodiedChild(childRef));
+    return Hash::globalInstance()->node(childRef->hash());
+}
+
+bool Node::allChildrenPruned() const
+{
+    if (m_isExact)
+        return false;
+
+    if (!m_visited)
+        return false;
+
+    for (Node::Child ref : m_children) {
+        if (ref.isPotential())
+            return false;
+
+        if (Hash::globalInstance()->containsNode(ref.hash()))
+            return false;
+    }
+
+    return true;
+}
+
+void Node::scoreMiniMax(float score, bool isExact)
+{
+    Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
+    Q_ASSERT(!m_isExact || isExact);
+    m_isExact = isExact;
+    if (m_isExact)
+        m_qValue = score;
+    else
+        m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
+}
+
+void Node::incrementVisited()
+{
+    ++m_visited;
+    const quint32 N = qMax(quint32(1), m_visited);
+#if defined(USE_CPUCT_SCALING)
+    // From Deepmind's A0 paper
+    // log ((1 + N(s) + cbase)/cbase) + cini
+    const float growth = SearchSettings::cpuctF * fastlog((1 + N + SearchSettings::cpuctBase) / SearchSettings::cpuctBase);
+#else
+    const float growth = 0.0f;
+#endif
+    m_uCoeff = (SearchSettings::cpuctInit + growth) * float(qSqrt(N));
+    m_virtualLoss = 0;
+    m_isDirty = false;
+}
+
+bool Node::hasEmbodiedParent() const
+{
+    if (isRootNode())
+        return false;
+
+    Hash &hash = *Hash::globalInstance();
+    return hash.containsNode(m_parent);
+}
+
+Node* Node::embodiedParent() const
+{
+    Q_ASSERT(hasEmbodiedParent());
+    return Hash::globalInstance()->node(m_parent);
+}
+
+void Node::backPropagateValue(float v)
+{
+    Q_ASSERT(hasQValue());
+    Q_ASSERT(m_visited);
+    Q_ASSERT(!m_isExact);
+    const float currentQValue = m_qValue;
+    m_qValue = qBound(-1.f, (m_visited * currentQValue + v) / float(m_visited + 1), 1.f);
+    incrementVisited();
+#if defined(DEBUG_FETCHANDBP)
+    qDebug() << "bp " << toString() << " n:" << m_position->m_visited
+        << "v:" << v << "oq:" << currentQValue << "fq:" << m_position->m_qValue;
+#endif
+}
+
+void Node::backPropagateValueFull()
+{
+    float v = qValue();
+    Node *parent = hasEmbodiedParent() ? embodiedParent() : nullptr;
+    while (parent) {
+        v = -v; // flip
+        parent->backPropagateValue(v);
+        parent = parent->hasEmbodiedParent() ? parent->embodiedParent() : nullptr;
+    }
+}
+
+void Node::setQValueAndPropagate()
+{
+    Q_ASSERT(hasRawQValue());
+    Node *parent = hasEmbodiedParent() ? embodiedParent() : nullptr;
+    if (parent && !m_visited)
+        parent->m_policySum += pValue();
+    setQValueFromRaw();
+    incrementVisited();
+#if defined(DEBUG_FETCHANDBP)
+    qDebug() << "bp " << toString() << " n:" << m_position->m_visited
+        << "v:" << m_position->m_rawQValue << "oq:" << 0.0 << "fq:" << m_position->m_qValue;
+#endif
+    backPropagateValueFull();
+}
+
+void Node::backPropagateDirty()
+{
+    Q_ASSERT(hasRawQValue());
+    Q_ASSERT(!m_visited || m_isExact);
+    m_isDirty = true;
+
+    Node *parent = hasEmbodiedParent() ? embodiedParent() : nullptr;
+    while (parent) {
+        parent->m_isDirty = true;
+        parent = parent->hasEmbodiedParent() ? parent->embodiedParent() : nullptr;
+    }
 }
 
 QVector<Game> Node::previousMoves(bool fullHistory) const
@@ -70,50 +393,13 @@ QVector<Game> Node::previousMoves(bool fullHistory) const
     for (; it != HistoryIterator::end() &&
          (fullHistory || result.count() < previousMoveCount);
          ++it) {
-        result.prepend(*it);
+        result.prepend(it.game());
     }
 
     return result;
 }
 
-bool Node::isSecondChild() const
-{
-    if (isRootNode())
-        return false;
-    const QVector<Node*> &parentsChildren = m_parent->m_children;
-    if (parentsChildren.count() < 2)
-        return false;
-    return !isFirstChild() && (parentsChildren.at(0) == this || parentsChildren.at(1) == this);
-}
-
-Node *Node::rootNode()
-{
-    if (isRootNode())
-        return this;
-    return m_parent->rootNode();
-}
-
-const Node *Node::rootNode() const
-{
-    if (isRootNode())
-        return this;
-    return m_parent->rootNode();
-}
-
-void Node::setAsRootNode()
-{
-    // Need to remove ourself from our parent's children
-    if (m_parent) {
-        const int index = m_parent->m_children.indexOf(this);
-        Q_ASSERT(index != -1);
-        m_parent->m_children.remove(index);
-
-    }
-    // Now we have no parent
-    m_parent = nullptr;
-}
-
-QString Node::principalVariation(int *depth, bool *isTB) const
+QString Node::principalVariation(int *depth, bool *isTB, bool pin) const
 {
     if (!isRootNode() && !hasPValue()) {
         *isTB = m_isTB;
@@ -122,19 +408,24 @@ QString Node::principalVariation(int *depth, bool *isTB) const
 
     *depth += 1;
 
-    if (!hasChildren()) {
+    if (pin) {
+        Q_ASSERT(Hash::globalInstance()->containsNode(hash()));
+        Hash::globalInstance()->pinNode(hash());
+    }
+
+    QVector<Node*> children = embodiedChildren();
+    if (children.isEmpty()) {
         *isTB = m_isTB;
         return Notation::moveToString(m_game.lastMove(), Chess::Computer);
     }
 
-    QVector<Node*> children = m_children;
-    sortByScore(children, true /*partialSortFirstOnly*/);
-    Node *bestChild = children.first();
+    Node::sortByScore(children, true /*partialSortFirstOnly*/);
+    const Node *bestChild = children.first();
     if (isRootNode())
-        return bestChild->principalVariation(depth, isTB);
+        return bestChild->principalVariation(depth, isTB, pin);
     else
         return Notation::moveToString(m_game.lastMove(), Chess::Computer)
-            + " " + bestChild->principalVariation(depth, isTB);
+            + " " + bestChild->principalVariation(depth, isTB, pin);
 }
 
 int Node::repetitions() const
@@ -146,13 +437,13 @@ int Node::repetitions() const
     HistoryIterator it = HistoryIterator::begin(this);
     ++it; // advance past this position
     for (; it != HistoryIterator::end(); ++it) {
-        if (m_game.isSamePosition(*it))
+        if (m_position->position().isSamePosition(it.position()))
             ++r;
 
         if (r >= 2)
             break; // No sense in counting further
 
-        if (!(*it).halfMoveClock())
+        if (!it.game().halfMoveClock())
             break;
     }
     const_cast<Node*>(this)->m_game.setRepetitions(r);
@@ -163,82 +454,6 @@ bool Node::isThreeFold() const
 {
     // If this position has been found at least twice in the past, then this is a threefold draw
     return repetitions() >= 2;
-}
-
-void Node::setQValueFromRaw()
-{
-    Q_ASSERT(hasRawQValue());
-    if (!m_visited)
-        m_qValue = m_rawQValue;
-}
-
-void Node::setRawQValue(float qValue)
-{
-    m_rawQValue = qValue;
-#if defined(DEBUG_FETCHANDBP)
-    qDebug() << "sq " << toString() << " v:" << qValue;
-#endif
-}
-
-void Node::backPropagateValue(float v)
-{
-    Q_ASSERT(hasQValue());
-    Q_ASSERT(m_visited);
-    Q_ASSERT(!m_isExact);
-    const float currentQValue = m_qValue;
-    m_qValue = qBound(-1.f, (m_visited * currentQValue + v) / float(m_visited + 1), 1.f);
-    incrementVisited();
-#if defined(DEBUG_FETCHANDBP)
-    qDebug() << "bp " << toString() << " n:" << m_visited
-        << "v:" << v << "oq:" << currentQValue << "fq:" << m_qValue;
-#endif
-}
-
-void Node::backPropagateValueFull()
-{
-    float v = qValue();
-    Node *parent = m_parent;
-    while (parent) {
-        v = -v; // flip
-        parent->backPropagateValue(v);
-        parent = parent->m_parent;
-    }
-}
-
-void Node::setQValueAndPropagate()
-{
-    Q_ASSERT(hasRawQValue());
-    if (m_parent && !m_visited)
-        m_parent->m_policySum += pValue();
-    setQValueFromRaw();
-    incrementVisited();
-#if defined(DEBUG_FETCHANDBP)
-    qDebug() << "bp " << toString() << " n:" << m_visited
-        << "v:" << m_rawQValue << "oq:" << 0.0 << "fq:" << m_qValue;
-#endif
-    backPropagateValueFull();
-}
-
-void Node::backPropagateDirty()
-{
-    Q_ASSERT(hasRawQValue());
-    m_isDirty = true;
-    Node *parent = m_parent;
-    while (parent) {
-        parent->m_isDirty = true;
-        parent = parent->m_parent;
-    }
-}
-
-void Node::scoreMiniMax(float score, bool isExact)
-{
-    Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
-    Q_ASSERT(!m_isExact || isExact);
-    m_isExact = isExact;
-    if (m_isExact)
-        m_qValue = score;
-    else
-        m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
 }
 
 float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
@@ -295,17 +510,17 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     // Search the children
     float best = -2.0f;
     bool bestIsExact = false;
-    bool everythingScored = true;
-    for (int index = 0; index < node->m_children.count(); ++index) {
-        Node *child = node->m_children.at(index);
+    int childrenScored = 0;
+    QVector<Node*> children = node->embodiedChildren();
+    for (int index = 0; index < children.count(); ++index) {
+        Node *child = children.at(index);
 
         // If the child doesn't have a raw qValue then it has not been scored yet so just continue
         // or if it does have one, but not visited and is not marked dirty yet
-        if (!child->hasRawQValue() || (!child->m_visited && !child->m_isDirty)) {
-            everythingScored = false;
+        if (!child->hasRawQValue() || (!child->m_visited && !child->m_isDirty))
             continue;
-        }
 
+        ++childrenScored;
         bool subtreeIsExact = false;
         float score = minimax(child, depth + 1, &subtreeIsExact, info);
 
@@ -318,7 +533,8 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
 
     // We only propagate exact certainty if the best score from subtree is exact AND either the best
     // score is > 0 (a proven win) OR the potential children of this node have all been played out
-    const bool miniMaxComplete = everythingScored && node->m_potentials.isEmpty();
+    const bool everythingScored = childrenScored == node->m_children.count();
+    const bool miniMaxComplete = everythingScored;
     const bool shouldPropagateExact = bestIsExact && (best > 0 || miniMaxComplete) && !node->isRootNode();
 
     // Score the node based on minimax of children
@@ -331,7 +547,7 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     return node->m_qValue;
 }
 
-void Node::validateTree(Node *node)
+void Node::validateTree(const Node *node)
 {
     // Goes through the entire tree and verifies that everything that should have a score has one
     // and that nothing is marked as dirty that shouldn't be
@@ -340,8 +556,9 @@ void Node::validateTree(Node *node)
     Q_ASSERT(!node->m_isDirty);
     Q_ASSERT(node->hasQValue());
     quint32 childVisits = 0;
-    for (int index = 0; index < node->m_children.count(); ++index) {
-        Node *child = node->m_children.at(index);
+    QVector<Node*> children = node->embodiedChildren();
+    for (int index = 0; index < children.count(); ++index) {
+        const Node *child = children.at(index);
 
         // If the child doesn't have a raw qValue then it has not been scored yet so just continue
         if (!child->hasRawQValue())
@@ -359,43 +576,47 @@ public:
     inline PlayoutNode()
         : m_node(nullptr),
         m_parent(nullptr),
-        m_potential(nullptr)
+        m_child(nullptr),
+        m_calculatedQValue(-2.f),
+        m_calculatedUValue(-2.f),
+        m_calculatedWEC(-2.f)
     {
-        m_calculatedQValue = -2.f;
-        m_calculatedUValue = -2.f;
-        m_calculatedWEC = -2.f;
     }
 
-    inline PlayoutNode(Node* parent, PotentialNode* potential)
+    inline PlayoutNode(Node* parent, Node::Child* child)
         : m_node(nullptr),
         m_parent(parent),
-        m_potential(potential)
+        m_child(child),
+        m_calculatedQValue(-2.f),
+        m_calculatedUValue(-2.f),
+        m_calculatedWEC(-2.f)
     {
-        m_calculatedQValue = calculatedQValue();
-        m_calculatedUValue = calculatedUValue();
-        m_calculatedWEC = calculatedWEC();
+        // Get the embodiedChild
+        if (!child->isPotential()) {
+            if (parent->hasEmbodiedChild(child)) {
+                m_node = parent->embodiedChild(child);
+                Q_ASSERT(m_node->parent() == parent->hash());
+            }
+            m_parent = nullptr;
+            m_child = nullptr;
+        }
+
+        if (!isNull()) {
+            m_calculatedQValue = calculatedQValue();
+            m_calculatedUValue = calculatedUValue();
+            m_calculatedWEC = calculatedWEC();
+        }
     }
 
-    inline PlayoutNode(Node* node)
-        : m_node(node),
-        m_parent(nullptr),
-        m_potential(nullptr)
-    {
-        Q_ASSERT(m_node && !m_node->isRootNode());
-        m_calculatedQValue = calculatedQValue();
-        m_calculatedUValue = calculatedUValue();
-        m_calculatedWEC = calculatedWEC();
-    }
-
-    inline bool isPotential() const { return m_potential; }
-    inline bool isNull() const { return !m_node && !m_potential; }
+    inline bool isPotential() const { return m_child; }
+    inline bool isNull() const { return !m_node && !m_child; }
 
     inline QString toString() const
     {
         if (isNull())
             return QLatin1String("Null");
         if (isPotential())
-            return m_potential->toString();
+            return m_child->toString();
         return m_node->toString();
     }
 
@@ -403,13 +624,14 @@ public:
     {
         if (isPotential())
             return m_parent->uCoeff();
-        return m_node->parent()->uCoeff();
+        Q_ASSERT(m_node->hasEmbodiedParent());
+        return m_node->embodiedParent()->uCoeff();
     }
 
     inline float pValue() const
     {
         if (isPotential())
-            return m_potential->pValue();
+            return m_child->pValue();
         return m_node->pValue();
     }
 
@@ -442,22 +664,28 @@ public:
         return m_node->virtualLoss();
     }
 
+    inline void relink() const
+    {
+        if (m_node)
+            Node::relink(m_node->hash());
+    }
+
     // Creates the node if necessary
     inline Node *actualNode() const
     {
         if (isPotential())
-            return m_parent->generateChild(m_potential);
+            return m_parent->generateEmbodiedChild(m_child);
         return m_node;
     }
 
     inline bool operator==(const PlayoutNode &other) const
     {
-        return m_node == other.m_node && m_parent == other.m_parent && m_potential == other.m_potential;
+        return m_node == other.m_node && m_parent == other.m_parent && m_child == other.m_child;
     }
 
     inline bool operator!=(const PlayoutNode &other) const
     {
-        return m_node != other.m_node || m_parent != other.m_parent || m_potential != other.m_potential;
+        return m_node != other.m_node || m_parent != other.m_parent || m_child != other.m_child;
     }
 
 private:
@@ -471,7 +699,7 @@ private:
     inline float calculatedUValue() const
     {
         if (isPotential())
-            return m_parent->uCoeff() * m_potential->pValue();
+            return m_parent->uCoeff() * m_child->pValue();
         return m_node->uValue();
     }
 
@@ -483,26 +711,11 @@ private:
 private:
     Node *m_node;
     Node *m_parent;
-    PotentialNode *m_potential;
+    Node::Child *m_child;
     float m_calculatedQValue;
     float m_calculatedUValue;
     float m_calculatedWEC;
 };
-
-QPair<Node*, Node*> Node::topTwoChildren() const
-{
-    Q_ASSERT(m_children.count() > 1);
-    // Sort the first two children by score
-    QVector<Node*> children = m_children;
-    std::partial_sort(children.begin(), children.begin() + 2, children.end(),
-            [=](const Node *a, const Node *b) {
-            return greaterThan(a, b);
-    });
-
-    Node *firstChild = children.at(0);
-    Node *secondChild = children.at(1);
-    return qMakePair(firstChild, secondChild);
-}
 
 inline int virtualLossDistance(float swec, const PlayoutNode &a)
 {
@@ -536,8 +749,11 @@ inline int virtualLossDistance(float swec, const PlayoutNode &a)
     return n;
 }
 
-Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit)
+Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit)
 {
+    // Update the start of playout to avoid being pruned
+    Node::relink(root->m_hash);
+
 start_playout:
     int vld = *vldMax;
     Node *n = root;
@@ -553,10 +769,10 @@ start_playout:
         const qint64 increment = alreadyPlayingOut ? vld : 1;
         if (alreadyPlayingOut) {
             if (increment > 1) {
-                Node *parent = n->m_parent;
+                Node *parent = n->hasEmbodiedParent() ? n->embodiedParent() : nullptr;
                 while (parent) {
                     parent->m_virtualLoss += increment - 1;
-                    parent = parent->m_parent;
+                    parent = parent->hasEmbodiedParent() ? parent->embodiedParent() : nullptr;
                 }
             }
         } else {
@@ -584,37 +800,19 @@ start_playout:
         }
 
         // Otherwise calculate the virtualLossDistance to advance past this node
-        Q_ASSERT(n->hasChildren() || n->hasPotentials());
+        Q_ASSERT(n->hasChildren());
 
         PlayoutNode firstNode;
         PlayoutNode secondNode;
         float bestScore = -std::numeric_limits<float>::max();
         float secondBestScore = -std::numeric_limits<float>::max();;
 
-        // First look at the actual children
-        for (int i = 0; i < n->m_children.count(); ++i) {
-            Node *child = n->m_children.at(i);
-            PlayoutNode PlayoutNode(child);
-            float score = PlayoutNode.weightedExplorationScore();
-            Q_ASSERT(score > -std::numeric_limits<float>::max());
-            if (score > bestScore) {
-                secondNode = firstNode;
-                secondBestScore = bestScore;
-                firstNode = PlayoutNode;
-                bestScore = score;
-            } else if (score > secondBestScore) {
-                secondNode = PlayoutNode;
-                secondBestScore = score;
-            }
-        }
-
-        Q_ASSERT(firstNode.isNull() || firstNode != secondNode);
-
-        // Then look at the first two potential children as they have now been sorted by pval
-        for (int i = 0; i < n->m_potentials.count() && i < 2; ++i) {
-            // We get a non-const reference to the actual value
-            PotentialNode *potential = &n->m_potentials[i];
-            PlayoutNode PlayoutNode(n, potential);
+        QVector<Node::Child> *childRefs = n->children(); // not a copy
+        for (int i = 0; i < childRefs->count(); ++i) {
+            Node::Child *childRef = &((*childRefs)[i]);
+            PlayoutNode PlayoutNode(n, childRef);
+            if (PlayoutNode.isNull())
+                continue; // was pruned
             float score = PlayoutNode.weightedExplorationScore();
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
@@ -639,27 +837,20 @@ start_playout:
             Q_ASSERT(vld >= 1);
         }
 
+        // Update the top two finishers to avoid them being pruned
+        firstNode.relink();
+        secondNode.relink();
+
         // Retrieve the actual first node
         n = firstNode.actualNode();
+        if (!n) {
+            *hardExit = true;
+            break;
+        }
+        Q_ASSERT(!n->allChildrenPruned());
     }
 
     return n;
-}
-
-void Node::incrementVisited()
-{
-    ++m_visited;
-    const quint32 N = qMax(quint32(1), m_visited);
-#if defined(USE_CPUCT_SCALING)
-    // From Deepmind's A0 paper
-    // log ((1 + N(s) + cbase)/cbase) + cini
-    const float growth = SearchSettings::cpuctF * fastlog((1 + N + SearchSettings::cpuctBase) / SearchSettings::cpuctBase);
-#else
-    const float growth = 0.0f;
-#endif
-    m_uCoeff = (SearchSettings::cpuctInit + growth) * float(qSqrt(N));
-    m_virtualLoss = 0;
-    m_isDirty = false;
 }
 
 bool Node::isNoisy() const
@@ -668,62 +859,60 @@ bool Node::isNoisy() const
     return mv.isCapture() || mv.isCheck() || mv.promotion() != Chess::Unknown;
 }
 
-bool Node::hasNoisyChildren() const
-{
-    for (Node *node : m_children)
-        if (node->isNoisy())
-            return true;
-    return false;
-}
-
 bool Node::checkAndGenerateDTZ(int *dtz)
 {
     Q_ASSERT(isRootNode());
     Move move;
-    TB::Probe result = TB::globalInstance()->probeDTZ(m_game, &move, dtz);
+    TB::Probe result = TB::globalInstance()->probeDTZ(m_game, m_position->position(), &move, dtz);
     if (result == TB::NotFound)
         return false;
 
-    // Check move is valid
-    Game g = m_game;
-    const bool success = g.makeMove(move);
-    Q_ASSERT(success);
-    if (!success)
+    // See if the child already exists
+    Node::Child *child = nullptr;
+    for (int i = 0; i < m_children.count(); ++i) {
+        Node::Child *childRef = &(m_children)[i];
+        if (childRef->move() == move)
+            child = childRef;
+    }
+
+    // If not, then create it
+    if (!child)
+        child = generateChild(move);
+
+    Q_ASSERT(child);
+    if (!child)
         return false;
 
-    // Check move is legal
-    const bool isIllegal = g.isChecked(m_game.activeArmy());
-    Q_ASSERT(!isIllegal);
-    if (isIllegal)
+    Node *embodiedChild = nullptr;
+
+    // Is it just a potential?
+    if (child->isPotential()) {
+        embodiedChild = generateEmbodiedChild(child);
+    } else {
+        Q_ASSERT(Hash::globalInstance()->containsNode(child->hash()));
+        embodiedChild = Hash::globalInstance()->node(child->hash());
+    }
+
+    if (!embodiedChild)
         return false;
 
-    // Check that we enpassant is correct
-    Q_ASSERT(g.lastMove().isEnPassant() == move.isEnPassant());
-
-    // Is this checkmate?
-    if (g.isChecked(g.activeArmy()))
-        g.setCheckMate(true);
-
-    // If the move is good, then we generate a real child and set it to dtz
-    Node *child = new Node(this, g);
-    child->setPValue(1.0f);
-
+    // Set from dtz info
     // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->setRawQValue(1.0f);
-        child->m_isExact = true;
-        child->m_isTB = true;
+        embodiedChild->m_rawQValue = 1.0f;
+        embodiedChild->m_isExact = true;
+        embodiedChild->m_isTB = true;
         break;
     case TB::Loss:
-        child->setRawQValue(-1.0f);
-        child->m_isExact = true;
-        child->m_isTB = true;
+        embodiedChild->m_rawQValue = -1.0f;
+        embodiedChild->m_isExact = true;
+        embodiedChild->m_isTB = true;
         break;
     case TB::Draw:
-        child->setRawQValue(0.0f);
-        child->m_isExact = true;
-        child->m_isTB = true;
+        embodiedChild->m_rawQValue = 0.0f;
+        embodiedChild->m_isExact = true;
+        embodiedChild->m_isTB = true;
         break;
     default:
         Q_UNREACHABLE();
@@ -732,72 +921,75 @@ bool Node::checkAndGenerateDTZ(int *dtz)
 
     // If this root has never been scored, then do so now to prevent asserts in back propagation
     if (!m_visited) {
-        setRawQValue(0.0f);
+        m_rawQValue = 0.0f;
         backPropagateDirty();
         setQValueFromRaw();
         ++m_visited;
     }
 
-    child->setQValueAndPropagate();
-    m_children.append(child);
+    embodiedChild->setQValueAndPropagate();
     return true;
 }
 
-void Node::generatePotentials()
+void Node::generateChildren()
 {
-    Q_ASSERT(!hasPotentials());
-    if (hasPotentials())
+    Q_ASSERT(!hasChildren());
+    if (hasChildren())
         return;
 
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
-        setRawQValue(0.0f);
+        m_rawQValue = 0.0f;
         m_isExact = true;
         return;
-    } else if (Q_UNLIKELY(m_game.isDeadPosition())) {
-        setRawQValue(0.0f);
+    } else if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
+        m_rawQValue = 0.0f;
         m_isExact = true;
         return;
     } else if (Q_UNLIKELY(isThreeFold())) {
-        setRawQValue(0.0f);
+        m_rawQValue = 0.0f;
         m_isExact = true;
         return;
     }
 
-    const TB::Probe result = isRootNode() ? TB::NotFound : TB::globalInstance()->probe(m_game);
+    const TB::Probe result = isRootNode() ?
+        TB::NotFound : TB::globalInstance()->probe(m_game, m_position->position());
     switch (result) {
     case TB::NotFound:
         break;
     case TB::Win:
-        setRawQValue(1.0f);
+        m_rawQValue = 1.0f;
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Loss:
-        setRawQValue(-1.0f);
+        m_rawQValue = -1.0f;
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Draw:
-        setRawQValue(0.0f);
+        m_rawQValue = 0.0f;
         m_isExact = true;
         m_isTB = true;
         return;
     }
 
     // Otherwise try and generate potential moves
-    m_game.pseudoLegalMoves(this);
+    m_position->position().pseudoLegalMoves(this);
 
     // Override the NN in case of checkmates or stalemates
-    if (!hasPotentials()) {
-        bool isChecked = m_game.isChecked(m_game.activeArmy());
+    if (!hasChildren()) {
+        const bool isChecked
+            = m_game.isChecked(m_position->position().activeArmy(),
+                &m_position->m_position);
+
         if (isChecked) {
             m_game.setCheckMate(true);
-            setRawQValue(1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f));
+            m_rawQValue = 1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f);
             m_isExact = true;
         } else {
             m_game.setStaleMate(true);
-            setRawQValue(0.0f);
+            m_rawQValue = 0.0f;
             m_isExact = true;
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
@@ -805,60 +997,81 @@ void Node::generatePotentials()
     return;
 }
 
-void Node::reservePotentialMoves(int totalSize)
+void Node::reserveChildren(int totalSize)
 {
-    m_potentials.reserve(totalSize);
+    m_children.reserve(totalSize);
 }
 
-void Node::generatePotential(const Move &move)
+Node::Child *Node::generateChild(const Move &move)
 {
     Q_ASSERT(move.isValid());
+    Game::Position p = m_position->m_position; // copy
     Game g = m_game;
-    if (!g.makeMove(move))
-        return; // illegal
+    if (!g.makeMove(move, &p))
+        return nullptr; // illegal
 
-    if (g.isChecked(m_game.activeArmy()))
-        return; // illegal
+    if (g.isChecked(m_position->position().activeArmy(), &p))
+        return nullptr; // illegal
 
-    m_potentials.append(PotentialNode(move));
+    m_children.append(Child(move));
+    return &(m_children.last());
 }
 
-Node *Node::generateChild(PotentialNode *potential)
+Node *Node::generateEmbodiedChild(Child *child)
 {
-    Q_ASSERT(potential);
-    Game g = m_game;
-    const bool success = g.makeMove(potential->move());
+    Q_ASSERT(child);
+    Node *embodiedChild = Node::generateEmbodiedNode(child->move(), child->pValue(), this);
+    if (!embodiedChild)
+        return nullptr;
+
+    child->setPotential(false);
+    child->setHash(embodiedChild->hash());
+    return embodiedChild;
+}
+
+Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node *parent)
+{
+    // Make the child move
+    Game::Position childPosition = parent->m_position->position(); // copy
+    Game childGame = parent->m_game;
+    const bool success = childGame.makeMove(childMove, &childPosition);
     Q_ASSERT(success);
-    Node *child = new Node(this, g);
-    child->setPValue(potential->pValue());
-    m_children.append(child);
-    Q_ASSERT(m_potentials.contains(*potential));
-    m_potentials.removeAll(*potential);
-    return child;
-}
 
-QString Node::toString(Chess::NotationType notation) const
-{
-    QString string;
-    QTextStream stream(&string);
-    QVector<Game> games = previousMoves(false /*fullHistory*/);
-    games << m_game;
-    QVector<Game>::const_iterator it = games.begin();
-    for (int i = 0; it != games.end(); ++it, ++i) {
-        stream << (*it).toString(notation);
-        stream << (i != games.count() - 1 ? " " : "");
+    const quint64 parentHash = parent->hash();
+    const quint64 childHash = Node::nextHash();
+
+    Hash &hash = *Hash::globalInstance();
+    // Get a new node from hash
+    Node *embodiedChild = hash.newNode(childHash);
+    if (!embodiedChild)
+        return nullptr;
+
+    // Get a node position from hashpositions
+    Node::Position *childNodePosition = nullptr;
+    const quint64 childPositionHash = childPosition.positionHash();
+    if (hash.containsNodePosition(childPositionHash)) {
+        childNodePosition = Node::Position::relink(childPositionHash);
+        childNodePosition->addNode(childHash);
+    } else {
+        childNodePosition = hash.newNodePosition(childPositionHash);
+        if (!childNodePosition)
+            return nullptr;
+        childNodePosition->initialize(childHash, childPosition);
     }
-    return string;
+
+    Q_ASSERT(childNodePosition);
+    embodiedChild->initialize(childHash, parentHash, childGame, childNodePosition);
+    embodiedChild->setPValue(childPValue);
+    return embodiedChild;
 }
 
-Node *Node::findChild(const QVector<QString> &child)
+const Node *Node::findEmbodiedSuccessor(const QVector<QString> &child) const
 {
-    Node *n = this;
-
+    const Node *n = this;
     for (QString c : child) {
 
         bool found = false;
-        for (Node *node : n->m_children) {
+        for (const Node *node : n->embodiedChildren()) {
             if (node->m_game.toString(Chess::Computer) == c) {
                 n = node;
                 found = true;
@@ -875,7 +1088,21 @@ Node *Node::findChild(const QVector<QString> &child)
     return n;
 }
 
-QString Node::printTree(int topDepth, int depth, bool printPotentials) /*const*/
+QString Node::toString(Chess::NotationType notation) const
+{
+    QString string;
+    QTextStream stream(&string);
+    QVector<Game> games = previousMoves(false /*fullHistory*/);
+    games << m_game;
+    QVector<Game>::const_iterator it = games.begin();
+    for (int i = 0; it != games.end(); ++it, ++i) {
+        stream << (*it).toString(notation);
+        stream << (i != games.count() - 1 ? " " : "");
+    }
+    return string;
+}
+
+QString Node::printTree(int topDepth, int depth, bool printPotentials) const
 {
     QString tree;
     QTextStream stream(&tree);
@@ -904,35 +1131,34 @@ QString Node::printTree(int topDepth, int depth, bool printPotentials) /*const*/
         << qSetFieldWidth(4) << " cp: " << qSetFieldWidth(2) << right << scoreToCP(qValue());
 
     if (d < depth) {
-        QVector<Node*> children = m_children;
-        if (!children.isEmpty()) {
-            sortByScore(children, false /*partialSortFirstOnly*/);
-            for (Node *child : children)
-                stream << child->printTree(topDepth, depth, printPotentials);
+        QVector<Node*> embodiedChildren = this->embodiedChildren();
+        if (!embodiedChildren.isEmpty()) {
+            Node::sortByScore(embodiedChildren, false /*partialSortFirstOnly*/);
+            for (const Node *embodiedChild : embodiedChildren)
+                stream << embodiedChild->printTree(topDepth, depth, printPotentials);
         }
         if (printPotentials) {
-            QVector<PotentialNode> potentials = m_potentials;
-            if (!potentials.isEmpty()) {
-                std::stable_sort(potentials.begin(), potentials.end(),
-                    [=](const PotentialNode &a, const PotentialNode &b) {
+            QVector<Child> children = m_children;
+            if (!children.isEmpty()) {
+                std::stable_sort(children.begin(), children.end(),
+                    [=](const Child &a, const Child &b) {
                     return a.pValue() > b.pValue();
                 });
-                for (PotentialNode p : potentials) {
+                for (Child c : children) {
                     stream << "\n";
                     const int d = this->depth() + 1;
                     for (int i = 0; i < d; ++i) {
                         stream << qSetFieldWidth(7) << "      |";
                     }
-                    stream << right << qSetFieldWidth(6) << p.toString()
+                    stream << right << qSetFieldWidth(6) << c.toString()
                         << qSetFieldWidth(2) << " ("
-                        << qSetFieldWidth(4) << moveToNNIndex(p.move())
+                        << qSetFieldWidth(4) << moveToNNIndex(c.move())
                         << qSetFieldWidth(1) << ")"
-                        << qSetFieldWidth(4) << left << " p: " << p.pValue() * 100 << qSetFieldWidth(1) << left << "%";
+                        << qSetFieldWidth(4) << left << " p: " << c.pValue() * 100 << qSetFieldWidth(1) << left << "%";
                 }
             }
         }
     }
-
     return tree;
 }
 

@@ -18,14 +18,32 @@
   Additional permission under GNU GPL version 3 section 7
 */
 
-#ifndef TREEUTILS_H
-#define TREEUTILS_H
+#include <QtCore>
 
-enum Traversal {
-    PreOrder,
-    InOrder,
-    PostOrder,
-    DepthOnly,
-};
+#include "game.h"
+#include "hash.h"
+#include "history.h"
+#include "node.h"
+#include "options.h"
+#include "tests.h"
 
-#endif // TREEUTILS_H
+void Tests::initTestCase()
+{
+    Options::globalInstance()->setOption("SyzygyPath",
+        QCoreApplication::applicationDirPath() + QDir::separator() + "../../syzygy/");
+    Options::globalInstance()->setOption("Hash", QLatin1Literal("4096"));
+}
+
+void Tests::cleanupTestCase()
+{
+}
+
+void Tests::init()
+{
+    Hash::globalInstance()->reset();
+    History::globalInstance()->clear();
+}
+
+void Tests::cleanup()
+{
+}

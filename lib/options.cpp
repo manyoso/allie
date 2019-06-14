@@ -89,11 +89,11 @@ Options::Options()
     UciOption hash;
     hash.m_name = QLatin1Literal("Hash");
     hash.m_type = UciOption::Spin;
-    hash.m_default = QLatin1Literal("512");
+    hash.m_default = QLatin1Literal("1000000");
     hash.m_value = hash.m_default;
-    hash.m_min = QLatin1Literal("0");
-    hash.m_max = QLatin1Literal("65536");
-    hash.m_description = QLatin1String("Size of the hash in MB");
+    hash.m_min = QLatin1Literal("100");
+    hash.m_max = QString::number(999999999);
+    hash.m_description = QLatin1String("Maximum number of chess positions stored in memory");
     insertOption(hash);
 
     UciOption maxBatchSize;
@@ -141,16 +141,6 @@ Options::Options()
     tb.m_value = tb.m_default;
     tb.m_description = QLatin1String("Path to the syzygy tablebase");
     insertOption(tb);
-
-    UciOption treeSize;
-    treeSize.m_name = QLatin1Literal("TreeSize");
-    treeSize.m_type = UciOption::Spin;
-    treeSize.m_default = QLatin1Literal("0");
-    treeSize.m_value = treeSize.m_default;
-    treeSize.m_min = QLatin1Literal("0");
-    treeSize.m_max = QLatin1Literal("65536");
-    treeSize.m_description = QLatin1String("Limit the size of the tree in MB");
-    insertOption(treeSize);
 
     UciOption ninesixty;
     ninesixty.m_name = QLatin1Literal("UCI_Chess960");

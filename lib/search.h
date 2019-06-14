@@ -38,7 +38,6 @@ struct Search {
     qint64 mate = -1;
     qint64 movetime = -1;
     bool infinite = false;
-    Game game;
 };
 
 struct SearchSettings {

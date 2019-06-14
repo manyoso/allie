@@ -63,16 +63,33 @@ private:
 
 class Tests: public QObject {
     Q_OBJECT
+
+    // helpers go here
+    static void testStart(const StandaloneGame &start);
+    static void generateEmbodiedChild(Node *parent, bool onlyUniquePositions, Node **generatedChild);
+
 private slots:
-    // Test Games
+    // Tests
+    void initTestCase();
+    void cleanupTestCase();
+    void init();
+    void cleanup();
+
+    // TestBasics
     void testBasicStructures();
     void testSizes();
+
+    // TestHash
+    void testBasicHash();
     void testStartingPosition();
     void testStartingPositionBlack();
+    void testHashInsertAndRetrieve();
+
+    // TestGames
     void testCastlingAnd960();
     void testSearchForMateInOne();
-    void testEarlyExit();
     void testInstaMove();
+    void testEarlyExit();
     void testHistory();
     void testThreeFold();
     void testThreeFold2();
@@ -84,9 +101,6 @@ private slots:
     void testMateWithKBBvK();
     void testMateWithKQQvK();
     void testTB();
-
-    // TestHash
-    void testHashInsertAndRetrieve();
 
     // TestMath
     void testFastLog();

@@ -414,11 +414,11 @@ void UciEngine::stopTheClock()
     m_clock->stop();
 }
 
-void UciEngine::startSearch(const Search &s)
+void UciEngine::startSearch()
 {
     Q_ASSERT(m_searchEngine && m_gameInitialized);
     if (m_searchEngine)
-        m_searchEngine->startSearch(s);
+        m_searchEngine->startSearch();
 }
 
 void UciEngine::stopSearch()
@@ -522,13 +522,6 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     }
 
     Q_ASSERT(!m_searchEngine->isStopped());
-
-    // Check if we've exceeded the ram limit for tree size
-    const quint64 treeSizeLimit = Options::globalInstance()->option("TreeSize").value().toUInt() * quint64(1024) * quint64(1024);
-    if (treeSizeLimit && quint64(info.workerInfo.nodesCreated) * sizeof(Node) > treeSizeLimit) {
-        sendBestMove(true /*force*/);
-        return;
-    }
 
     // Otherwise begin updating info
     qint64 msecs = m_clock->elapsed();
@@ -699,7 +692,7 @@ void UciEngine::setPosition(const QString& position, const QVector<QString> &mov
         fen = position;
 
     if (!moves.isEmpty()) {
-        Game game(fen);
+        StandaloneGame game(fen);
         QVector<QString> movesMinusLast = moves;
         for (QString move : movesMinusLast) {
             Move mv = Notation::stringToMove(move, Chess::Computer);
@@ -708,7 +701,7 @@ void UciEngine::setPosition(const QString& position, const QVector<QString> &mov
             Q_ASSERT(success);
         }
     } else {
-        History::globalInstance()->addGame(Game(fen));
+        History::globalInstance()->addGame(StandaloneGame(fen));
     }
 }
 
@@ -761,7 +754,6 @@ void UciEngine::parseGo(const QString &line)
     search.mate = getNextIntAfterSearch(goLine, "mate");
     search.movetime = getNextIntAfterSearch(goLine, "movetime");
     search.infinite = goLine.contains("infinite");
-    search.game = History::globalInstance()->currentGame();
 
     go(search);
 }
@@ -792,6 +784,7 @@ void UciEngine::go(const Search& s)
     if (!m_gameInitialized)
         uciNewGame();
 
+    const Game::Position &p = History::globalInstance()->currentGame().position();
     // Start the clock immediately
     m_clock->setTime(Chess::White, s.wtime);
     m_clock->setTime(Chess::Black, s.btime);
@@ -799,16 +792,16 @@ void UciEngine::go(const Search& s)
     m_clock->setIncrement(Chess::Black, s.binc);
     m_clock->setMoveTime(s.movetime);
     m_clock->setInfinite(s.infinite || s.depth != -1 || s.nodes != -1);
-    m_clock->setMaterialScore(s.game.materialScore(Chess::White) + s.game.materialScore(Chess::Black));
-    m_clock->setHalfMoveNumber(s.game.halfMoveNumber());
+    m_clock->setMaterialScore(p.materialScore(Chess::White) + p.materialScore(Chess::Black));
+    m_clock->setHalfMoveNumber(History::globalInstance()->currentGame().halfMoveNumber());
     m_clock->resetExtension();
-    m_clock->startDeadline(s.game.activeArmy());
+    m_clock->startDeadline(p.activeArmy());
     m_timeAtLastProgress = 0;
     m_depthTargeted = s.depth;
     m_nodesTargeted = s.nodes;
     m_lastInfo = SearchInfo();
 
-    startSearch(s);
+    startSearch();
 }
 
 void UciEngine::input(const QString &in)

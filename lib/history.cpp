@@ -27,13 +27,13 @@ History* History::globalInstance()
     return HistoryInstance();
 }
 
-void History::addGame(const Game &game)
+void History::addGame(const StandaloneGame &game)
 {
     qint8 r = 0;
-    const QVector<Game> previous = m_history;
-    QVector<Game>::const_reverse_iterator it = previous.crbegin();
+    const QVector<StandaloneGame> previous = m_history;
+    QVector<StandaloneGame>::const_reverse_iterator it = previous.crbegin();
     for (; it != previous.crend(); ++it) {
-        if (game.isSamePosition(*it))
+        if (game.position().isSamePosition((*it).position()))
             ++r;
 
         if (r >= 2)
@@ -43,7 +43,7 @@ void History::addGame(const Game &game)
             break;
     }
 
-    Game g = game;
+    StandaloneGame g = game;
     g.setRepetitions(r);
     m_history.append(g);
 }

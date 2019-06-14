@@ -134,7 +134,7 @@ Q_SIGNALS:
 
 private:
     void stopTheClock();
-    void startSearch(const Search &s);
+    void startSearch();
     void stopSearch();
     void calculateRollingAverage(const SearchInfo &info);
     void setPosition(const QString &position, const QVector<QString> &moves);

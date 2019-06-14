@@ -18,23 +18,4 @@
   Additional permission under GNU GPL version 3 section 7
 */
 
-#ifndef ZOBRIST_H
-#define ZOBRIST_H
-
-#include <QVector>
-
-#include "game.h"
-
-class Zobrist {
-public:
-    static Zobrist *globalInstance();
-    quint64 hash(const Game::Position &position) const;
-
-private:
-    Zobrist();
-    QVector<QVector<quint64>> m_pieceKeys;
-    QVector<quint64> m_otherKeys;
-    friend class MyZobrist;
-};
-
-#endif
+#include "tree.h"

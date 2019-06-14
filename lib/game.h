@@ -31,126 +31,165 @@ class Movegen;
 class Node;
 class Game {
 public:
-    Game(const QString &fen = QString());
+    class Position {
+    public:
+        inline Position()
+            : m_fileOfKingsRook(0),
+            m_fileOfQueensRook(0),
+            m_hasWhiteKingCastle(false),
+            m_hasBlackKingCastle(false),
+            m_hasWhiteQueenCastle(false),
+            m_hasBlackQueenCastle(false),
+            m_activeArmy(Chess::White)
+        {
+        }
 
-    Game(const Game& other)
-        : m_whitePositionBoard(other.m_whitePositionBoard),
-          m_blackPositionBoard(other.m_blackPositionBoard),
-          m_kingsBoard(other.m_kingsBoard),
-          m_queensBoard(other.m_queensBoard),
-          m_rooksBoard(other.m_rooksBoard),
-          m_bishopsBoard(other.m_bishopsBoard),
-          m_knightsBoard(other.m_knightsBoard),
-          m_pawnsBoard(other.m_pawnsBoard),
-          m_lastMove(other.m_lastMove),
-          m_halfMoveClock(other.m_halfMoveClock),
-          m_halfMoveNumber(other.m_halfMoveNumber),
-          m_fileOfKingsRook(other.m_fileOfKingsRook),
-          m_fileOfQueensRook(other.m_fileOfQueensRook),
-          m_repetitions(other.m_repetitions),
-          m_enPassantTarget(other.m_enPassantTarget),
-          m_hasWhiteKingCastle(other.m_hasWhiteKingCastle),
-          m_hasBlackKingCastle(other.m_hasBlackKingCastle),
-          m_hasWhiteQueenCastle(other.m_hasWhiteQueenCastle),
-          m_hasBlackQueenCastle(other.m_hasBlackQueenCastle),
-          m_activeArmy(other.m_activeArmy)
+        inline Position(const Position& other)
+            : m_whitePositionBoard(other.m_whitePositionBoard),
+              m_blackPositionBoard(other.m_blackPositionBoard),
+              m_kingsBoard(other.m_kingsBoard),
+              m_queensBoard(other.m_queensBoard),
+              m_rooksBoard(other.m_rooksBoard),
+              m_bishopsBoard(other.m_bishopsBoard),
+              m_knightsBoard(other.m_knightsBoard),
+              m_pawnsBoard(other.m_pawnsBoard),
+              m_fileOfKingsRook(other.m_fileOfKingsRook),
+              m_fileOfQueensRook(other.m_fileOfQueensRook),
+              m_enPassantTarget(other.m_enPassantTarget),
+              m_hasWhiteKingCastle(other.m_hasWhiteKingCastle),
+              m_hasBlackKingCastle(other.m_hasBlackKingCastle),
+              m_hasWhiteQueenCastle(other.m_hasWhiteQueenCastle),
+              m_hasBlackQueenCastle(other.m_hasBlackQueenCastle),
+              m_activeArmy(other.m_activeArmy)
+        {
+        }
+
+        Chess::Army activeArmy() const { return m_activeArmy; }
+
+        Square enPassantTarget() const { return m_enPassantTarget; }
+
+        int fileOfKingsRook() const { return m_fileOfKingsRook; }
+        int fileOfQueensRook() const { return m_fileOfQueensRook; }
+
+        bool hasPieceAt(int index, Chess::Army army) const;
+
+        Chess::PieceType pieceTypeAt(int index) const;
+        bool hasPieceTypeAt(int index, Chess::PieceType piece) const;
+
+        QStringList stateOfPositionToFen() const; /* generates the fen of position for our current state */
+
+        BitBoard board(Chess::Army army, Chess::Castle castle, bool kingsSquares = false) const;
+        BitBoard board(Chess::Army army) const;
+        BitBoard board(Chess::PieceType piece) const;
+        BitBoard kingAttackBoard(Chess::Army army, const Movegen *gen) const;
+        BitBoard queenAttackBoard(Chess::Army army, const Movegen *gen) const;
+        BitBoard rookAttackBoard(Chess::Army army, const Movegen *gen) const;
+        BitBoard bishopAttackBoard(Chess::Army army, const Movegen *gen) const;
+        BitBoard knightAttackBoard(Chess::Army army, const Movegen *gen) const;
+        BitBoard pawnAttackBoard(Chess::Army army, const Movegen *gen) const;
+
+        void pseudoLegalMoves(Node *parent) const;
+        void generateCastle(Chess::Army army, Chess::Castle castleSide, Node *parent) const;
+        void generateMove(Chess::PieceType piece, const Square &start, const Square &end, Node *parent) const;
+
+        bool isCastleLegal(Chess::Army army, Chess::Castle castle) const;
+        bool isCastleAvailable(Chess::Army army, Chess::Castle castle) const;
+
+        bool isSamePosition(const Position &other) const;
+        bool operator==(const Position &other) const { return isSamePosition(other); }
+        bool operator!=(const Position &other) const { return !isSamePosition(other); }
+
+        quint64 positionHash() const;
+
+        int materialScore(Chess::Army army) const;
+        bool isDeadPosition() const;
+        bool isChecked(Chess::Army army) const;
+
+    private:
+        // non-const and will modify in-place
+        void setFenOfPosition(const QStringList &fenOfPosition);
+        bool makeMove(Move *move);
+        void processMove(Chess::Army army, Move *move);
+
+        bool fillOutMove(Chess::Army army, Move *move) const;
+        bool fillOutStart(Chess::Army army, Move *move) const;
+
+        void togglePieceAt(int index, Chess::Army army, Chess::PieceType piece, bool bit);
+        BitBoard *boardPointer(Chess::PieceType piece);
+
+    private:
+        BitBoard m_whitePositionBoard;
+        BitBoard m_blackPositionBoard;
+        BitBoard m_kingsBoard;
+        BitBoard m_queensBoard;
+        BitBoard m_rooksBoard;
+        BitBoard m_bishopsBoard;
+        BitBoard m_knightsBoard;
+        BitBoard m_pawnsBoard;
+        quint8 m_fileOfKingsRook;
+        quint8 m_fileOfQueensRook;
+        Square m_enPassantTarget;
+        bool m_hasWhiteKingCastle : 1;
+        bool m_hasBlackKingCastle : 1;
+        bool m_hasWhiteQueenCastle : 1;
+        bool m_hasBlackQueenCastle : 1;
+        Chess::Army m_activeArmy;
+        friend class Game;
+        friend class StandaloneGame;
+        friend class TB;
+    };
+
+    inline Game()
+        : m_halfMoveNumber(2),
+        m_halfMoveClock(0),
+        m_repetitions(-1)
+    {
+    }
+
+    inline Game(const Game& other)
+        : m_lastMove(other.m_lastMove),
+         m_halfMoveNumber(other.m_halfMoveNumber),
+         m_halfMoveClock(other.m_halfMoveClock),
+         m_repetitions(other.m_repetitions)
     {
     }
 
     ~Game() {}
 
-    Chess::Army activeArmy() const { return m_activeArmy; }
-
     int halfMoveClock() const { return m_halfMoveClock; }
     int halfMoveNumber() const { return m_halfMoveNumber; }
 
-    Square enPassantTarget() const { return m_enPassantTarget; }
-
-    int fileOfKingsRook() const { return m_fileOfKingsRook; }
-    int fileOfQueensRook() const { return m_fileOfQueensRook; }
-
     Move lastMove() const { return m_lastMove; }
 
-    bool hasPieceAt(int index, Chess::Army army) const;
+    /* generates the fen for our current state */
+    QString stateOfGameToFen(const Position *position, bool includeMoveNumbers = true) const;
 
-    Chess::PieceType pieceTypeAt(int index) const;
-    bool hasPieceTypeAt(int index, Chess::PieceType piece) const;
-
-    QString stateOfGameToFen(bool includeMoveNumbers = true) const; /* generates the fen for our current state */
-
-    BitBoard board(Chess::Army army, Chess::Castle castle, bool kingsSquares = false) const;
-    BitBoard board(Chess::Army army) const;
-    BitBoard board(Chess::PieceType piece) const;
-    BitBoard kingAttackBoard(Chess::Army army, const Movegen *gen) const;
-    BitBoard queenAttackBoard(Chess::Army army, const Movegen *gen) const;
-    BitBoard rookAttackBoard(Chess::Army army, const Movegen *gen) const;
-    BitBoard bishopAttackBoard(Chess::Army army, const Movegen *gen) const;
-    BitBoard knightAttackBoard(Chess::Army army, const Movegen *gen) const;
-    BitBoard pawnAttackBoard(Chess::Army army, const Movegen *gen) const;
-
-    void pseudoLegalMoves(Node *parent) const;
-    void generateCastle(Chess::Army army, Chess::Castle castleSide, Node *parent) const;
-    void generateMove(Chess::PieceType piece, const Square &start, const Square &end, Node *parent) const;
-
-    bool isCastleLegal(Chess::Army army, Chess::Castle castle) const;
-    bool isCastleAvailable(Chess::Army army, Chess::Castle castle) const;
-
-    bool isSamePosition(const Game &other) const;
-    bool operator==(const Game &other) const { return isSamePosition(other); }
-    bool operator!=(const Game &other) const { return !isSamePosition(other); }
-
-    quint64 hash() const;
-
-    int materialScore(Chess::Army army) const;
-    bool isDeadPosition() const;
+    bool isSameGame(const Game &other) const;
+    bool operator==(const Game &other) const { return isSameGame(other); }
+    bool operator!=(const Game &other) const { return !isSameGame(other); }
 
     QString toString(Chess::NotationType type) const;
 
     int repetitions() const { return m_repetitions; }
 
     // non-const and will modify in-place
-    void setFen(const QString &fen);
-    bool makeMove(const Move &move);
-    bool isChecked(Chess::Army army); // sets the checked flag if we are in check
+    bool makeMove(const Move &move, Position *position);
+    void setFen(const QString &fen, Position *position);
+
+    // sets the various flags
+    bool isChecked(Chess::Army army, const Position *position);
     void setCheckMate(bool checkMate);
     void setStaleMate(bool staleMate);
     void setRepetitions(int repetitions) { m_repetitions = qint8(repetitions); }
 
-private:
-    // non-const and will modify in-place
-    void processMove(Chess::Army army, const Move &move);
-
-    bool fillOutMove(Chess::Army army, Move *move) const;
-    bool fillOutStart(Chess::Army army, Move *move) const;
-
-    void togglePieceAt(int index, Chess::Army army, Chess::PieceType piece, bool bit);
-    BitBoard *boardPointer(Chess::PieceType piece);
-
-private:
-    BitBoard m_whitePositionBoard;
-    BitBoard m_blackPositionBoard;
-    BitBoard m_kingsBoard;
-    BitBoard m_queensBoard;
-    BitBoard m_rooksBoard;
-    BitBoard m_bishopsBoard;
-    BitBoard m_knightsBoard;
-    BitBoard m_pawnsBoard;
+protected:
     Move m_lastMove;
-    quint16 m_halfMoveClock;
     quint16 m_halfMoveNumber;
-    quint8 m_fileOfKingsRook;
-    quint8 m_fileOfQueensRook;
+    quint8 m_halfMoveClock;
     qint8 m_repetitions;
-    Square m_enPassantTarget;
-    bool m_hasWhiteKingCastle : 1;
-    bool m_hasBlackKingCastle : 1;
-    bool m_hasWhiteQueenCastle : 1;
-    bool m_hasBlackQueenCastle : 1;
-    Chess::Army m_activeArmy;
-    friend class TB;
 };
 
-inline BitBoard Game::board(Chess::PieceType piece) const
+inline BitBoard Game::Position::board(Chess::PieceType piece) const
 {
     switch (piece) {
         case Chess::King: return m_kingsBoard;
@@ -165,12 +204,12 @@ inline BitBoard Game::board(Chess::PieceType piece) const
     return BitBoard();
 }
 
-inline BitBoard Game::board(Chess::Army army) const
+inline BitBoard Game::Position::board(Chess::Army army) const
 {
     return army == Chess::White ? m_whitePositionBoard : m_blackPositionBoard;
 }
 
-inline bool Game::isCastleAvailable(Chess::Army army, Chess::Castle castle) const
+inline bool Game::Position::isCastleAvailable(Chess::Army army, Chess::Castle castle) const
 {
     if (army == Chess::White && castle == Chess::KingSide) {
         if (!m_hasWhiteKingCastle) {
@@ -193,7 +232,7 @@ inline bool Game::isCastleAvailable(Chess::Army army, Chess::Castle castle) cons
     return true;
 }
 
-inline void Game::togglePieceAt(int index, Chess::Army army, Chess::PieceType piece, bool bit)
+inline void Game::Position::togglePieceAt(int index, Chess::Army army, Chess::PieceType piece, bool bit)
 {
     boardPointer(piece)->setBit(index, bit);
     switch (army) {
@@ -206,7 +245,7 @@ inline void Game::togglePieceAt(int index, Chess::Army army, Chess::PieceType pi
     }
 }
 
-inline BitBoard *Game::boardPointer(Chess::PieceType piece)
+inline BitBoard *Game::Position::boardPointer(Chess::PieceType piece)
 {
     switch (piece) {
         case Chess::King: return &m_kingsBoard;
@@ -221,6 +260,58 @@ inline BitBoard *Game::boardPointer(Chess::PieceType piece)
     return nullptr;
 }
 
+class StandaloneGame : public Game {
+public:
+    inline StandaloneGame()
+        : Game()
+    {
+        static Position *s_startPos = nullptr;
+        if (!s_startPos) {
+            s_startPos = new Position;
+            s_startPos->setFenOfPosition(QString("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1").split(' '));
+        }
+
+        m_standalonePosition = *s_startPos;
+    }
+
+    inline StandaloneGame(const QString &fen)
+        : Game()
+    {
+        Game::setFen(fen, &m_standalonePosition);
+    }
+
+    inline const Position &position() const
+    {
+        return m_standalonePosition;
+    }
+
+    /* generates the fen for our current state */
+    inline QString stateOfGameToFen(bool includeMoveNumbers = true) const
+    {
+        return Game::stateOfGameToFen(&m_standalonePosition, includeMoveNumbers);
+    }
+
+    // non-const and will modify in-place
+    inline bool makeMove(const Move &move)
+    {
+        return Game::makeMove(move, &m_standalonePosition);
+    }
+
+    inline void setFen(const QString &fen)
+    {
+        Game::setFen(fen, &m_standalonePosition);
+    }
+
+    // sets the various flags
+    inline bool isChecked(Chess::Army army)
+    {
+        return Game::isChecked(army, &m_standalonePosition);
+    }
+
+private:
+    Position m_standalonePosition;
+};
+
 QDebug operator<<(QDebug debug, const Game &g);
 
-#endif
+#endif // GAME_H
