@@ -238,9 +238,6 @@ std::string DiscoverWeightsFile() {
     if (!data.fail() && val == 2) {
 #ifndef DISABLE_FOR_ALLIE
       CERR << "Found txt network file: " << candidate.second;
-#else
-      QFileInfo info(QString::fromStdString(candidate.second));
-      fprintf(stderr, "Using weights: %s\n", info.fileName().toLatin1().constData());
 #endif
       return candidate.second;
     }

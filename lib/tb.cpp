@@ -46,8 +46,6 @@ void TB::reset()
     const QString path = Options::globalInstance()->option("SyzygyPath").value();
     bool success = tb_init(path.toLatin1().constData());
     m_enabled = success && TB_LARGEST;
-    if (m_enabled)
-        fprintf(stderr, "Using %d-man tablebase: %s\n", TB_LARGEST, path.toLatin1().constData());
 }
 
 TB::Probe wdlToProbeResult(unsigned wdl)
