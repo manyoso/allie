@@ -688,10 +688,10 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
         QPair<Node*, Node*> topTwoChildren = m_tree->root->topTwoChildren();
         const qint64 diff = qint64(topTwoChildren.first->m_visited) - qint64(topTwoChildren.second->m_visited);
         const bool bestIsMostVisited = diff > 0;
-        shouldEarlyExit = bestIsMostVisited && diff > m_estimatedNodes;
+        shouldEarlyExit = bestIsMostVisited && diff >= m_estimatedNodes;
         m_currentInfo.bestIsMostVisited = bestIsMostVisited;
     } else {
-        m_currentInfo.bestIsMostVisited = false;
+        m_currentInfo.bestIsMostVisited = true;
         Q_UNREACHABLE();
     }
 
