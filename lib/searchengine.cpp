@@ -687,7 +687,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     } else if (m_tree->root->children().count() > 1) {
         QPair<Node*, Node*> topTwoChildren = m_tree->root->topTwoChildren();
         const qint64 diff = qint64(topTwoChildren.first->m_visited) - qint64(topTwoChildren.second->m_visited);
-        const bool bestIsMostVisited = diff >= 0;
+        const bool bestIsMostVisited = diff >= 0 || qFuzzyCompare(topTwoChildren.first->qValue(), topTwoChildren.second->qValue());
         shouldEarlyExit = bestIsMostVisited && diff >= m_estimatedNodes;
         m_currentInfo.bestIsMostVisited = bestIsMostVisited;
     } else {
