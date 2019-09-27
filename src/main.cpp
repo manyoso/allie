@@ -42,7 +42,7 @@ int main(int argc, char *argv[])
     QCoreApplication a(argc, argv);
     a.setApplicationName(APP_NAME);
     a.setApplicationVersion(versionString());
-    a.setOrganizationName("Adam Treat");
+    a.setOrganizationName("Allie Chess Authors");
 
     QCommandLineParser parser;
     parser.setApplicationDescription("A uci compliant chess engine.");
