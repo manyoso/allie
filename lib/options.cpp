@@ -91,7 +91,7 @@ Options::Options()
     hash.m_type = UciOption::Spin;
     hash.m_default = QLatin1Literal("20000000");
     hash.m_value = hash.m_default;
-    hash.m_min = QLatin1Literal("100");
+    hash.m_min = QLatin1Literal("10000");
     hash.m_max = QString::number(999999999);
     hash.m_description = QLatin1String("Maximum number of chess positions stored in memory");
     insertOption(hash);

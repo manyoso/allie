@@ -414,7 +414,7 @@ inline float FixedSizeHash<T>::percentFull(int halfMoveNumber) const
 
 inline void Hash::reset()
 {
-    int positions = Options::globalInstance()->option("Hash").value().toInt();
+    int positions = qMax(Options::globalInstance()->option("Hash").value().toInt(), 10000);
     m_nodeHash.reset(positions);
     m_positionHash.reset(positions);
 }
