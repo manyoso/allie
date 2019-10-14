@@ -201,6 +201,15 @@ void SearchWorker::fetchAndMinimax(QVector<quint64> nodes, bool sync)
     }
 }
 
+bool SearchWorker::handlePlayout(quint64 playoutHash, Hash *hash)
+{
+    QMutexLocker locker(m_tree->treeMutex());
+    if (!hash->containsNode(playoutHash))
+        return false;
+
+    return handlePlayout(hash->node(playoutHash));
+}
+
 bool SearchWorker::handlePlayout(Node *playout)
 {
 #if defined(DEBUG_PLAYOUT)
@@ -252,46 +261,36 @@ QVector<quint64> SearchWorker::playoutNodes(int size, bool *didWork, bool *hardE
     QVector<quint64> nodes;
     int vldMax = SearchSettings::vldMax;
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
+    Hash *hash = Hash::globalInstance();
     while (nodes.count() < size && exactOrCached < size) {
-        QMutexLocker locker(m_tree->treeMutex());
-#if defined(USE_DUMMY_NODES)
-        static Node* currentLeaf = m_tree->root;
-        Node *playout = nullptr;
-        if (!currentLeaf->setScoringOrScored()) {
-            playout = currentLeaf;
-        } else {
-            playout = new Node(currentLeaf, Game());
-            playout->setScoringOrScored();
-            currentLeaf->m_children.append(playout);
-        }
-        ++playout->m_virtualLoss;
-        if (currentLeaf->m_children.count() > 20)
-            currentLeaf = playout;
-#else
-        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit);
-        const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
-#endif
-
-        if (!playout)
+        quint64 playoutHash = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash, m_tree->treeMutex());
+        if (!playoutHash)
             break;
 
-        *didWork = true;
+        {
+            QMutexLocker locker(m_tree->treeMutex());
+            if (!hash->containsNode(playoutHash))
+                continue;
 
-        if (isExistingPlayout) {
-            ++exactOrCached;
-            continue;
+            Node *playout = hash->node(playoutHash);
+            const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
+            *didWork = true;
+
+            if (isExistingPlayout) {
+                ++exactOrCached;
+                continue;
+            }
         }
 
-        bool shouldFetchFromNN = handlePlayout(playout);
+        bool shouldFetchFromNN = handlePlayout(playoutHash, hash);
         if (!shouldFetchFromNN) {
             ++exactOrCached;
             continue;
         }
 
         exactOrCached = 0;
-        Q_ASSERT(!nodes.contains(playout->hash()));
-        Q_ASSERT(!playout->hasQValue());
-        nodes.append(playout->hash());
+        Q_ASSERT(!nodes.contains(playoutHash));
+        nodes.append(playoutHash);
     }
 
 #if defined(DEBUG_PLAYOUT)

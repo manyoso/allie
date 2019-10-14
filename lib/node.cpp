@@ -662,15 +662,20 @@ inline int virtualLossDistance(float swec, float uCoeff, float parentQValueDefau
     return n;
 }
 
-Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit)
+quint64 Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Hash *hash, QMutex *mutex)
 {
     // Update the start of playout to avoid being pruned
-    Node::relink(root->m_hash);
+//    Node::relink(root->m_hash);
 
 start_playout:
     int vld = *vldMax;
-    Node *n = root;
+    quint64 nhash = root->hash();
     forever {
+        QMutexLocker locker(mutex);
+        if (!hash->containsNode(nhash))
+            goto start_playout;
+
+        Node *n = hash->node(nhash);
         // If we've never been scored or this is an exact node, then this is our playout node
         if (!n->setScoringOrScored() || n->isExact()) {
             ++n->m_virtualLoss;
@@ -700,14 +705,14 @@ start_playout:
             qDebug() << "decreasing try for" << n->toString() << *tryPlayoutLimit;
 #endif
             if (*tryPlayoutLimit <= 0)
-                return nullptr;
+                return 0;
 
             *vldMax -= increment;
 #if defined(DEBUG_PLAYOUT)
             qDebug() << "decreasing vldMax for" << n->toString() << *vldMax;
 #endif
             if (*vldMax <= 0)
-                return nullptr;
+                return 0;
 
             goto start_playout;
         }
@@ -751,13 +756,14 @@ start_playout:
             else
                 vld = qMin(vld, vldNew);
             Q_ASSERT(vld >= 1);
-            secondNode->relink();
+//            secondNode->relink();
         }
-        firstNode->relink();
+//        firstNode->relink();
 
         // Retrieve the actual first node
         NodeGenerationError error = NoError;
         n = firstNode->isPotential() ? n->generateEmbodiedChild(firstNode, &error) : firstNode->node();
+        nhash = n->hash();
 
         if (!n) {
             if (error == OutOfMemory)
@@ -766,7 +772,7 @@ start_playout:
         }
     }
 
-    return n;
+    return nhash;
 }
 
 bool Node::isNoisy() const

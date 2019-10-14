@@ -162,7 +162,7 @@ public:
     Node();
     ~Node();
 
-    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit);
+    static quint64 playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Hash *hash, QMutex *mutex);
     static float minimax(Node *, int depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
     static quint64 nextHash();
