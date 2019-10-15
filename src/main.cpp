@@ -24,7 +24,7 @@
 #include <QDir>
 #include <stdio.h>
 
-#include "hash.h"
+#include "cache.h"
 #include "movegen.h"
 #include "nn.h"
 #include "options.h"

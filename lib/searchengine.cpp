@@ -25,8 +25,8 @@
 #include <QtConcurrent/QtConcurrent>
 #include <QFuture>
 
+#include "cache.h"
 #include "game.h"
-#include "hash.h"
 #include "move.h"
 #include "node.h"
 #include "nn.h"
@@ -74,7 +74,7 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
 void SearchWorker::fetchBatch(const QVector<quint64> &batch,
     lczero::Network *network, Tree *tree, int searchId)
 {
-    Hash &hash = *Hash::globalInstance();
+    Cache &cache = *Cache::globalInstance();
     QVector<quint64> actualBatch;
     actualBatch.reserve(batch.size());
     {
@@ -82,9 +82,9 @@ void SearchWorker::fetchBatch(const QVector<quint64> &batch,
         for (int index = 0; index < batch.count(); ++index) {
             QMutexLocker locker(tree->treeMutex());
             quint64 nodeHash = batch.at(index);
-            if (!hash.containsNode(nodeHash))
+            if (!cache.containsNode(nodeHash))
                 continue;
-            Node *node = hash.node(nodeHash);
+            Node *node = cache.node(nodeHash);
             actualBatch.append(nodeHash);
             computation.addPositionToEvaluate(node);
         }
@@ -103,10 +103,10 @@ void SearchWorker::fetchBatch(const QVector<quint64> &batch,
         for (int index = 0; index < actualBatch.count(); ++index) {
             QMutexLocker locker(tree->treeMutex());
             quint64 nodeHash = actualBatch.at(index);
-            if (!hash.containsNode(nodeHash))
+            if (!cache.containsNode(nodeHash))
                 continue;
 
-            Node *node = hash.node(nodeHash);
+            Node *node = cache.node(nodeHash);
             Q_ASSERT(node->hasChildren() || node->isCheckMate() || node->isStaleMate());
             node->setRawQValue(-computation.qVal(index));
             if (node->hasChildren())
@@ -121,10 +121,10 @@ void SearchWorker::fetchBatch(const QVector<quint64> &batch,
         QMutexLocker locker(tree->treeMutex());
         for (int index = 0; index < actualBatch.count(); ++index) {
             quint64 nodeHash = actualBatch.at(index);
-            if (!hash.containsNode(nodeHash))
+            if (!cache.containsNode(nodeHash))
                 continue;
 
-            Node *node = hash.node(nodeHash);
+            Node *node = cache.node(nodeHash);
             node->backPropagateDirty();
             Node::sortByPVals(*node->children());
         }
@@ -201,6 +201,15 @@ void SearchWorker::fetchAndMinimax(QVector<quint64> nodes, bool sync)
     }
 }
 
+bool SearchWorker::handlePlayout(quint64 playoutHash, Cache *hash)
+{
+    QMutexLocker locker(m_tree->treeMutex());
+    if (!hash->containsNode(playoutHash))
+        return false;
+
+    return handlePlayout(hash->node(playoutHash));
+}
+
 bool SearchWorker::handlePlayout(Node *playout)
 {
 #if defined(DEBUG_PLAYOUT)
@@ -252,46 +261,36 @@ QVector<quint64> SearchWorker::playoutNodes(int size, bool *didWork, bool *hardE
     QVector<quint64> nodes;
     int vldMax = SearchSettings::vldMax;
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
+    Cache *hash = Cache::globalInstance();
     while (nodes.count() < size && exactOrCached < size) {
-        QMutexLocker locker(m_tree->treeMutex());
-#if defined(USE_DUMMY_NODES)
-        static Node* currentLeaf = m_tree->root;
-        Node *playout = nullptr;
-        if (!currentLeaf->setScoringOrScored()) {
-            playout = currentLeaf;
-        } else {
-            playout = new Node(currentLeaf, Game());
-            playout->setScoringOrScored();
-            currentLeaf->m_children.append(playout);
-        }
-        ++playout->m_virtualLoss;
-        if (currentLeaf->m_children.count() > 20)
-            currentLeaf = playout;
-#else
-        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit);
-        const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
-#endif
-
-        if (!playout)
+        quint64 playoutHash = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash, m_tree->treeMutex());
+        if (!playoutHash)
             break;
 
-        *didWork = true;
+        {
+            QMutexLocker locker(m_tree->treeMutex());
+            if (!hash->containsNode(playoutHash))
+                continue;
 
-        if (isExistingPlayout) {
-            ++exactOrCached;
-            continue;
+            Node *playout = hash->node(playoutHash);
+            const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
+            *didWork = true;
+
+            if (isExistingPlayout) {
+                ++exactOrCached;
+                continue;
+            }
         }
 
-        bool shouldFetchFromNN = handlePlayout(playout);
+        bool shouldFetchFromNN = handlePlayout(playoutHash, hash);
         if (!shouldFetchFromNN) {
             ++exactOrCached;
             continue;
         }
 
         exactOrCached = 0;
-        Q_ASSERT(!nodes.contains(playout->hash()));
-        Q_ASSERT(!playout->hasQValue());
-        nodes.append(playout->hash());
+        Q_ASSERT(!nodes.contains(playoutHash));
+        nodes.append(playoutHash);
     }
 
 #if defined(DEBUG_PLAYOUT)
@@ -330,7 +329,7 @@ void SearchWorker::ensureRootAndChildrenScored()
             if (!childRef->isPotential())
                 continue;
             Node::NodeGenerationError error = Node::NoError;
-            Node *child = root->generateEmbodiedChild(childRef, &error);
+            Node *child = root->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
             Q_ASSERT(child);
             child->m_virtualLoss += 1;
             child->setScoringOrScored();
@@ -434,7 +433,7 @@ void SearchEngine::reset()
     QMutexLocker locker(&m_mutex);
     Q_ASSERT(m_stop); // we should be stopped before a reset
 
-    // Reset the tree which assumes the hash has already been reset
+    // Reset the tree which assumes the cache has already been reset
     m_tree->reset();
 
     // Reset the search workers

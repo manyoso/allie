@@ -18,12 +18,11 @@
   Additional permission under GNU GPL version 3 section 7
 */
 
-#include "hash.h"
+#include "cache.h"
 
-Hash* Hash::globalInstance()
+class MyCache : public Cache { };
+Q_GLOBAL_STATIC(MyCache, CacheInstance)
+Cache* Cache::globalInstance()
 {
-    static Hash *s_instance = nullptr;
-    if (!s_instance)
-        s_instance = new Hash;
-    return s_instance;
+    return CacheInstance();
 }

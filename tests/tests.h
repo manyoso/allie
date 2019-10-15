@@ -79,11 +79,11 @@ private slots:
     void testBasicStructures();
     void testSizes();
 
-    // TestHash
-    void testBasicHash();
+    // TestCache
+    void testBasicCache();
     void testStartingPosition();
     void testStartingPositionBlack();
-    void testHashInsertAndRetrieve();
+    void testCacheInsertAndRetrieve();
 
     // TestGames
     void testCastlingAnd960();

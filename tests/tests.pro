@@ -29,7 +29,7 @@ SOURCES += \
     main.cpp \
     testbasics.cpp \
     testgames.cpp \
-    testhash.cpp \
+    testcache.cpp \
     testmath.cpp \
     tests.cpp
 

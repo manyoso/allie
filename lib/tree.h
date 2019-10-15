@@ -23,9 +23,9 @@
 
 #include <QMutex>
 
+#include "cache.h"
 #include "game.h"
 #include "node.h"
-#include "hash.h"
 #include "history.h"
 
 //#define DEBUG_RESUME
@@ -63,7 +63,7 @@ inline Tree::Tree(bool resumePreviousPositionIfPossible)
 
 inline void Tree::reset()
 {
-    // If this is called it means the hash has already been reset
+    // If this is called it means the cache has already been reset
     m_pinned.clear();
     m_root = nullptr;
 }
@@ -72,21 +72,21 @@ inline void Tree::clearRoot()
 {
     // Attempt to resume root if possible
     const StandaloneGame rootGame = History::globalInstance()->currentGame();
-    Hash &hash = *Hash::globalInstance();
+    Cache &cache = *Cache::globalInstance();
 
     // Clear the old pinned nodes and pv
     for (quint64 pin : m_pinned)
-        hash.unpinNode(pin);
+        cache.unpinNode(pin);
 
     m_pinned.clear();
 
     if (m_root) {
-        hash.unpinNode(m_root->hash());
+        cache.unpinNode(m_root->hash());
 
         if (!m_resumePreviousPositionIfPossible) {
-            hash.unlinkNode(m_root->hash());
+            cache.unlinkNode(m_root->hash());
             m_root = nullptr;
-            Q_ASSERT(!hash.used());
+            Q_ASSERT(!cache.used());
         } else {
             bool foundResume = false;
             const QVector<Node*> children = m_root->embodiedChildren();
@@ -95,7 +95,7 @@ inline void Tree::clearRoot()
                 for (Node *grandChild : grandChildren) {
                     if (grandChild->m_position->position().isSamePosition(rootGame.position()) && !grandChild->isTrueTerminal()) {
                         grandChild->setAsRootNode();
-                        hash.unlinkNode(m_root->hash());
+                        cache.unlinkNode(m_root->hash());
                         m_root = grandChild;
                         constructPrincipalVariations();
                         foundResume = true;
@@ -104,15 +104,15 @@ inline void Tree::clearRoot()
                 }
             }
             if (!foundResume) {
-                hash.unlinkNode(m_root->hash());
-                Q_ASSERT(!hash.used());
+                cache.unlinkNode(m_root->hash());
+                Q_ASSERT(!cache.used());
                 m_root = nullptr;
             }
         }
     }
 
 #if defined(DEBUG_RESUME)
-    const int sizeAfter = hash.used();
+    const int sizeAfter = cache.used();
     if (sizeAfter)
         qDebug() << "Resume resulted in" << sizeAfter << "resued nodes.";
 #endif
@@ -122,22 +122,22 @@ inline Node *Tree::embodiedRoot()
 {
     // This function should *always* return a valid and initialized pointer
     const StandaloneGame rootGame = History::globalInstance()->currentGame();
-    Hash &hash = *Hash::globalInstance();
-    if (m_root && hash.containsNode(m_root->hash()))
+    Cache &cache = *Cache::globalInstance();
+    if (m_root && cache.containsNode(m_root->hash()))
         return m_root;
 
     quint64 rootHash = Node::nextHash();
-    m_root = hash.newNode(rootHash);
+    m_root = cache.newNode(rootHash);
     Q_ASSERT(m_root);
 
     Node::Position *rootPosition = nullptr;
     quint64 rootPositionHash = rootGame.position().positionHash();
-    if (m_resumePreviousPositionIfPossible && hash.containsNodePosition(rootPositionHash)) {
-        rootPosition = hash.nodePosition(rootPositionHash);
+    if (m_resumePreviousPositionIfPossible && cache.containsNodePosition(rootPositionHash)) {
+        rootPosition = cache.nodePosition(rootPositionHash);
         m_root->initialize(rootHash, nullptr, rootGame, rootPosition);
         rootPosition->initialize(m_root, rootGame.position(), rootPositionHash);
     } else {
-        rootPosition = hash.newNodePosition(rootPositionHash);
+        rootPosition = cache.newNodePosition(rootPositionHash);
         m_root->initialize(rootHash, nullptr, rootGame, rootPosition);
         rootPosition->initialize(m_root, rootGame.position(), rootPositionHash);
     }
@@ -156,22 +156,22 @@ inline void Tree::constructPrincipalVariations()
 {
     Node *root = embodiedRoot();
     Q_ASSERT(root);
-    Hash &hash = *Hash::globalInstance();
+    Cache &cache = *Cache::globalInstance();
 
     // Clear the old pinned nodes and pv
     for (quint64 pin : m_pinned)
-        hash.unpinNode(pin);
+        cache.unpinNode(pin);
 
     m_pinned.clear();
 
     // Pin root
-    hash.pinNode(root->hash());
+    cache.pinNode(root->hash());
 
     QVector<Node::Child> *children = root->children();
     for (Node::Child &ch : *children) {
         if (ch.isPotential() || !ch.node())
             continue;
-        ch.node()->pinPrincipalVariation(&m_pinned, &hash);
+        ch.node()->pinPrincipalVariation(&m_pinned, &cache);
     }
     Q_ASSERT(m_pinned.count() < 1000);
 }

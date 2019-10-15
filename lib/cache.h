@@ -18,8 +18,8 @@
   Additional permission under GNU GPL version 3 section 7
 */
 
-#ifndef HASH_H
-#define HASH_H
+#ifndef CACHE_H
+#define CACHE_H
 
 #include <QtGlobal>
 #include <QtMath>
@@ -29,16 +29,16 @@
 #include "node.h"
 #include "options.h"
 
-//#define DEBUG_HASH
+//#define DEBUG_CACHE
 
 template <class T>
 extern quint64 fixedHash(const T &object);
 
 template <class T>
-class FixedSizeHash {
+class FixedSizeCache {
 public:
-    FixedSizeHash();
-    ~FixedSizeHash();
+    FixedSizeCache();
+    ~FixedSizeCache();
 
     void reset(int positions);
     bool contains(quint64 hash) const;
@@ -74,14 +74,14 @@ private:
     ObjectInfo *m_first;
     ObjectInfo *m_last;
     ObjectInfo *m_unused;
-    std::unordered_map<quint64, ObjectInfo*> m_hash;
+    std::unordered_map<quint64, ObjectInfo*> m_cache;
     int m_size;
     int m_used;
 };
 
-class Hash {
+class Cache {
 public:
-    static Hash *globalInstance();
+    static Cache *globalInstance();
 
     void reset();
     float percentFull(int halfMoveNumber) const;
@@ -103,13 +103,13 @@ public:
     void unpinNodePosition(quint64 hash);
 
 private:
-    friend class MyHash;
-    FixedSizeHash<Node> m_nodeHash;
-    FixedSizeHash<Node::Position> m_positionHash;
+    friend class MyCache;
+    FixedSizeCache<Node> m_nodeCache;
+    FixedSizeCache<Node::Position> m_positionCache;
 };
 
 template <class T>
-inline FixedSizeHash<T>::FixedSizeHash()
+inline FixedSizeCache<T>::FixedSizeCache()
     : m_first(nullptr),
     m_last(nullptr),
     m_unused(nullptr),
@@ -119,13 +119,13 @@ inline FixedSizeHash<T>::FixedSizeHash()
 }
 
 template <class T>
-inline FixedSizeHash<T>::~FixedSizeHash()
+inline FixedSizeCache<T>::~FixedSizeCache()
 {
     clear();
 }
 
 template <class T>
-inline void FixedSizeHash<T>::reset(int positions)
+inline void FixedSizeCache<T>::reset(int positions)
 {
     clear();
     if (!positions)
@@ -143,19 +143,19 @@ inline void FixedSizeHash<T>::reset(int positions)
     }
 
     // FIXME: Still see malloc during insertion
-    m_hash.reserve(m_size);
+    m_cache.reserve(m_size);
     Q_ASSERT(!m_first);
     Q_ASSERT(!m_last);
     Q_ASSERT(m_unused);
 
-#if defined(DEBUG_HASH)
+#if defined(DEBUG_CACHE)
         quint64 bytes = positions * sizeof(ObjectInfo);
         qDebug() << "Hash size is" << bytes << "holding" << m_size << "max nodes";
 #endif
 }
 
 template <class T>
-inline void FixedSizeHash<T>::clear()
+inline void FixedSizeCache<T>::clear()
 {
     int numberOfDeleted = 0;
     while (m_first) {
@@ -176,13 +176,13 @@ inline void FixedSizeHash<T>::clear()
     m_first = nullptr;
     m_last = nullptr;
     m_unused = nullptr;
-    m_hash.clear();
+    m_cache.clear();
     m_size = 0;
     m_used = 0;
 }
 
 template <class T>
-inline typename FixedSizeHash<T>::ObjectInfo* FixedSizeHash<T>::unlinkFromUsed()
+inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUsed()
 {
     if (!m_last)
         return nullptr;
@@ -203,8 +203,8 @@ inline typename FixedSizeHash<T>::ObjectInfo* FixedSizeHash<T>::unlinkFromUsed()
     if (!info.object.deinitialize(true /*forcedFree*/))
         return nullptr;
 
-    Q_ASSERT(m_hash.count(fixedHash(info.object)));
-    m_hash.erase(fixedHash(info.object));
+    Q_ASSERT(m_cache.count(fixedHash(info.object)));
+    m_cache.erase(fixedHash(info.object));
 
     // Update first and last
     if (m_first == &info) {
@@ -230,7 +230,7 @@ inline typename FixedSizeHash<T>::ObjectInfo* FixedSizeHash<T>::unlinkFromUsed()
 }
 
 template <class T>
-inline typename FixedSizeHash<T>::ObjectInfo* FixedSizeHash<T>::unlinkFromUnused()
+inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUnused()
 {
     if (!m_unused)
         return nullptr;
@@ -252,7 +252,7 @@ inline typename FixedSizeHash<T>::ObjectInfo* FixedSizeHash<T>::unlinkFromUnused
 }
 
 template <class T>
-inline void FixedSizeHash<T>::linkToUsed(ObjectInfo &info)
+inline void FixedSizeCache<T>::linkToUsed(ObjectInfo &info)
 {
     // Update first
     Q_ASSERT(!info.previous);
@@ -270,7 +270,7 @@ inline void FixedSizeHash<T>::linkToUsed(ObjectInfo &info)
 }
 
 template <class T>
-inline void FixedSizeHash<T>::relinkToUsed(ObjectInfo &info)
+inline void FixedSizeCache<T>::relinkToUsed(ObjectInfo &info)
 {
     // If info is already first, then nothing to be done
     if (m_first == &info)
@@ -296,13 +296,13 @@ inline void FixedSizeHash<T>::relinkToUsed(ObjectInfo &info)
 }
 
 template <class T>
-inline void FixedSizeHash<T>::relinkToUnused(ObjectInfo &info)
+inline void FixedSizeCache<T>::relinkToUnused(ObjectInfo &info)
 {
     // Remove from actual hash
     bool success = info.object.deinitialize(false /*forcedFree*/);
     Q_ASSERT(success);
-    Q_ASSERT(m_hash.count(fixedHash(info.object)));
-    m_hash.erase(fixedHash(info.object));
+    Q_ASSERT(m_cache.count(fixedHash(info.object)));
+    m_cache.erase(fixedHash(info.object));
 
     // Possibly update first and last
     if (m_first == &info) {
@@ -330,19 +330,19 @@ inline void FixedSizeHash<T>::relinkToUnused(ObjectInfo &info)
 }
 
 template <class T>
-inline bool FixedSizeHash<T>::contains(quint64 hash) const
+inline bool FixedSizeCache<T>::contains(quint64 hash) const
 {
     Q_ASSERT(m_size);
-    return m_hash.count(hash);
+    return m_cache.count(hash);
 }
 
 template <class T>
-inline T *FixedSizeHash<T>::object(quint64 hash, bool update)
+inline T *FixedSizeCache<T>::object(quint64 hash, bool update)
 {
     Q_ASSERT(m_size);
-    Q_ASSERT(m_hash.count(hash));
+    Q_ASSERT(m_cache.count(hash));
 
-    ObjectInfo *info = m_hash.at(hash);
+    ObjectInfo *info = m_cache.at(hash);
     if (!info)
         return nullptr;
 
@@ -352,10 +352,10 @@ inline T *FixedSizeHash<T>::object(quint64 hash, bool update)
 }
 
 template <class T>
-inline T *FixedSizeHash<T>::newObject(quint64 hash)
+inline T *FixedSizeCache<T>::newObject(quint64 hash)
 {
     Q_ASSERT(m_size);
-    Q_ASSERT(!m_hash.count(hash));
+    Q_ASSERT(!m_cache.count(hash));
 
     ObjectInfo *info = nullptr;
     if (m_unused) {
@@ -368,135 +368,135 @@ inline T *FixedSizeHash<T>::newObject(quint64 hash)
     if (!info)
         return nullptr;
 
-    m_hash.insert({hash, info});
+    m_cache.insert({hash, info});
     linkToUsed(*info);
     return &(info->object);
 }
 
 template <class T>
-inline void FixedSizeHash<T>::unlink(quint64 hash)
+inline void FixedSizeCache<T>::unlink(quint64 hash)
 {
     Q_ASSERT(m_size);
-    Q_ASSERT(m_hash.count(hash));
+    Q_ASSERT(m_cache.count(hash));
 
-    ObjectInfo *info = m_hash.at(hash);
+    ObjectInfo *info = m_cache.at(hash);
     relinkToUnused(*info);
     --m_used;
 }
 
 template <class T>
-inline void FixedSizeHash<T>::pin(quint64 hash)
+inline void FixedSizeCache<T>::pin(quint64 hash)
 {
     Q_ASSERT(m_size);
-    Q_ASSERT(m_hash.count(hash));
+    Q_ASSERT(m_cache.count(hash));
 
-    ObjectInfo *info = m_hash.at(hash);
+    ObjectInfo *info = m_cache.at(hash);
     info->pinned = true;
 }
 
 template <class T>
-inline void FixedSizeHash<T>::unpin(quint64 hash)
+inline void FixedSizeCache<T>::unpin(quint64 hash)
 {
     Q_ASSERT(m_size);
-    Q_ASSERT(m_hash.count(hash));
+    Q_ASSERT(m_cache.count(hash));
 
-    ObjectInfo *info = m_hash.at(hash);
+    ObjectInfo *info = m_cache.at(hash);
     info->pinned = false;
 }
 
 template <class T>
-inline float FixedSizeHash<T>::percentFull(int halfMoveNumber) const
+inline float FixedSizeCache<T>::percentFull(int halfMoveNumber) const
 {
     Q_ASSERT(m_size);
     Q_UNUSED(halfMoveNumber);
     return quint64(m_used) / float(m_size);
 }
 
-inline void Hash::reset()
+inline void Cache::reset()
 {
     // Use a minimum of 100,000 positions
     int positions = qMax(Options::globalInstance()->option("Cache").value().toInt(), 100000);
-    m_nodeHash.reset(positions);
-    m_positionHash.reset(positions);
+    m_nodeCache.reset(positions);
+    m_positionCache.reset(positions);
 }
 
-inline float Hash::percentFull(int halfMoveNumber) const
+inline float Cache::percentFull(int halfMoveNumber) const
 {
-    return m_nodeHash.percentFull(halfMoveNumber);
+    return m_nodeCache.percentFull(halfMoveNumber);
 }
 
-inline int Hash::size() const
+inline int Cache::size() const
 {
-    Q_ASSERT(m_positionHash.size() == m_nodeHash.size());
-    return m_nodeHash.size();
+    Q_ASSERT(m_positionCache.size() == m_nodeCache.size());
+    return m_nodeCache.size();
 }
 
-inline int Hash::used() const
+inline int Cache::used() const
 {
-    Q_ASSERT(m_positionHash.used() <= m_nodeHash.size());
-    return m_nodeHash.used();
+    Q_ASSERT(m_positionCache.used() <= m_nodeCache.size());
+    return m_nodeCache.used();
 }
 
-inline bool Hash::containsNode(quint64 hash) const
+inline bool Cache::containsNode(quint64 hash) const
 {
-    return m_nodeHash.contains(hash);
+    return m_nodeCache.contains(hash);
 }
 
-inline Node *Hash::node(quint64 hash, bool relink)
+inline Node *Cache::node(quint64 hash, bool relink)
 {
-    return m_nodeHash.object(hash, relink);
+    return m_nodeCache.object(hash, relink);
 }
 
-inline Node *Hash::newNode(quint64 hash)
+inline Node *Cache::newNode(quint64 hash)
 {
-    return m_nodeHash.newObject(hash);
+    return m_nodeCache.newObject(hash);
 }
 
-inline void Hash::unlinkNode(quint64 hash)
+inline void Cache::unlinkNode(quint64 hash)
 {
-    m_nodeHash.unlink(hash);
+    m_nodeCache.unlink(hash);
 }
 
-inline void Hash::pinNode(quint64 hash)
+inline void Cache::pinNode(quint64 hash)
 {
-    m_nodeHash.pin(hash);
+    m_nodeCache.pin(hash);
 }
 
-inline void Hash::unpinNode(quint64 hash)
+inline void Cache::unpinNode(quint64 hash)
 {
-    m_nodeHash.unpin(hash);
+    m_nodeCache.unpin(hash);
 }
 
-inline bool Hash::containsNodePosition(quint64 hash) const
+inline bool Cache::containsNodePosition(quint64 hash) const
 {
-    return m_positionHash.contains(hash);
+    return m_positionCache.contains(hash);
 }
 
-inline Node::Position *Hash::nodePosition(quint64 hash, bool relink)
+inline Node::Position *Cache::nodePosition(quint64 hash, bool relink)
 {
-    return m_positionHash.object(hash, relink);
+    return m_positionCache.object(hash, relink);
 }
 
-inline Node::Position *Hash::newNodePosition(quint64 hash)
+inline Node::Position *Cache::newNodePosition(quint64 hash)
 {
-    Node::Position *p = m_positionHash.newObject(hash);
+    Node::Position *p = m_positionCache.newObject(hash);
     pinNodePosition(hash);
     return p;
 }
 
-inline void Hash::unlinkNodePosition(quint64 hash)
+inline void Cache::unlinkNodePosition(quint64 hash)
 {
-    m_positionHash.unlink(hash);
+    m_positionCache.unlink(hash);
 }
 
-inline void Hash::pinNodePosition(quint64 hash)
+inline void Cache::pinNodePosition(quint64 hash)
 {
-    m_positionHash.pin(hash);
+    m_positionCache.pin(hash);
 }
 
-inline void Hash::unpinNodePosition(quint64 hash)
+inline void Cache::unpinNodePosition(quint64 hash)
 {
-    m_positionHash.unpin(hash);
+    m_positionCache.unpin(hash);
 }
 
-#endif // HASH_H
+#endif // CACHE_H

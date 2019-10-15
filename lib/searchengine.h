@@ -34,6 +34,7 @@ namespace lczero {
 class Network;
 };
 
+class Cache;
 class Node;
 class Tree;
 class SearchWorker : public QObject {
@@ -65,7 +66,8 @@ private:
     bool fillOutTree(bool *hardExit);
 
     // Playout methods
-    bool handlePlayout(Node *node);
+    bool handlePlayout(Node *playout);
+    bool handlePlayout(quint64 playoutHash, Cache *hash);
     QVector<quint64> playoutNodes(int size, bool *didWork, bool *hardExit);
     void ensureRootAndChildrenScored();
 

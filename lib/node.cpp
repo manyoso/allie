@@ -20,7 +20,7 @@
 
 #include "node.h"
 
-#include "hash.h"
+#include "cache.h"
 #include "history.h"
 #include "notation.h"
 #include "neural/nn_policy.h"
@@ -39,8 +39,8 @@ float cpToScore(int cp)
 }
 
 Node::Position::Position()
+    : m_positionHash(0)
 {
-    initialize(nullptr, Game::Position(), Game::Position().positionHash());
 }
 
 Node::Position::~Position()
@@ -69,7 +69,7 @@ void Node::Position::initialize(Node *node, const Game::Position &position, quin
 
 bool Node::Position::deinitialize(bool forcedFree)
 {
-    Q_UNUSED(forcedFree);
+    Q_UNUSED(forcedFree)
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -90,11 +90,11 @@ bool Node::Position::deinitialize(bool forcedFree)
     return nodesNotInHash();
 }
 
-void Node::Position::addNode(Node *node)
+void Node::Position::addNode(Node *node, Cache *cache)
 {
     Q_ASSERT(!hasNode(node));
     m_nodes.append(node);
-    Hash::globalInstance()->pinNodePosition(positionHash());
+    cache->pinNodePosition(positionHash());
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -113,19 +113,19 @@ void Node::Position::addNode(Node *node)
 #endif
 }
 
-void Node::Position::removeNode(Node *node)
+void Node::Position::removeNode(Node *node, Cache *cache)
 {
     Q_ASSERT(hasNode(node));
     m_nodes.removeAll(node);
     if (m_nodes.isEmpty())
-        Hash::globalInstance()->unpinNodePosition(m_positionHash);
+        cache->unpinNodePosition(m_positionHash);
 }
 
-Node::Position *Node::Position::relink(quint64 positionHash)
+Node::Position *Node::Position::relink(quint64 positionHash, Cache *cache)
 {
     // Update the reference for this position in LRU hash
-    Q_ASSERT(Hash::globalInstance()->containsNodePosition(positionHash));
-    Node::Position *p = Hash::globalInstance()->nodePosition(positionHash, true /*relink*/);
+    Q_ASSERT(cache->containsNodePosition(positionHash));
+    Node::Position *p = cache->nodePosition(positionHash, true /*relink*/);
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -148,7 +148,7 @@ Node::Position *Node::Position::relink(quint64 positionHash)
 bool Node::Position::nodesNotInHash() const
 {
     for (Node *node : m_nodes)
-        if (Hash::globalInstance()->containsNode(node->hash()))
+        if (Cache::globalInstance()->containsNode(node->hash()))
             return false;
     return true;
 }
@@ -171,7 +171,7 @@ quint64 Node::nextHash()
 void Node::initialize(quint64 hash, Node *parent, const Game &game, Node::Position *position)
 {
     if (parent) {
-        Q_ASSERT(Hash::globalInstance()->containsNode(parent->hash()));
+        Q_ASSERT(Cache::globalInstance()->containsNode(parent->hash()));
         ++parent->m_refs;
 #if defined(DEBUG_CHURN)
         QString string;
@@ -213,6 +213,7 @@ void Node::initialize(quint64 hash, Node *parent, const Game &game, Node::Positi
 
 bool Node::deinitialize(bool forcedFree)
 {
+    Cache *cache = Cache::globalInstance();
     if (Node *parent = this->parent()) {
         // Decrement parent's refs
         --parent->m_refs;
@@ -230,19 +231,18 @@ bool Node::deinitialize(bool forcedFree)
         // Delete parent if it no longer has any refs and this node is being freed to make room
         // in fixed size hash
         if (!parent->m_refs && forcedFree)
-            Hash::globalInstance()->unlinkNode(parent->hash());
+            cache->unlinkNode(parent->hash());
     }
 
     // Unlink all children as we do not want to leave them parentless
-    Hash &hash = *Hash::globalInstance();
     for (int i = 0; i < m_children.count(); ++i) {
         const Node::Child childRef = m_children.at(i);
         if (!childRef.isPotential() && childRef.node())
-            hash.unlinkNode(childRef.node()->hash());
+            cache->unlinkNode(childRef.node()->hash());
     }
 
     Q_ASSERT(m_position);
-    m_position->removeNode(this);
+    m_position->removeNode(this, cache);
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -263,11 +263,11 @@ bool Node::deinitialize(bool forcedFree)
     return true;
 }
 
-Node *Node::relink(quint64 hash)
+Node *Node::relink(quint64 hash, Cache *cache)
 {
     // Update the reference for this node in LRU hash
-    Q_ASSERT(Hash::globalInstance()->containsNode(hash));
-    Node *n = Hash::globalInstance()->node(hash, true /*relink*/);
+    Q_ASSERT(cache->containsNode(hash));
+    Node *n = cache->node(hash, true /*relink*/);
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -280,7 +280,6 @@ Node *Node::relink(quint64 hash)
 #else
     qt_noop();
 #endif
-    Node::Position::relink(n->position()->positionHash());
     return n;
 }
 
@@ -444,21 +443,21 @@ QVector<Game> Node::previousMoves(bool fullHistory) const
     return result;
 }
 
-void Node::pinPrincipalVariation(QVector<quint64> *pinnedList, Hash* hashTable) const
+void Node::pinPrincipalVariation(QVector<quint64> *pinnedList, Cache* cache) const
 {
     if (!isRootNode() && !hasPValue())
         return;
 
     const quint64 h = hash();
     pinnedList->append(h);
-    Q_ASSERT(Hash::globalInstance()->containsNode(h));
-    hashTable->pinNode(h);
+    Q_ASSERT(cache->containsNode(h));
+    cache->pinNode(h);
 
     const Node *bestChild = bestEmbodiedChild();
     if (!bestChild)
         return;
 
-    return bestChild->pinPrincipalVariation(pinnedList, hashTable);
+    return bestChild->pinPrincipalVariation(pinnedList, cache);
 }
 
 QString Node::principalVariation(int *depth, bool *isTB) const
@@ -662,15 +661,20 @@ inline int virtualLossDistance(float swec, float uCoeff, float parentQValueDefau
     return n;
 }
 
-Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit)
+quint64 Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache, QMutex *mutex)
 {
     // Update the start of playout to avoid being pruned
-    Node::relink(root->m_hash);
+    Node::relink(root->m_hash, cache);
 
 start_playout:
     int vld = *vldMax;
-    Node *n = root;
+    quint64 nhash = root->hash();
     forever {
+        QMutexLocker locker(mutex);
+        if (!cache->containsNode(nhash))
+            goto start_playout;
+
+        Node *n = cache->node(nhash);
         // If we've never been scored or this is an exact node, then this is our playout node
         if (!n->setScoringOrScored() || n->isExact()) {
             ++n->m_virtualLoss;
@@ -700,14 +704,14 @@ start_playout:
             qDebug() << "decreasing try for" << n->toString() << *tryPlayoutLimit;
 #endif
             if (*tryPlayoutLimit <= 0)
-                return nullptr;
+                return 0;
 
             *vldMax -= increment;
 #if defined(DEBUG_PLAYOUT)
             qDebug() << "decreasing vldMax for" << n->toString() << *vldMax;
 #endif
             if (*vldMax <= 0)
-                return nullptr;
+                return 0;
 
             goto start_playout;
         }
@@ -751,13 +755,14 @@ start_playout:
             else
                 vld = qMin(vld, vldNew);
             Q_ASSERT(vld >= 1);
-            secondNode->relink();
+            secondNode->relink(cache);
         }
-        firstNode->relink();
+        firstNode->relink(cache);
 
         // Retrieve the actual first node
         NodeGenerationError error = NoError;
-        n = firstNode->isPotential() ? n->generateEmbodiedChild(firstNode, &error) : firstNode->node();
+        n = firstNode->isPotential() ? n->generateEmbodiedChild(firstNode, cache, &error) : firstNode->node();
+        nhash = n->hash();
 
         if (!n) {
             if (error == OutOfMemory)
@@ -766,7 +771,7 @@ start_playout:
         }
     }
 
-    return n;
+    return nhash;
 }
 
 bool Node::isNoisy() const
@@ -804,7 +809,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // Is it just a potential?
     if (child->isPotential()) {
         NodeGenerationError error = NoError;
-        embodiedChild = generateEmbodiedChild(child, &error);
+        embodiedChild = generateEmbodiedChild(child, Cache::globalInstance(), &error);
     } else {
         embodiedChild = child->node();
     }
@@ -933,10 +938,10 @@ Node::Child *Node::generateChild(const Move &move)
     return &(m_children.last());
 }
 
-Node *Node::generateEmbodiedChild(Child *child, NodeGenerationError *error)
+Node *Node::generateEmbodiedChild(Child *child, Cache *cache, NodeGenerationError *error)
 {
     Q_ASSERT(child);
-    Node *embodiedChild = Node::generateEmbodiedNode(child->move(), child->pValue(), this, error);
+    Node *embodiedChild = Node::generateEmbodiedNode(child->move(), child->pValue(), this, cache, error);
     if (!embodiedChild)
         return nullptr;
 
@@ -945,13 +950,12 @@ Node *Node::generateEmbodiedChild(Child *child, NodeGenerationError *error)
     return embodiedChild;
 }
 
-Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node *parent, NodeGenerationError *error)
+Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node *parent, Cache *cache, NodeGenerationError *error)
 {
-    Hash &hash = *Hash::globalInstance();
     const quint64 childHash = Node::nextHash();
 
     // Get a new node from hash
-    Node *embodiedChild = hash.newNode(childHash);
+    Node *embodiedChild = cache->newNode(childHash);
     if (!embodiedChild) {
         Q_ASSERT(error);
         *error = OutOfMemory;
@@ -960,7 +964,7 @@ Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node 
 
     // It is possible the hash returned an ancestor of parent as a new child in which case it is
     // possible that parent has been pruned to make way for this child!
-    if (!hash.containsNode(parent->hash())) {
+    if (!cache->containsNode(parent->hash())) {
         *error = ParentPruned;
         return nullptr;
     }
@@ -974,13 +978,13 @@ Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node 
     // Get a node position from hashpositions
     Node::Position *childNodePosition = nullptr;
     const quint64 childPositionHash = childPosition.positionHash();
-    if (hash.containsNodePosition(childPositionHash)) {
-        childNodePosition = Node::Position::relink(childPositionHash);
+    if (cache->containsNodePosition(childPositionHash)) {
+        childNodePosition = Node::Position::relink(childPositionHash, cache);
         Q_ASSERT(childNodePosition);
         embodiedChild->initialize(childHash, parent, childGame, childNodePosition);
-        childNodePosition->addNode(embodiedChild);
+        childNodePosition->addNode(embodiedChild, cache);
     } else {
-        childNodePosition = hash.newNodePosition(childPositionHash);
+        childNodePosition = cache->newNodePosition(childPositionHash);
         if (!childNodePosition) {
             *error = OutOfPositions;
             qFatal("Fatal error: we have run out of positions in memory!");

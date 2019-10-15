@@ -30,10 +30,10 @@
 
 #include <iostream>
 
+#include "cache.h"
 #include "chess.h"
 #include "clock.h"
 #include "game.h"
-#include "hash.h"
 #include "history.h"
 #include "nn.h"
 #include "notation.h"
@@ -595,7 +595,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
            << " batchSize " << m_lastInfo.batchSize
            << " score " << m_lastInfo.score
            << " time " << m_lastInfo.time
-           << " hashfull " << qRound(Hash::globalInstance()->percentFull(g.halfMoveNumber()) * 1000.0f)
+           << " hashfull " << qRound(Cache::globalInstance()->percentFull(g.halfMoveNumber()) * 1000.0f)
            << " tbhits " << m_lastInfo.workerInfo.nodesTBHits
            << " pv " << m_lastInfo.pv
            << endl;
@@ -651,7 +651,7 @@ void UciEngine::uciNewGame()
     m_gameInitialized = true;
 
     m_searchEngine->reset();
-    Hash::globalInstance()->reset();
+    Cache::globalInstance()->reset();
     SearchSettings::weightsFile = Options::globalInstance()->option("WeightsFile").value();
     Q_ASSERT(!SearchSettings::weightsFile.isEmpty());
     NeuralNet::globalInstance()->setWeights(SearchSettings::weightsFile);

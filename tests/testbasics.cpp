@@ -20,8 +20,8 @@
 
 #include <QtCore>
 
+#include "cache.h"
 #include "game.h"
-#include "hash.h"
 #include "node.h"
 #include "tree.h"
 #include "options.h"

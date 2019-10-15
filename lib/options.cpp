@@ -21,7 +21,7 @@
 #include "options.h"
 #include "neural/loader.h"
 
-#include "hash.h"
+#include "cache.h"
 #include "node.h"
 #include "nn.h"
 #include "tb.h"
@@ -86,15 +86,15 @@ Options::Options()
     GPUCores.m_description = QLatin1String("Number of GPU cores to use");
     insertOption(GPUCores);
 
-    UciOption hash;
-    hash.m_name = QLatin1Literal("Cache");
-    hash.m_type = UciOption::Spin;
-    hash.m_default = QLatin1Literal("20000000");
-    hash.m_value = hash.m_default;
-    hash.m_min = QLatin1Literal("100000");
-    hash.m_max = QString::number(999999999);
-    hash.m_description = QLatin1String("Maximum number of chess positions stored in memory");
-    insertOption(hash);
+    UciOption cache;
+    cache.m_name = QLatin1Literal("Cache");
+    cache.m_type = UciOption::Spin;
+    cache.m_default = QLatin1Literal("20000000");
+    cache.m_value = cache.m_default;
+    cache.m_min = QLatin1Literal("100000");
+    cache.m_max = QString::number(999999999);
+    cache.m_description = QLatin1String("Maximum number of chess positions stored in memory");
+    insertOption(cache);
 
     UciOption maxBatchSize;
     maxBatchSize.m_name = QLatin1Literal("MaxBatchSize");

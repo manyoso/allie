@@ -34,10 +34,10 @@ CONFIG(release, debug|release) {
 
 HEADERS += \
     $$PWD/bitboard.h \
+    $$PWD/cache.h \
     $$PWD/chess.h \
     $$PWD/clock.h \
     $$PWD/game.h \
-    $$PWD/hash.h \
     $$PWD/history.h \
     $$PWD/move.h \
     $$PWD/movegen.h \
@@ -70,9 +70,9 @@ HEADERS += \
 
 SOURCES += \
     $$PWD/bitboard.cpp \
+    $$PWD/cache.cpp \
     $$PWD/clock.cpp \
     $$PWD/game.cpp \
-    $$PWD/hash.cpp \
     $$PWD/history.cpp \
     $$PWD/move.cpp \
     $$PWD/movegen.cpp \

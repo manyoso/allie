@@ -40,7 +40,7 @@
 //#define DEBUG_PLAYOUT
 //#define DEBUG_CHURN
 
-class Hash;
+class Cache;
 
 extern int scoreToCP(float score);
 extern float cpToScore(int cp);
@@ -111,10 +111,10 @@ public:
             return node()->virtualLoss();
         }
 
-        inline void relink() const
+        inline void relink(Cache *cache) const
         {
             if (!isPotential() && node())
-                Node::relink(node()->hash());
+                Node::relink(node()->hash(), cache);
         }
 
     private:
@@ -133,10 +133,10 @@ public:
 
         void initialize(Node *node, const Game::Position &position, quint64 positionHash);
         bool deinitialize(bool forcedFree);
-        void addNode(Node *node);
-        void removeNode(Node *node);
-        static Node::Position *relink(quint64 positionHash);
-        bool nodesNotInHash() const;
+        void addNode(Node *node, Cache *cache);
+        void removeNode(Node *node, Cache *cache);
+        static Node::Position *relink(quint64 positionHash, Cache *cache);
+        bool nodesNotInHash() const; // only used for debugging
         inline bool hasNode(Node *node) const
         {
             return m_nodes.contains(node);
@@ -162,14 +162,14 @@ public:
     Node();
     ~Node();
 
-    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit);
+    static quint64 playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash, QMutex *mutex);
     static float minimax(Node *, int depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
     static quint64 nextHash();
 
     void initialize(quint64 hash, Node *parent, const Game &game, Node::Position *nodePosition);
     bool deinitialize(bool forcedFree);
-    static Node *relink(quint64 hash);
+    static Node *relink(quint64 hash, Cache *cache);
 
     int treeDepth() const;
     bool isExact() const;
@@ -220,8 +220,8 @@ public:
     void generateChildren();
     void reserveChildren(int totalSize);
     Node::Child *generateChild(const Move &move);
-    Node *generateEmbodiedChild(Node::Child *child, NodeGenerationError *error);
-    static Node *generateEmbodiedNode(const Move &move, float, Node *parent, NodeGenerationError *error);
+    Node *generateEmbodiedChild(Node::Child *child, Cache *cache, NodeGenerationError *error);
+    static Node *generateEmbodiedNode(const Move &move, float, Node *parent, Cache *cache, NodeGenerationError *error);
 
     // children
     const Node *findEmbodiedSuccessor(const QVector<QString> &child) const;
@@ -244,7 +244,7 @@ public:
 
     Node *parent() const;
 
-    void pinPrincipalVariation(QVector<quint64> *pinnedList, Hash *hashTable) const; // recursive
+    void pinPrincipalVariation(QVector<quint64> *pinnedList, Cache *cache) const; // recursive
     QString principalVariation(int *depth, bool *isTB) const; // recursive
 
     QString toString(Chess::NotationType = Chess::Computer) const;

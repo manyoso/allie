@@ -20,8 +20,8 @@
 
 #include <QtCore>
 
+#include "cache.h"
 #include "game.h"
-#include "hash.h"
 #include "history.h"
 #include "nn.h"
 #include "node.h"
@@ -423,7 +423,7 @@ void Tests::testHistory()
         Move mv = Notation::stringToMove(move, Chess::Computer);
         Node::Child *childRef = lastNode->generateChild(mv);
         Node::NodeGenerationError error = Node::NoError;
-        lastNode = lastNode->generateEmbodiedChild(childRef, &error);
+        lastNode = lastNode->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
         Q_ASSERT(lastNode);
     }
 
@@ -535,7 +535,7 @@ void Tests::testThreeFold4()
         if (QLatin1String("a4b4") == Notation::moveToString(childRef->move(), Chess::Computer)) {
             found = true;
             Node::NodeGenerationError error = Node::NoError;
-            Node *threeFold = root->generateEmbodiedChild(childRef, &error);
+            Node *threeFold = root->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
             Q_ASSERT(threeFold);
             threeFold->generateChildren();
             QVERIFY(threeFold->isThreeFold());

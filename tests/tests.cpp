@@ -20,8 +20,8 @@
 
 #include <QtCore>
 
+#include "cache.h"
 #include "game.h"
-#include "hash.h"
 #include "history.h"
 #include "node.h"
 #include "options.h"
@@ -40,7 +40,7 @@ void Tests::cleanupTestCase()
 
 void Tests::init()
 {
-    Hash::globalInstance()->reset();
+    Cache::globalInstance()->reset();
     History::globalInstance()->clear();
 }
 
