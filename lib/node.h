@@ -64,26 +64,26 @@ public:
             Q_ASSERT(m_move.isValid());
         }
 
-        bool isPotential() const { return m_isPotential; }
-        void setPotential(bool p) { m_isPotential = p; }
-        Node *node() const { return m_node; }
-        void setNode(Node *node) { m_node = node; }
-        bool hasPValue() const { return !qFuzzyCompare(pValue(), -2.0f); }
-        void setPValue(float pValue) { Q_ASSERT(isPotential()); m_pValue = pValue; }
-        Move move() const { return m_move; }
-        bool isValid() const { return m_move.isValid(); }
+        inline bool isPotential() const { return m_isPotential; }
+        inline void setPotential(bool p) { m_isPotential = p; }
+        inline Node *node() const { return m_node; }
+        inline void setNode(Node *node) { m_node = node; }
+        inline bool hasPValue() const { return !qFuzzyCompare(pValue(), -2.0f); }
+        inline void setPValue(float pValue) { Q_ASSERT(isPotential()); m_pValue = pValue; }
+        inline Move move() const { return m_move; }
+        inline bool isValid() const { return m_move.isValid(); }
+        inline bool operator==(const Child &other) const { return m_move == other.m_move; }
         QString toString() const { return Notation::moveToString(m_move, Chess::Computer); }
-        bool operator==(const Child &other) const { return m_move == other.m_move; }
 
         // For playouts
-        float pValue() const
+        inline float pValue() const
         {
             if (isPotential())
                 return m_pValue;
             return node()->pValue();
         }
 
-        float qValue(float parentQValueDefault) const
+        inline float qValue(float parentQValueDefault) const
         {
             if (isPotential() || !node()->m_visited)
                 return parentQValueDefault;
@@ -92,12 +92,12 @@ public:
             return node()->m_qValue;
         }
 
-        float uValue(float uCoeff) const
+        inline float uValue(float uCoeff) const
         {
             return uCoeff * pValue() / (visits() + virtualLoss() + 1);
         }
 
-        quint32 visits() const
+        inline quint32 visits() const
         {
             if (isPotential())
                 return 0;
@@ -165,6 +165,8 @@ public:
     static quint64 playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash, QMutex *mutex);
     static float minimax(Node *, int depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
+    static float uctFormula(float qValue, float uValue, quint64 visits);
+    static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
     static quint64 nextHash();
 
     void initialize(quint64 hash, Node *parent, const Game &game, Node::Position *nodePosition);
@@ -532,6 +534,40 @@ inline void Node::setPValue(float pValue)
 inline float Node::uValue(const float uCoeff) const
 {
     return uCoeff * pValue() / (visits() + virtualLoss() + 1);
+}
+
+inline float Node::uctFormula(float qValue, float uValue, quint64 visits)
+{
+    Q_UNUSED(visits)
+    return qValue + uValue;
+}
+
+inline int Node::virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits)
+{
+    // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
+    // in weighted exploration score
+    // We have...
+    //     wec = q + ((kpuct * sqrt(N)) * p / (n + 1))
+    // Solving for n...
+    //     n = (q + p * kpuct * sqrt(N) - wec) / (wec - q) where wec - q != 0
+
+    float wec = swec - std::numeric_limits<float>::epsilon();
+    if (qFuzzyCompare(wec - q, 0.0f))
+        return 1;
+    else if (q > wec)
+        return SearchSettings::vldMax;
+    const qreal nf = qreal(q + p * uCoeff - wec) / qreal(wec - q);
+    int n = qMax(1, qCeil(nf)) - currentVisits;
+    if (n > SearchSettings::vldMax)
+        return SearchSettings::vldMax;
+
+#ifndef NDEBUG
+    const float after = q + uCoeff * p / (currentVisits + n + 1);
+    Q_ASSERT(after < swec);
+    Q_ASSERT(n != 0);
+#endif
+
+    return n;
 }
 
 inline quint64 fixedHash(const Node::Position &node)

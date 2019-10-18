@@ -78,6 +78,7 @@ private slots:
     // TestBasics
     void testBasicStructures();
     void testSizes();
+    void testVLDFormula();
 
     // TestCache
     void testBasicCache();

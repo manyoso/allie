@@ -31,7 +31,7 @@ void Tests::initTestCase()
 {
     Options::globalInstance()->setOption("SyzygyPath",
         QCoreApplication::applicationDirPath() + QDir::separator() + "../../syzygy/");
-    Options::globalInstance()->setOption("Hash", QLatin1Literal("4096"));
+    Options::globalInstance()->setOption("Cache", QLatin1Literal("4096"));
 }
 
 void Tests::cleanupTestCase()

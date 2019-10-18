@@ -107,6 +107,8 @@ public:
 
     bool isStopped() const { return m_stop; }
 
+    Tree *tree() const { return m_tree; }
+
 public Q_SLOTS:
     void reset();
     void startSearch();

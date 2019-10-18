@@ -116,3 +116,15 @@ void Tests::testSizes()
     QCOMPARE(sizeof(Node),          ulong(80));
     QCOMPARE(sizeof(Node::Position),ulong(88));
 }
+
+void Tests::testVLDFormula()
+{
+    float swec = 0.302369982f;
+    float uCoeff = 18834.3008f;
+    float q = -0.973092973f;
+    float p = 0.00887134857f;
+    int currentVisits = 130;
+    int n = Node::virtualLossDistance(swec, uCoeff, q, p, currentVisits);
+    QVERIFY(n >= 1);
+}
+

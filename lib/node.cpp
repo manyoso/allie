@@ -241,14 +241,14 @@ bool Node::deinitialize(bool forcedFree)
             cache->unlinkNode(childRef.node()->hash());
     }
 
-    Q_ASSERT(m_position);
-    m_position->removeNode(this, cache);
+    if (m_position)
+        m_position->removeNode(this, cache);
 
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
     stream << "dtor n ";
-    stream << m_position->positionHash();
+    stream << (m_position ? m_position->positionHash() : 0xBAAAAAAD);
     stream << " [";
     stream << m_hash;
     stream << "]";
@@ -630,42 +630,8 @@ void Node::validateTree(const Node *node)
     Q_ASSERT(node->m_visited == childVisits + 1);
 }
 
-inline int virtualLossDistance(float swec, float uCoeff, float parentQValueDefault, const Node::Child *a)
-{
-    // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
-    // in weighted exploration score
-    // We have...
-    //     wec = q + ((kpuct * sqrt(N)) * p / (n + 1))
-    // Solving for n...
-    //     n = (q + p * kpuct * sqrt(N) - wec) / (wec - q) where wec - q != 0
-
-    float wec = swec - std::numeric_limits<float>::epsilon();
-    const int currentVisits = int(a->visits() + a->virtualLoss());
-
-    const float q = a->qValue(parentQValueDefault);
-    const float p = a->pValue();
-    if (qFuzzyCompare(wec - q, 0.0f))
-        return 1;
-    else if (q > wec)
-        return SearchSettings::vldMax;
-    const float nf = (q + p * uCoeff - wec) / (wec - q);
-    int n = qMax(1, qCeil(qreal(nf))) - currentVisits;
-    if (n > SearchSettings::vldMax)
-        return SearchSettings::vldMax;
-
-#ifndef NDEBUG
-    const float after = q + uCoeff * p / (currentVisits + n + 1);
-    Q_ASSERT(after < swec);
-#endif
-
-    return n;
-}
-
 quint64 Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache, QMutex *mutex)
 {
-    // Update the start of playout to avoid being pruned
-    Node::relink(root->m_hash, cache);
-
 start_playout:
     int vld = *vldMax;
     quint64 nhash = root->hash();
@@ -730,7 +696,7 @@ start_playout:
         for (Node::Child &ch : n->m_children) {
             if (countPotentials > 1)
                 break;
-            float score = ch.qValue(parentQValueDefault) + ch.uValue(uCoeff);
+            float score = Node::uctFormula(ch.qValue(parentQValueDefault), ch.uValue(uCoeff), ch.visits() + ch.virtualLoss());
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondNode = firstNode;
@@ -749,7 +715,12 @@ start_playout:
         Q_ASSERT(firstNode);
         if (secondNode) {
             const int vldNew
-                = virtualLossDistance(secondBestScore, uCoeff, parentQValueDefault, firstNode);
+                = virtualLossDistance(
+                    secondBestScore,
+                    uCoeff,
+                    firstNode->qValue(parentQValueDefault),
+                    firstNode->pValue(),
+                    int(firstNode->visits() + firstNode->virtualLoss()));
             if (!vld)
                 vld = vldNew;
             else
@@ -965,6 +936,11 @@ Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node 
     // It is possible the hash returned an ancestor of parent as a new child in which case it is
     // possible that parent has been pruned to make way for this child!
     if (!cache->containsNode(parent->hash())) {
+        // We need to backout the newly created child if it already existed in the hash and was
+        // reused
+        Q_ASSERT(cache->containsNode(childHash));
+        embodiedChild->m_hash = childHash; // need to initialize it
+        cache->unlinkNode(childHash);
         *error = ParentPruned;
         return nullptr;
     }
@@ -1060,7 +1036,7 @@ QString Node::printTree(int topDepth, int depth, bool printPotentials) const
         << qSetFieldWidth(4) << left << " p: " << qSetFieldWidth(5) << qSetRealNumberPrecision(2) << right << pValue() * 100 << qSetFieldWidth(1) << left << "%"
         << qSetFieldWidth(4) << left << " q: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << qValue()
         << qSetFieldWidth(4) << " u: " << qSetFieldWidth(6) << qSetRealNumberPrecision(5) << right << uValue(uCoeff)
-        << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : qValue() + uValue(uCoeff))
+        << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : Node::uctFormula(qValue(), uValue(uCoeff), visits()))
         << qSetFieldWidth(4) << " v: " << qSetFieldWidth(7) << qSetRealNumberPrecision(4) << right << rawQValue()
         << qSetFieldWidth(4) << " h: " << qSetFieldWidth(2) << right << qMax(1, treeDepth() - d)
         << qSetFieldWidth(4) << " cp: " << qSetFieldWidth(2) << right << scoreToCP(qValue());

@@ -39,6 +39,7 @@ struct PrincipalVariation {
 class Tree {
 public:
     Tree(bool resumePreviousPositionIfPossible = true);
+    ~Tree();
 
     Node *embodiedRoot();
     QMutex *treeMutex();
@@ -61,16 +62,23 @@ inline Tree::Tree(bool resumePreviousPositionIfPossible)
     m_pinned.reserve(1000);
 }
 
+inline Tree::~Tree()
+{
+    m_resumePreviousPositionIfPossible = false;
+    clearRoot();
+}
+
 inline void Tree::reset()
 {
     // If this is called it means the cache has already been reset
     m_pinned.clear();
+    if (m_root)
+        Cache::globalInstance()->unpinNode(m_root->hash());
     m_root = nullptr;
 }
 
 inline void Tree::clearRoot()
 {
-    // Attempt to resume root if possible
     const StandaloneGame rootGame = History::globalInstance()->currentGame();
     Cache &cache = *Cache::globalInstance();
 
@@ -81,6 +89,7 @@ inline void Tree::clearRoot()
     m_pinned.clear();
 
     if (m_root) {
+        // Unpin root
         cache.unpinNode(m_root->hash());
 
         if (!m_resumePreviousPositionIfPossible) {
@@ -88,6 +97,7 @@ inline void Tree::clearRoot()
             m_root = nullptr;
             Q_ASSERT(!cache.used());
         } else {
+            // Attempt to resume root if possible
             bool foundResume = false;
             const QVector<Node*> children = m_root->embodiedChildren();
             for (Node *child : children) {
@@ -97,6 +107,8 @@ inline void Tree::clearRoot()
                         grandChild->setAsRootNode();
                         cache.unlinkNode(m_root->hash());
                         m_root = grandChild;
+                        // Pin the new root
+                        cache.pinNode(m_root->hash());
                         constructPrincipalVariations();
                         foundResume = true;
                         break;
@@ -128,6 +140,7 @@ inline Node *Tree::embodiedRoot()
 
     quint64 rootHash = Node::nextHash();
     m_root = cache.newNode(rootHash);
+    cache.pinNode(rootHash);
     Q_ASSERT(m_root);
 
     Node::Position *rootPosition = nullptr;
@@ -163,9 +176,6 @@ inline void Tree::constructPrincipalVariations()
         cache.unpinNode(pin);
 
     m_pinned.clear();
-
-    // Pin root
-    cache.pinNode(root->hash());
 
     QVector<Node::Child> *children = root->children();
     for (Node::Child &ch : *children) {

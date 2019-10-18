@@ -30,6 +30,7 @@
 #include "options.h"
 
 //#define DEBUG_CACHE
+//#define DEBUG_SANITY
 
 template <class T>
 extern quint64 fixedHash(const T &object);
@@ -66,6 +67,7 @@ private:
     };
 
     void clear();
+    void sanityCheck();
     ObjectInfo* unlinkFromUsed();
     ObjectInfo* unlinkFromUnused();
     void linkToUsed(ObjectInfo &);
@@ -152,6 +154,7 @@ inline void FixedSizeCache<T>::reset(int positions)
         quint64 bytes = positions * sizeof(ObjectInfo);
         qDebug() << "Hash size is" << bytes << "holding" << m_size << "max nodes";
 #endif
+    sanityCheck();
 }
 
 template <class T>
@@ -182,6 +185,29 @@ inline void FixedSizeCache<T>::clear()
 }
 
 template <class T>
+inline void FixedSizeCache<T>::sanityCheck()
+{
+#if defined(DEBUG_SANITY)
+    int numberOfUsed = 0;
+    ObjectInfo *used = m_first;
+    while (used) {
+        used = used->next;
+        ++numberOfUsed;
+    }
+
+    int numberOfUnused = 0;
+    ObjectInfo *unused = m_unused;
+    while (unused) {
+        unused = unused->next;
+        ++numberOfUnused;
+    }
+
+    Q_ASSERT(numberOfUsed == m_used);
+    Q_ASSERT(numberOfUsed + numberOfUnused == m_size);
+#endif
+}
+
+template <class T>
 inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUsed()
 {
     if (!m_last)
@@ -208,7 +234,10 @@ inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUsed
 
     // Update first and last
     if (m_first == &info) {
-        m_first = nullptr;
+        // Make next the first
+        m_first = info.next;
+        if (m_first)
+            m_first->previous = nullptr;
     } else if (m_last == &info) {
         // Make previous the last
         Q_ASSERT(info.previous);
@@ -226,15 +255,14 @@ inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUsed
     info.previous = nullptr;
     info.next = nullptr;
 
+    --m_used;
     return &info;
 }
 
 template <class T>
 inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUnused()
 {
-    if (!m_unused)
-        return nullptr;
-
+    Q_ASSERT(m_unused);
     ObjectInfo &info = *m_unused;
     Q_ASSERT(!info.pinned);
     Q_ASSERT(!info.previous);
@@ -264,9 +292,11 @@ inline void FixedSizeCache<T>::linkToUsed(ObjectInfo &info)
     m_first = &info;
 
     // Update last
-    if (!m_last) {
+    if (!m_last)
         m_last = m_first;
-    }
+
+    ++m_used;
+    sanityCheck();
 }
 
 template <class T>
@@ -293,6 +323,7 @@ inline void FixedSizeCache<T>::relinkToUsed(ObjectInfo &info)
     Q_ASSERT(m_first);
     m_first->previous = &info;
     m_first = &info;
+    sanityCheck();
 }
 
 template <class T>
@@ -327,6 +358,8 @@ inline void FixedSizeCache<T>::relinkToUnused(ObjectInfo &info)
         m_unused->previous = &info;
     }
     m_unused = &info;
+    --m_used;
+    sanityCheck();
 }
 
 template <class T>
@@ -359,7 +392,6 @@ inline T *FixedSizeCache<T>::newObject(quint64 hash)
 
     ObjectInfo *info = nullptr;
     if (m_unused) {
-        ++m_used;
         info = unlinkFromUnused();
     } else {
         info = unlinkFromUsed();
@@ -380,8 +412,9 @@ inline void FixedSizeCache<T>::unlink(quint64 hash)
     Q_ASSERT(m_cache.count(hash));
 
     ObjectInfo *info = m_cache.at(hash);
+    if (info->pinned)
+        return;
     relinkToUnused(*info);
-    --m_used;
 }
 
 template <class T>
@@ -408,7 +441,7 @@ template <class T>
 inline float FixedSizeCache<T>::percentFull(int halfMoveNumber) const
 {
     Q_ASSERT(m_size);
-    Q_UNUSED(halfMoveNumber);
+    Q_UNUSED(halfMoveNumber)
     return quint64(m_used) / float(m_size);
 }
 

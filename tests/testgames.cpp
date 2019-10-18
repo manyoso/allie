@@ -573,8 +573,11 @@ void Tests::checkGame(const QString &fen, const QVector<QString> &mv)
             break;
         }
 
-        Tree tree(false /*resumePreviousPositionIfPossible*/);
-        Node *root = tree.embodiedRoot();
+        Tree *tree = engine.searchEngine()->tree();
+        QVERIFY(tree);
+        tree->clearRoot();
+
+        Node *root = tree->embodiedRoot();
         QVERIFY(root);
         QVERIFY(!root->isThreeFold());
         root->generateChildren();
