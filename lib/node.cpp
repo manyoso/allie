@@ -691,11 +691,8 @@ start_playout:
         float secondBestScore = -std::numeric_limits<float>::max();
         float uCoeff = n->uCoeff();
         float parentQValueDefault = n->qValueDefault();
-        int countPotentials = 0;
 
         for (Node::Child &ch : n->m_children) {
-            if (countPotentials > 1)
-                break;
             float score = Node::uctFormula(ch.qValue(parentQValueDefault), ch.uValue(uCoeff), ch.visits() + ch.virtualLoss());
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
@@ -707,8 +704,6 @@ start_playout:
                 secondNode = &ch;
                 secondBestScore = score;
             }
-            if (ch.isPotential())
-                ++countPotentials;
         }
 
         // Update the top two finishers to avoid them being pruned and calculate vld
