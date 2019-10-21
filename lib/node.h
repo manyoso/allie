@@ -401,6 +401,7 @@ inline void Node::setAsRootNode()
 
     // Now we have no parent
     m_parent = nullptr;
+    m_isExact = false;
 }
 
 inline Node *Node::parent() const
