@@ -264,7 +264,7 @@ public:
 
     Node::Position *position() const;
 
-    bool cloneFromTransposition();
+    void cloneFromTransposition(Node *firstTransposition);
     bool hasQValue() const;
     float qValueDefault() const;
     float qValue() const;
@@ -456,31 +456,30 @@ inline float Node::qValueDefault() const
 #endif
 }
 
-inline bool Node::cloneFromTransposition()
+inline void Node::cloneFromTransposition(Node *firstTransposition)
 {
-    QVector<Node*> transpositions = m_position->nodes();
-    for (Node *n : transpositions) {
-        if (n != this && n->hasRawQValue()) {
-            // Clone the relevant state from a transposition
-            if (!n->isExact()) {
-                QVector<Node::Child> childrenToClone = n->m_children;
-                m_children.reserve(childrenToClone.size());
-                for (Node::Child childClone : childrenToClone) {
-                    Child child(childClone.move());
-                    if (childClone.isPotential())
-                        child.setPValue(childClone.pValue());
-                    else
-                        child.setPValue(childClone.node()->pValue());
-                    m_children.append(child);
-                }
-            }
-            m_rawQValue = n->m_rawQValue;
-            m_isExact = n->m_isExact;
-            m_isTB = n->m_isTB;
-            return true;
+    // Clone the relevant state from first transposition
+    Q_ASSERT(firstTransposition->hasRawQValue());
+    if (!firstTransposition->isExact()) {
+        QVector<Node::Child> childrenToClone = firstTransposition->m_children;
+        m_children.reserve(childrenToClone.size());
+        for (Node::Child childClone : childrenToClone) {
+            Child child(childClone.move());
+            if (childClone.isPotential())
+                child.setPValue(childClone.pValue());
+            else
+                child.setPValue(childClone.node()->pValue());
+            m_children.append(child);
         }
+
+        // We have to sort manually now as the firstTransposition might have had raw qvalue set
+        // but not sorted children yet
+        Node::sortByPVals(*children());
     }
-    return false;
+
+    m_rawQValue = firstTransposition->m_rawQValue;
+    m_isExact = firstTransposition->m_isExact;
+    m_isTB = firstTransposition->m_isTB;
 }
 
 inline bool Node::hasQValue() const

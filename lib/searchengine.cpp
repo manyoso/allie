@@ -127,6 +127,15 @@ void SearchWorker::fetchBatch(const QVector<quint64> &batch,
             Node *node = cache.node(nodeHash);
             node->backPropagateDirty();
             Node::sortByPVals(*node->children());
+
+            // Clone the transpositions
+            QVector<Node*> transpositions = node->position()->nodes();
+            for (Node *t : transpositions) {
+                if (t == node)
+                    continue;
+                t->cloneFromTransposition(node);
+                t->backPropagateDirty();
+            }
         }
 
         // Gather minimax scores;
@@ -227,11 +236,17 @@ bool SearchWorker::handlePlayout(Node *playout)
         return false;
     }
 
-    if (playout->cloneFromTransposition()) {
+    Node *firstTransposition = playout->position()->nodes().first();
+    if (firstTransposition != playout) {
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding cloned transposition playout" << playout->toString();
 #endif
-        playout->backPropagateDirty();
+        // We can go ahead and clone now only if the first transposition has been scored
+        // otherwise it will be cloned automatically when it is scored
+        if (firstTransposition->hasRawQValue()) {
+            playout->cloneFromTransposition(firstTransposition);
+            playout->backPropagateDirty();
+        }
         return false;
     }
 
