@@ -196,7 +196,6 @@ void Clock::calculateDeadline(bool isPartial)
         return;
     }
 
-    const int minimumDepth = 3;
     const qint64 overhead = Options::globalInstance()->option("MoveOverhead").value().toInt();
     const qint64 t = time(m_onTheClock);
     const qint64 inc = increment(m_onTheClock);
@@ -207,10 +206,8 @@ void Clock::calculateDeadline(bool isPartial)
     qint64 deadline = 5000;
     if (m_moveTime != -1)
         deadline = m_moveTime - overhead;
-    else if (t != -1 && m_info.depth >= minimumDepth)
-        deadline = qMin(maximum, ideal);
     else if (t != -1)
-        deadline = maximum;
+        deadline = qMin(maximum, ideal);
     m_deadline = qMax(qint64(0), deadline);
     m_timeout->start(qMax(int(0), int(m_deadline - elapsed())));
 }
