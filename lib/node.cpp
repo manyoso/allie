@@ -565,19 +565,24 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     // Search the children
     float best = -2.0f;
     bool bestIsExact = false;
-    int childrenScored = 0;
-    for (const Node::Child &ch : node->m_children) {
-        if (ch.isPotential() || !ch.node())
-            continue;
+    bool everythingScored = false;
+    for (int index = 0; index < node->m_children.count(); ++index) {
+        Node::Child ch = node->m_children.at(index);
+        if (ch.isPotential()) {
+            everythingScored = false;
+            break;
+        }
 
         Node *child = ch.node();
+        Q_ASSERT(child);
 
         // If the child doesn't have a raw qValue then it has not been scored yet so just continue
         // or if it does have one, but not visited and is not marked dirty yet
-        if (!child->hasRawQValue() || (!child->m_visited && !child->m_isDirty))
+        if (!child->hasRawQValue() || (!child->m_visited && !child->m_isDirty)) {
+            everythingScored = false;
             continue;
+        }
 
-        ++childrenScored;
         bool subtreeIsExact = false;
         float score = minimax(child, depth + 1, &subtreeIsExact, info);
 
@@ -590,7 +595,6 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
 
     // We only propagate exact certainty if the best score from subtree is exact AND either the best
     // score is > 0 (a proven win) OR the potential children of this node have all been played out
-    const bool everythingScored = childrenScored == node->m_children.count();
     const bool miniMaxComplete = everythingScored;
     const bool shouldPropagateExact = bestIsExact && (best > 0 || miniMaxComplete) && !node->isRootNode();
 
