@@ -119,12 +119,24 @@ void Tests::testSizes()
 
 void Tests::testVLDFormula()
 {
-    float swec = 0.302369982f;
-    float uCoeff = 18834.3008f;
-    float q = -0.973092973f;
-    float p = 0.00887134857f;
-    int currentVisits = 130;
-    int n = Node::virtualLossDistance(swec, uCoeff, q, p, currentVisits);
-    QVERIFY(n >= 1);
+    {
+        float swec = 0.302369982f;
+        float uCoeff = 18834.3008f;
+        float q = -0.973092973f;
+        float p = 0.00887134857f;
+        int currentVisits = 130;
+        int n = Node::virtualLossDistance(swec, uCoeff, q, p, currentVisits);
+        QVERIFY(n >= 1);
+    }
+
+    {
+        float swec = 1.01385188f;
+        float uCoeff = 613.978821f;
+        float q = -0.476382792f;
+        float p = 0.019417407f;
+        int currentVisits = 7;
+        int n = Node::virtualLossDistance(swec, uCoeff, q, p, currentVisits);
+        QVERIFY(n >= 1);
+    }
 }
 
