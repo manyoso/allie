@@ -4,7 +4,7 @@ TARGET = allie
 DESTDIR=../bin
 
 QT -= gui network
-CONFIG += c++14 console
+CONFIG += c++2a console
 
 include($$PWD/../lib/git.pri)
 
