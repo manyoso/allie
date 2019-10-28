@@ -472,12 +472,12 @@ void Game::Position::setFenOfPosition(const QStringList &list)
 
     // Sort the rooks by file
     std::stable_sort(whiteRooks.begin(), whiteRooks.end(),
-        [=](const Square &a, const Square &b) {
+        [](const Square &a, const Square &b) {
         return a.file() < b.file();
     });
 
     std::stable_sort(blackRooks.begin(), blackRooks.end(),
-        [=](const Square &a, const Square &b) {
+        [](const Square &a, const Square &b) {
         return a.file() < b.file();
     });
 
@@ -580,12 +580,12 @@ QStringList Game::Position::stateOfPositionToFen() const
 
     // Sort the rooks by file
     std::stable_sort(whiteRooks.begin(), whiteRooks.end(),
-        [=](const Square &a, const Square &b) {
+        [](const Square &a, const Square &b) {
         return a.file() < b.file();
     });
 
     std::stable_sort(blackRooks.begin(), blackRooks.end(),
-        [=](const Square &a, const Square &b) {
+        [](const Square &a, const Square &b) {
         return a.file() < b.file();
     });
 

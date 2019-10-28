@@ -86,15 +86,13 @@ bool Node::Position::deinitialize(bool forcedFree)
     stream << "]";
     qDebug().noquote() << string;
 #endif
-    Q_ASSERT(nodesNotInHash());
-    return nodesNotInHash();
+    return true;
 }
 
-void Node::Position::addNode(Node *node, Cache *cache)
+void Node::Position::addNode(Node *node)
 {
     Q_ASSERT(!hasNode(node));
     m_nodes.append(node);
-    cache->pinNodePosition(positionHash());
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -113,12 +111,10 @@ void Node::Position::addNode(Node *node, Cache *cache)
 #endif
 }
 
-void Node::Position::removeNode(Node *node, Cache *cache)
+void Node::Position::removeNode(Node *node)
 {
     Q_ASSERT(hasNode(node));
     m_nodes.removeAll(node);
-    if (m_nodes.isEmpty())
-        cache->unpinNodePosition(m_positionHash);
 }
 
 Node::Position *Node::Position::relink(quint64 positionHash, Cache *cache)
@@ -145,33 +141,18 @@ Node::Position *Node::Position::relink(quint64 positionHash, Cache *cache)
     return p;
 }
 
-bool Node::Position::nodesNotInHash() const
-{
-    for (Node *node : m_nodes)
-        if (Cache::globalInstance()->containsNode(node->hash()))
-            return false;
-    return true;
-}
-
 Node::Node()
 {
-    initialize(0, nullptr, Game(), nullptr);
+    initialize(nullptr, Game(), nullptr);
 }
 
 Node::~Node()
 {
 }
 
-quint64 Node::nextHash()
-{
-    static quint64 s_nextHash = 0;
-    return ++s_nextHash;
-}
-
-void Node::initialize(quint64 hash, Node *parent, const Game &game, Node::Position *position)
+void Node::initialize(Node *parent, const Game &game, Node::Position *position)
 {
     if (parent) {
-        Q_ASSERT(Cache::globalInstance()->containsNode(parent->hash()));
         ++parent->m_refs;
 #if defined(DEBUG_CHURN)
         QString string;
@@ -183,7 +164,6 @@ void Node::initialize(quint64 hash, Node *parent, const Game &game, Node::Positi
     m_game = game;
     m_parent = parent;
     m_position = position;
-    m_hash = hash;
     m_children.clear();
     m_refs = 0;
     m_visited = 0;
@@ -198,16 +178,14 @@ void Node::initialize(quint64 hash, Node *parent, const Game &game, Node::Positi
     m_isDirty = false;
     m_scoringOrScored.clear();
 #if defined(DEBUG_CHURN)
-    if (m_hash) {
-        QString string;
-        QTextStream stream(&string);
-        stream << "ctor n ";
-        stream << m_position->positionHash();
-        stream << " [";
-        stream << m_hash;
-        stream << "]";
-        qDebug().noquote() << string;
-    }
+    QString string;
+    QTextStream stream(&string);
+    stream << "ctor n ";
+    stream << m_position->positionHash();
+    stream << " [";
+    stream << this;
+    stream << "]";
+    qDebug().noquote() << string;
 #endif
 }
 
@@ -231,18 +209,18 @@ bool Node::deinitialize(bool forcedFree)
         // Delete parent if it no longer has any refs and this node is being freed to make room
         // in fixed size hash
         if (!parent->m_refs && forcedFree)
-            cache->unlinkNode(parent->hash());
+            cache->unlinkNode(parent);
     }
 
     // Unlink all children as we do not want to leave them parentless
     for (int i = 0; i < m_children.count(); ++i) {
         const Node::Child childRef = m_children.at(i);
         if (!childRef.isPotential() && childRef.node())
-            cache->unlinkNode(childRef.node()->hash());
+            cache->unlinkNode(childRef.node());
     }
 
     if (m_position)
-        m_position->removeNode(this, cache);
+        m_position->removeNode(this);
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -250,7 +228,7 @@ bool Node::deinitialize(bool forcedFree)
     stream << "dtor n ";
     stream << (m_position ? m_position->positionHash() : 0xBAAAAAAD);
     stream << " [";
-    stream << m_hash;
+    stream << this;
     stream << "]";
     qDebug().noquote() << string;
 #endif
@@ -261,26 +239,6 @@ bool Node::deinitialize(bool forcedFree)
     m_isDirty = false;
 
     return true;
-}
-
-Node *Node::relink(quint64 hash, Cache *cache)
-{
-    // Update the reference for this node in LRU hash
-    Q_ASSERT(cache->containsNode(hash));
-    Node *n = cache->node(hash, true /*relink*/);
-#if defined(DEBUG_CHURN)
-    QString string;
-    QTextStream stream(&string);
-    stream << "relk n ";
-    stream << n->m_position->positionHash();
-    stream << " [";
-    stream << n->m_hash;
-    stream << "]";
-    qDebug().noquote() << string;
-#else
-    qt_noop();
-#endif
-    return n;
 }
 
 Node *Node::bestEmbodiedChild() const
@@ -617,13 +575,12 @@ void Node::validateTree(const Node *node)
     Q_ASSERT(node->m_visited == childVisits + 1);
 }
 
-Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache, QMutex *mutex)
+Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache)
 {
 start_playout:
     int vld = *vldMax;
     Node *n = root;
     forever {
-        QMutexLocker locker(mutex);
         // If we've never been scored or this is an exact node, then this is our playout node
         if (!n->setScoringOrScored() || n->isExact()) {
             ++n->m_virtualLoss;
@@ -898,25 +855,11 @@ Node *Node::generateEmbodiedChild(Child *child, Cache *cache, NodeGenerationErro
 
 Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node *parent, Cache *cache, NodeGenerationError *error)
 {
-    const quint64 childHash = Node::nextHash();
-
     // Get a new node from hash
-    Node *embodiedChild = cache->newNode(childHash);
+    Node *embodiedChild = cache->newNode();
     if (!embodiedChild) {
         Q_ASSERT(error);
         *error = OutOfMemory;
-        return nullptr;
-    }
-
-    // It is possible the hash returned an ancestor of parent as a new child in which case it is
-    // possible that parent has been pruned to make way for this child!
-    if (!cache->containsNode(parent->hash())) {
-        // We need to backout the newly created child if it already existed in the hash and was
-        // reused
-        Q_ASSERT(cache->containsNode(childHash));
-        embodiedChild->m_hash = childHash; // need to initialize it
-        cache->unlinkNode(childHash);
-        *error = ParentPruned;
         return nullptr;
     }
 
@@ -932,8 +875,8 @@ Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node 
     if (cache->containsNodePosition(childPositionHash)) {
         childNodePosition = Node::Position::relink(childPositionHash, cache);
         Q_ASSERT(childNodePosition);
-        embodiedChild->initialize(childHash, parent, childGame, childNodePosition);
-        childNodePosition->addNode(embodiedChild, cache);
+        embodiedChild->initialize(parent, childGame, childNodePosition);
+        childNodePosition->addNode(embodiedChild);
     } else {
         childNodePosition = cache->newNodePosition(childPositionHash);
         if (!childNodePosition) {
@@ -941,7 +884,7 @@ Node *Node::generateEmbodiedNode(const Move &childMove, float childPValue, Node 
             qFatal("Fatal error: we have run out of positions in memory!");
         }
         Q_ASSERT(childNodePosition);
-        embodiedChild->initialize(childHash, parent, childGame, childNodePosition);
+        embodiedChild->initialize(parent, childGame, childNodePosition);
         childNodePosition->initialize(embodiedChild, childPosition, childPositionHash);
     }
 
@@ -1027,7 +970,7 @@ QString Node::printTree(int topDepth, int depth, bool printPotentials) const
             QVector<Child> children = m_children;
             if (!children.isEmpty()) {
                 std::stable_sort(children.begin(), children.end(),
-                    [=](const Child &a, const Child &b) {
+                    [](const Child &a, const Child &b) {
                     return a.pValue() > b.pValue();
                 });
                 for (Child c : children) {

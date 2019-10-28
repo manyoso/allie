@@ -36,6 +36,99 @@ template <class T>
 extern quint64 fixedHash(const T &object);
 
 template <class T>
+extern bool isPinned(const T &object);
+
+template <class T>
+class FixedSizeArena {
+public:
+    FixedSizeArena();
+    ~FixedSizeArena();
+
+    void reset(int nodes);
+    void reset();
+    T *newObject();
+    void unlink(T*);
+    int size() const { return int(m_arena.size()); }
+    int used() const { return m_used + 1; }
+    float percentFull(int halfMoveNumber) const;
+
+private:
+    void clear();
+    std::vector<T*> m_arena;
+    int m_used;
+};
+
+template <class T>
+inline FixedSizeArena<T>::FixedSizeArena()
+    : m_used(-1)
+{
+}
+
+template <class T>
+inline FixedSizeArena<T>::~FixedSizeArena()
+{
+    clear();
+}
+
+template <class T>
+inline void FixedSizeArena<T>::reset(int nodes)
+{
+    clear();
+    if (!nodes)
+        return;
+
+    m_arena.reserve(size_t(nodes));
+    for (quint32 i = 0; i < m_arena.capacity(); ++i)
+        m_arena.push_back(new T);
+#if defined(DEBUG_CACHE)
+        quint64 bytes = nodes * sizeof(T);
+        qDebug() << "node cache size is" << bytes << "holding" << nodes << "max nodes";
+#endif
+}
+
+template <class T>
+inline void FixedSizeArena<T>::reset()
+{
+    auto it = std::partition(m_arena.begin(), m_arena.end(),
+        [] (Node *object) {
+            return isPinned(object);
+    });
+    m_used = int(it - m_arena.begin()) - 1;
+}
+
+template <class T>
+inline void FixedSizeArena<T>::clear()
+{
+    m_arena.clear();
+    m_used = -1;
+}
+
+template <class T>
+inline T *FixedSizeArena<T>::newObject()
+{
+    Q_ASSERT(m_arena.size());
+    const size_t index = size_t(++m_used);
+    Q_ASSERT(index < m_arena.size());
+    return m_arena.at(index);
+}
+
+template <class T>
+inline void FixedSizeArena<T>::unlink(T *object)
+{
+    Q_ASSERT(m_arena.size());
+    object->deinitialize(false /*forcedFree*/);
+    --m_used;
+}
+
+template <class T>
+inline float FixedSizeArena<T>::percentFull(int halfMoveNumber) const
+{
+    Q_ASSERT(m_arena.size());
+    Q_UNUSED(halfMoveNumber)
+    return quint64(m_used) / float(m_arena.size());
+}
+
+template <class T>
 class FixedSizeCache {
 public:
     FixedSizeCache();
@@ -46,9 +139,6 @@ public:
     T *object(quint64 hash, bool relink);
     T *newObject(quint64 hash);
     void unlink(quint64 hash);
-    void pin(quint64 hash);
-    void unpin(quint64 hash);
-    void clearPinned();
     float percentFull(int halfMoveNumber) const;
     int size() const { return m_size; }
     int used() const { return m_used; }
@@ -57,13 +147,11 @@ private:
     struct ObjectInfo {
         inline ObjectInfo() :
             previous(nullptr),
-            next(nullptr),
-            pinned(false)
+            next(nullptr)
         {}
         ObjectInfo *previous;
         ObjectInfo *next;
         T object;
-        bool pinned: 1;
     };
 
     void clear();
@@ -79,33 +167,6 @@ private:
     std::unordered_map<quint64, ObjectInfo*> m_cache;
     int m_size;
     int m_used;
-};
-
-class Cache {
-public:
-    static Cache *globalInstance();
-
-    void reset();
-    float percentFull(int halfMoveNumber) const;
-    int size() const;
-    int used() const;
-
-    bool containsNode(quint64 hash) const;
-    Node *node(quint64 hash, bool relink = false);
-    Node *newNode(quint64 hash);
-    void unlinkNode(quint64 hash);
-
-    bool containsNodePosition(quint64 hash) const;
-    Node::Position *nodePosition(quint64 hash, bool relink = false);
-    Node::Position *newNodePosition(quint64 hash);
-    void unlinkNodePosition(quint64 hash);
-    void pinNodePosition(quint64 hash);
-    void unpinNodePosition(quint64 hash);
-
-private:
-    friend class MyCache;
-    FixedSizeCache<Node> m_nodeCache;
-    FixedSizeCache<Node::Position> m_positionCache;
 };
 
 template <class T>
@@ -143,14 +204,14 @@ inline void FixedSizeCache<T>::reset(int positions)
     }
 
     // FIXME: Still see malloc during insertion
-    m_cache.reserve(m_size);
+    m_cache.reserve(size_t(m_size));
     Q_ASSERT(!m_first);
     Q_ASSERT(!m_last);
     Q_ASSERT(m_unused);
 
 #if defined(DEBUG_CACHE)
         quint64 bytes = positions * sizeof(ObjectInfo);
-        qDebug() << "Hash size is" << bytes << "holding" << m_size << "max nodes";
+        qDebug() << "position cache size is" << bytes << "holding" << m_size << "max positions";
 #endif
     sanityCheck();
 }
@@ -214,7 +275,7 @@ inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUsed
     Q_ASSERT(m_last);
     ObjectInfo *unpinned = m_last;
 
-    while (unpinned && unpinned->pinned)
+    while (unpinned && isPinned(unpinned->object))
         unpinned = unpinned->previous;
 
     // If everything is pinned, then can only return nullptr
@@ -262,7 +323,7 @@ inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUnus
 {
     Q_ASSERT(m_unused);
     ObjectInfo &info = *m_unused;
-    Q_ASSERT(!info.pinned);
+    Q_ASSERT(!isPinned(info.object));
     Q_ASSERT(!info.previous);
 
     // Update unused
@@ -410,29 +471,9 @@ inline void FixedSizeCache<T>::unlink(quint64 hash)
     Q_ASSERT(m_cache.count(hash));
 
     ObjectInfo *info = m_cache.at(hash);
-    if (info->pinned)
+    if (isPinned(info->object))
         return;
     relinkToUnused(*info);
-}
-
-template <class T>
-inline void FixedSizeCache<T>::pin(quint64 hash)
-{
-    Q_ASSERT(m_size);
-    Q_ASSERT(m_cache.count(hash));
-
-    ObjectInfo *info = m_cache.at(hash);
-    info->pinned = true;
-}
-
-template <class T>
-inline void FixedSizeCache<T>::unpin(quint64 hash)
-{
-    Q_ASSERT(m_size);
-    Q_ASSERT(m_cache.count(hash));
-
-    ObjectInfo *info = m_cache.at(hash);
-    info->pinned = false;
 }
 
 template <class T>
@@ -443,49 +484,68 @@ inline float FixedSizeCache<T>::percentFull(int halfMoveNumber) const
     return quint64(m_used) / float(m_size);
 }
 
+class Cache {
+public:
+    static Cache *globalInstance();
+
+    void reset();
+    float percentFull(int halfMoveNumber) const;
+    int size() const;
+    int used() const;
+
+    Node *newNode();
+    void unlinkNode(Node *node);
+    void resetNodes();
+
+    bool containsNodePosition(quint64 hash) const;
+    Node::Position *nodePosition(quint64 hash, bool relink = false);
+    Node::Position *newNodePosition(quint64 hash);
+    void unlinkNodePosition(quint64 hash);
+
+private:
+    friend class MyCache;
+    FixedSizeArena<Node> m_nodeArena;
+    FixedSizeCache<Node::Position> m_positionCache;
+};
+
 inline void Cache::reset()
 {
     // Use a minimum of 100,000 positions
     int positions = qMax(Options::globalInstance()->option("Cache").value().toInt(), 100000);
-    m_nodeCache.reset(positions);
+    m_nodeArena.reset(positions);
     m_positionCache.reset(positions);
 }
 
 inline float Cache::percentFull(int halfMoveNumber) const
 {
-    return m_nodeCache.percentFull(halfMoveNumber);
+    return m_nodeArena.percentFull(halfMoveNumber);
 }
 
 inline int Cache::size() const
 {
-    Q_ASSERT(m_positionCache.size() == m_nodeCache.size());
-    return m_nodeCache.size();
+    Q_ASSERT(m_positionCache.size() == m_nodeArena.size());
+    return m_nodeArena.size();
 }
 
 inline int Cache::used() const
 {
-    Q_ASSERT(m_positionCache.used() <= m_nodeCache.size());
-    return m_nodeCache.used();
+    Q_ASSERT(m_positionCache.used() <= m_nodeArena.size());
+    return m_nodeArena.used();
 }
 
-inline bool Cache::containsNode(quint64 hash) const
+inline Node *Cache::newNode()
 {
-    return m_nodeCache.contains(hash);
+    return m_nodeArena.newObject();
 }
 
-inline Node *Cache::node(quint64 hash, bool relink)
+inline void Cache::unlinkNode(Node *node)
 {
-    return m_nodeCache.object(hash, relink);
+    m_nodeArena.unlink(node);
 }
 
-inline Node *Cache::newNode(quint64 hash)
+inline void Cache::resetNodes()
 {
-    return m_nodeCache.newObject(hash);
-}
-
-inline void Cache::unlinkNode(quint64 hash)
-{
-    m_nodeCache.unlink(hash);
+    m_nodeArena.reset();
 }
 
 inline bool Cache::containsNodePosition(quint64 hash) const
@@ -500,24 +560,12 @@ inline Node::Position *Cache::nodePosition(quint64 hash, bool relink)
 
 inline Node::Position *Cache::newNodePosition(quint64 hash)
 {
-    Node::Position *p = m_positionCache.newObject(hash);
-    pinNodePosition(hash);
-    return p;
+    return m_positionCache.newObject(hash);
 }
 
 inline void Cache::unlinkNodePosition(quint64 hash)
 {
     m_positionCache.unlink(hash);
-}
-
-inline void Cache::pinNodePosition(quint64 hash)
-{
-    m_positionCache.pin(hash);
-}
-
-inline void Cache::unpinNodePosition(quint64 hash)
-{
-    m_positionCache.unpin(hash);
 }
 
 #endif // CACHE_H

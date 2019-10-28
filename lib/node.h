@@ -111,12 +111,6 @@ public:
             return node()->virtualLoss();
         }
 
-        inline void relink(Cache *cache) const
-        {
-            if (!isPotential() && node())
-                Node::relink(node()->hash(), cache);
-        }
-
     private:
         union {
             Node *m_node;
@@ -133,15 +127,15 @@ public:
 
         void initialize(Node *node, const Game::Position &position, quint64 positionHash);
         bool deinitialize(bool forcedFree);
-        void addNode(Node *node, Cache *cache);
-        void removeNode(Node *node, Cache *cache);
+        void addNode(Node *node);
+        void removeNode(Node *node);
         static Node::Position *relink(quint64 positionHash, Cache *cache);
         bool nodesNotInHash() const; // only used for debugging
         inline bool hasNode(Node *node) const
         {
             return m_nodes.contains(node);
         }
-        inline QVector<Node*> embodiedNodes() const
+        inline const QVector<Node*>& embodiedNodes() const
         {
             Q_ASSERT(!nodesNotInHash());
             return m_nodes;
@@ -149,7 +143,7 @@ public:
 
         inline const Game::Position &position() const { return m_position; }
         inline quint64 positionHash() const { return m_positionHash; }
-        inline QVector<Node*> nodes() const { return m_nodes; }
+        inline const QVector<Node*>& nodes() const { return m_nodes; }
 
     private:
         Game::Position m_position;
@@ -162,16 +156,14 @@ public:
     Node();
     ~Node();
 
-    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash, QMutex *mutex);
+    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
     static float minimax(Node *, int depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
     static float uctFormula(float qValue, float uValue, quint64 visits);
     static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
-    static quint64 nextHash();
 
-    void initialize(quint64 hash, Node *parent, const Game &game, Node::Position *nodePosition);
+    void initialize(Node *parent, const Game &game, Node::Position *nodePosition);
     bool deinitialize(bool forcedFree);
-    static Node *relink(quint64 hash, Cache *cache);
 
     int treeDepth() const;
     bool isExact() const;
@@ -229,7 +221,6 @@ public:
     const Node *findEmbodiedSuccessor(const QVector<QString> &child) const;
 
     inline const Game &game() const { return m_game; }
-    inline quint64 hash() const { return m_hash; }
 
     // back propagation
     void backPropagateValue(float qValue);
@@ -283,7 +274,6 @@ private:
     Game m_game;                        // 8
     Node *m_parent;                     // 8
     Node::Position *m_position;         // 8
-    quint64 m_hash;                     // 8
     QVector<Node::Child> m_children;    // 8
     quint32 m_refs;                     // 4
     quint32 m_visited;                  // 4
@@ -420,12 +410,12 @@ inline void Node::sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly)
 {
     if (Q_LIKELY(partialSortFirstOnly)) {
         std::partial_sort(nodes.begin(), nodes.begin() + 1, nodes.end(),
-            [=](const Node *a, const Node *b) {
+            [](const Node *a, const Node *b) {
             return greaterThan(a, b);
         });
     } else {
         std::stable_sort(nodes.begin(), nodes.end(),
-            [=](const Node *a, const Node *b) {
+            [](const Node *a, const Node *b) {
             return greaterThan(a, b);
         });
     }
@@ -434,14 +424,13 @@ inline void Node::sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly)
 inline void Node::sortByPVals(QVector<Node::Child> &children)
 {
     std::stable_sort(children.begin(), children.end(),
-        [=](const Node::Child &a, const Node::Child &b) {
+        [](const Node::Child &a, const Node::Child &b) {
         return a.pValue() > b.pValue();
     });
 }
 
 inline Node::Position *Node::position() const
 {
-    Q_ASSERT(m_position);
     return m_position;
 }
 
@@ -565,14 +554,19 @@ inline int Node::virtualLossDistance(float swec, float uCoeff, float q, float p,
     return n;
 }
 
-inline quint64 fixedHash(const Node::Position &node)
+inline quint64 fixedHash(const Node::Position &position)
 {
-    return node.positionHash();
+    return position.positionHash();
 }
 
-inline quint64 fixedHash(const Node &node)
+inline bool isPinned(const Node::Position &position)
 {
-    return node.hash();
+    return !position.nodes().isEmpty();
+}
+
+inline bool isPinned(Node *node)
+{
+    return node->position();
 }
 
 QDebug operator<<(QDebug debug, const Node &node);

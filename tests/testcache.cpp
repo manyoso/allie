@@ -30,7 +30,7 @@
 struct CacheItem {
     bool deinitialize(bool forcedFree)
     {
-        Q_UNUSED(forcedFree);
+        Q_UNUSED(forcedFree)
         qt_noop();
         return true;
     }
@@ -41,6 +41,12 @@ struct CacheItem {
 inline quint64 fixedHash(const CacheItem &item)
 {
     return item.id;
+}
+
+inline quint64 isPinned(const CacheItem &item)
+{
+    Q_UNUSED(item)
+    return false;
 }
 
 void Tests::testBasicCache()
@@ -255,7 +261,6 @@ void Tests::testStart(const StandaloneGame &start)
         Node *child = root->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
         QVERIFY(child);
         QVERIFY(!childRef->isPotential());
-        QVERIFY(Cache::globalInstance()->containsNode(child->hash()));
         QCOMPARE(child->parent(), root);
         QVERIFY(!child->hasChildren());
         QCOMPARE(quint32(0), child->visits());
@@ -290,162 +295,4 @@ void Tests::testStartingPositionBlack()
     QCOMPARE(start.position().activeArmy(), Chess::Black);
     History::globalInstance()->addGame(start);
     testStart(start);
-}
-void Tests::generateEmbodiedChild(Node *parent, bool onlyUniquePositions, Node **generatedChild)
-{
-    QVector<Node::Child> *childRefs = parent->children(); // not a copy
-    for (int i = 0; i < childRefs->count(); ++i) {
-        Node::Child *childRef = &((*childRefs)[i]);
-
-        if (!childRef->isPotential())
-            continue;
-
-        if (onlyUniquePositions) {
-            // Make the child move
-            Game::Position childPosition = parent->position()->position(); // copy
-            Game childGame = parent->game();
-            const bool success = childGame.makeMove(childRef->move(), &childPosition);
-            Q_ASSERT(success);
-
-            if (Cache::globalInstance()->containsNodePosition(childPosition.positionHash()))
-                continue;
-        }
-
-        QVERIFY(childRef->isPotential());
-        Node::NodeGenerationError error = Node::NoError;
-        Node *child = parent->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
-        if (error == Node::ParentPruned) {
-            *generatedChild = nullptr;
-            return;
-        } else if (!child) {
-            qDebug() << error;
-        }
-        QVERIFY(child);
-        QVERIFY(!childRef->isPotential());
-        QVERIFY(Cache::globalInstance()->containsNode(child->hash()));
-        QCOMPARE(child->parent(), parent);
-        QVERIFY(!child->hasChildren());
-        QCOMPARE(quint32(0), child->visits());
-        QCOMPARE(quint32(0), child->virtualLoss());
-        QVERIFY(qFuzzyCompare(-2.f, child->m_qValue));
-        QVERIFY(qFuzzyCompare(-2.f, child->m_rawQValue));
-        QVERIFY(qFuzzyCompare(-2.f, child->m_pValue));
-        QVERIFY(!child->isExact());
-        QVERIFY(!child->isTB());
-        QVERIFY(!child->isDirty());
-
-        Node::Position *childPosition = child->position();
-        QVERIFY(childPosition);
-        QVERIFY(Cache::globalInstance()->containsNodePosition(childPosition->positionHash()));
-        QVERIFY(childPosition->nodes().contains(child));
-        *generatedChild = child;
-        return; // done
-    }
-}
-
-void Tests::testCacheInsertAndRetrieve()
-{
-    QCOMPARE(Cache::globalInstance()->used(), 0);
-
-    // Hold a few nodes inserted into cache
-    QVector<QPair<quint64, Node*>> holdNodes;
-
-    // A stack of nodes
-    QStack<quint64> stack;
-
-    StandaloneGame start;
-    History::globalInstance()->addGame(start);
-    Tree tree;
-    Node *root = tree.embodiedRoot();
-    QVERIFY(root);
-    stack.append(root->hash());
-    holdNodes.append(qMakePair(root->hash(), root));
-
-    const int numberOfNodesToHold = 42;
-    QVERIFY(numberOfNodesToHold < Cache::globalInstance()->size());
-
-    while (Cache::globalInstance()->used() < Cache::globalInstance()->size()) {
-        QVERIFY(!stack.isEmpty());
-        quint64 hash = stack.pop();
-        if (!Cache::globalInstance()->containsNode(hash))
-            continue;
-
-        Node *parent = Cache::globalInstance()->node(hash);
-        QVERIFY(!parent->hasChildren());
-        parent->generateChildren();
-        if (!parent->hasChildren()) // terminal
-            continue;
-
-        while (Cache::globalInstance()->used() < Cache::globalInstance()->size()
-            && Cache::globalInstance()->containsNode(hash)) {
-            Node *generatedChild = nullptr;
-            generateEmbodiedChild(parent, true /*onlyUniquePositions*/, &generatedChild);
-            if (!generatedChild)
-                break;
-
-            stack.push(generatedChild->hash());
-            if (quint64(holdNodes.count()) < numberOfNodesToHold)
-                holdNodes.append(qMakePair(generatedChild->hash(), generatedChild));
-        }
-    }
-
-    // Make sure cache is full
-    QCOMPARE(Cache::globalInstance()->used(), Cache::globalInstance()->size());
-    QVERIFY(qFuzzyCompare(Cache::globalInstance()->percentFull(0), 1.f));
-    QCOMPARE(holdNodes.count(), numberOfNodesToHold);
-
-    // Explicitly retrieve the nodes in holdNodes to update the link in LRU cache
-    for (QPair<quint64, Node*> last : holdNodes) {
-        QVERIFY(last.second);
-        QCOMPARE(last.first, last.second->hash());
-        QVERIFY(Cache::globalInstance()->containsNode(last.first));
-        Node *copyLast = Cache::globalInstance()->node(last.first, true /*update*/);
-        Cache::globalInstance()->nodePosition(copyLast->position()->positionHash(), true /*update*/);
-        QCOMPARE(last.second, copyLast);
-    }
-
-    const int numberToEvictBeforeHolds = Cache::globalInstance()->used() - numberOfNodesToHold;
-
-    // Now that we are full, let's keep adding until we start evicting holdNodes to check the order
-    // of eviction
-    int numberEvicted = 0;
-    while (numberEvicted < int(Cache::globalInstance()->used())) {
-        QVERIFY(!stack.isEmpty());
-        quint64 hash = stack.pop();
-        if (!Cache::globalInstance()->containsNode(hash))
-            continue;
-
-        Node *parent = Cache::globalInstance()->node(hash);
-        QVERIFY(!parent->hasChildren());
-        parent->generateChildren();
-        if (!parent->hasChildren()) // terminal
-            continue;
-
-        while (numberEvicted < int(Cache::globalInstance()->used())
-            && Cache::globalInstance()->containsNode(hash)) {
-            // Generate *one* child which will evict something from cache now that it is full
-            Node *generatedChild = nullptr;
-            generateEmbodiedChild(parent, true /*onlyUniquePositions*/, &generatedChild);
-            if (!generatedChild)
-                break;
-
-            QVERIFY(generatedChild);
-            stack.push(generatedChild->hash());
-            ++numberEvicted;
-
-            int numberOfHoldsEvicted = qMax(0, numberEvicted - numberToEvictBeforeHolds);
-
-            for (int j = 0; j < holdNodes.count(); ++j) {
-                QPair<quint64, Node*> holdNode = holdNodes.at(j);
-                QVERIFY(holdNode.second);
-                const quint64 hash = holdNode.first;
-                const QString string = holdNode.second->toString();
-                const bool shouldBeEvicted = j < numberOfHoldsEvicted;
-                if (!shouldBeEvicted) {
-                    QCOMPARE(holdNode.first, holdNode.second->hash());
-                    QVERIFY(Cache::globalInstance()->containsNode(hash));
-                }
-            }
-        }
-    }
 }

@@ -84,7 +84,6 @@ private slots:
     void testBasicCache();
     void testStartingPosition();
     void testStartingPositionBlack();
-    void testCacheInsertAndRetrieve();
 
     // TestGames
     void testCastlingAnd960();

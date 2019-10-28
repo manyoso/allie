@@ -105,6 +105,15 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
                 computation.setPVals(index, node);
                 Node::sortByPVals(*node->children());
             }
+
+            // Clone the transpositions
+            const QVector<Node*> &transpositions = node->position()->nodes();
+            for (Node *t : transpositions) {
+                if (t == node)
+                    continue;
+                t->cloneFromTransposition(node);
+                t->backPropagateDirty();
+            }
         }
 
         NeuralNet::globalInstance()->releaseNetwork(network);
@@ -116,15 +125,6 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         for (int index = 0; index < actualBatch.count(); ++index) {
             Node *node = actualBatch.at(index);
             node->backPropagateDirty();
-
-            // Clone the transpositions
-            QVector<Node*> transpositions = node->position()->nodes();
-            for (Node *t : transpositions) {
-                if (t == node)
-                    continue;
-                t->cloneFromTransposition(node);
-                t->backPropagateDirty();
-            }
         }
 
         // Gather minimax scores;
@@ -210,17 +210,19 @@ bool SearchWorker::handlePlayout(Node *playout)
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding exact playout" << playout->toString();
 #endif
+        QMutexLocker locker(m_tree->treeMutex());
         playout->backPropagateDirty();
         return false;
     }
 
     Node *firstTransposition = playout->position()->nodes().first();
-    if (firstTransposition != playout) {
+    if (firstTransposition && firstTransposition != playout) {
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding cloned transposition playout" << playout->toString();
 #endif
         // We can go ahead and clone now only if the first transposition has been scored
         // otherwise it will be cloned automatically when it is scored
+        QMutexLocker locker(m_tree->treeMutex());
         if (firstTransposition->hasRawQValue()) {
             playout->cloneFromTransposition(firstTransposition);
             playout->backPropagateDirty();
@@ -237,6 +239,7 @@ bool SearchWorker::handlePlayout(Node *playout)
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding exact playout 2" << playout->toString();
 #endif
+        QMutexLocker locker(m_tree->treeMutex());
         playout->backPropagateDirty();
         return false;
     }
@@ -261,31 +264,30 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, bool *hardExi
             *hardExit = true;
             break;
         }
+        m_tree->treeMutex()->lock();
+        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash);
+        const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
+        m_tree->treeMutex()->unlock();
 
-        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash, m_tree->treeMutex());
         if (!playout)
             break;
 
-        {
-            QMutexLocker locker(m_tree->treeMutex());
-            const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
-            *didWork = true;
+        *didWork = true;
 
-            if (isExistingPlayout) {
-                ++exactOrCached;
-                continue;
-            }
-
-            bool shouldFetchFromNN = handlePlayout(playout);
-            if (!shouldFetchFromNN) {
-                ++exactOrCached;
-                continue;
-            }
-
-            exactOrCached = 0;
-            Q_ASSERT(!nodes.contains(playout));
-            nodes.append(playout);
+        if (isExistingPlayout) {
+            ++exactOrCached;
+            continue;
         }
+
+        bool shouldFetchFromNN = handlePlayout(playout);
+        if (!shouldFetchFromNN) {
+            ++exactOrCached;
+            continue;
+        }
+
+        exactOrCached = 0;
+        Q_ASSERT(!nodes.contains(playout));
+        nodes.append(playout);
     }
 
 #if defined(DEBUG_PLAYOUT)
@@ -299,16 +301,16 @@ void SearchWorker::ensureRootAndChildrenScored()
 {
     {
         // Fetch and minimax for root
-        m_tree->treeMutex()->lock();
         Node *root = m_tree->embodiedRoot();
         QVector<Node*> nodes;
         if (!root->setScoringOrScored()) {
+            m_tree->treeMutex()->lock();
             root->m_virtualLoss += 1;
+            m_tree->treeMutex()->unlock();
             bool shouldFetchFromNN = handlePlayout(root);
             if (shouldFetchFromNN)
                 nodes.append(root);
         }
-        m_tree->treeMutex()->unlock();
         fetchAndMinimax(nodes, true /*sync*/);
     }
 
@@ -331,6 +333,7 @@ void SearchWorker::ensureRootAndChildrenScored()
             children.append(child);
             didWork = true;
         }
+        m_tree->treeMutex()->unlock();
 
         QVector<Node*> nodes;
         for (Node *child : children) {
@@ -338,7 +341,6 @@ void SearchWorker::ensureRootAndChildrenScored()
             if (shouldFetchFromNN)
                 nodes.append(child);
         }
-        m_tree->treeMutex()->unlock();
 
         if (didWork)
             fetchAndMinimax(nodes, true /*sync*/);
@@ -656,8 +658,8 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
         if (embodiedChildren.count() > 1) {
             // Sort top two by score
             std::partial_sort(embodiedChildren.begin(), embodiedChildren.begin() + 2, embodiedChildren.end(),
-                    [=](const Node *a, const Node *b) {
-                    return Node::greaterThan(a, b);
+                [](const Node *a, const Node *b) {
+                return Node::greaterThan(a, b);
             });
             const Node *firstChild = embodiedChildren.at(0);
             const Node *secondChild = embodiedChildren.at(1);

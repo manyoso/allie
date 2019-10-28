@@ -72,8 +72,7 @@ inline void Tree::clearRoot()
 
     if (m_root) {
         if (!m_resumePreviousPositionIfPossible) {
-            if (cache.containsNode(m_root->hash()))
-                cache.unlinkNode(m_root->hash());
+            cache.unlinkNode(m_root);
             m_root = nullptr;
             Q_ASSERT(!cache.used());
         } else {
@@ -85,7 +84,7 @@ inline void Tree::clearRoot()
                 for (Node *grandChild : grandChildren) {
                     if (grandChild->m_position->position().isSamePosition(rootGame.position()) && !grandChild->isTrueTerminal()) {
                         grandChild->setAsRootNode();
-                        cache.unlinkNode(m_root->hash());
+                        cache.unlinkNode(m_root);
                         m_root = grandChild;
                         foundResume = true;
                         break;
@@ -93,17 +92,20 @@ inline void Tree::clearRoot()
                 }
             }
             if (!foundResume) {
-                cache.unlinkNode(m_root->hash());
+                cache.unlinkNode(m_root);
                 Q_ASSERT(!cache.used());
                 m_root = nullptr;
             }
         }
     }
 
+    // Resets the used/size of the node arena taking into account reused nodes
+    cache.resetNodes();
+
 #if defined(DEBUG_RESUME)
     const int sizeAfter = cache.used();
     if (sizeAfter)
-        qDebug() << "Resume resulted in" << sizeAfter << "resued nodes.";
+        qDebug() << "Resume resulted in" << sizeAfter << "reused nodes.";
 #endif
 }
 
@@ -111,27 +113,24 @@ inline Node *Tree::embodiedRoot()
 {
     // This function should *always* return a valid and initialized pointer
     const StandaloneGame rootGame = History::globalInstance()->currentGame();
-    Cache &cache = *Cache::globalInstance();
-    if (m_root && cache.containsNode(m_root->hash()))
+    if (m_root)
         return m_root;
 
-    quint64 rootHash = Node::nextHash();
-    m_root = cache.newNode(rootHash);
+    Cache &cache = *Cache::globalInstance();
+    m_root = cache.newNode();
     Q_ASSERT(m_root);
 
     Node::Position *rootPosition = nullptr;
     quint64 rootPositionHash = rootGame.position().positionHash();
     if (m_resumePreviousPositionIfPossible && cache.containsNodePosition(rootPositionHash)) {
         rootPosition = cache.nodePosition(rootPositionHash);
-        m_root->initialize(rootHash, nullptr, rootGame, rootPosition);
+        m_root->initialize(nullptr, rootGame, rootPosition);
         rootPosition->initialize(m_root, rootGame.position(), rootPositionHash);
     } else {
         rootPosition = cache.newNodePosition(rootPositionHash);
-        m_root->initialize(rootHash, nullptr, rootGame, rootPosition);
+        m_root->initialize(nullptr, rootGame, rootPosition);
         rootPosition->initialize(m_root, rootGame.position(), rootPositionHash);
     }
-
-    Q_ASSERT(rootHash == m_root->hash());
 
     return m_root;
 }

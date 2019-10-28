@@ -113,7 +113,7 @@ void Tests::testSizes()
     QCOMPARE(sizeof(Game),          ulong(8));
     QCOMPARE(sizeof(Node::Child),   ulong(16));
     QCOMPARE(sizeof(Game::Position),ulong(72));
-    QCOMPARE(sizeof(Node),          ulong(80));
+    QCOMPARE(sizeof(Node),          ulong(72));
     QCOMPARE(sizeof(Node::Position),ulong(88));
 }
 
