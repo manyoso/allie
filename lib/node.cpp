@@ -443,23 +443,6 @@ QVector<Game> Node::previousMoves(bool fullHistory) const
     return result;
 }
 
-void Node::pinPrincipalVariation(QVector<quint64> *pinnedList, Cache* cache) const
-{
-    if (!isRootNode() && !hasPValue())
-        return;
-
-    const quint64 h = hash();
-    pinnedList->append(h);
-    Q_ASSERT(cache->containsNode(h));
-    cache->pinNode(h);
-
-    const Node *bestChild = bestEmbodiedChild();
-    if (!bestChild)
-        return;
-
-    return bestChild->pinPrincipalVariation(pinnedList, cache);
-}
-
 QString Node::principalVariation(int *depth, bool *isTB) const
 {
     if (!isRootNode() && !hasPValue()) {
@@ -634,17 +617,13 @@ void Node::validateTree(const Node *node)
     Q_ASSERT(node->m_visited == childVisits + 1);
 }
 
-quint64 Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache, QMutex *mutex)
+Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache, QMutex *mutex)
 {
 start_playout:
     int vld = *vldMax;
-    quint64 nhash = root->hash();
+    Node *n = root;
     forever {
         QMutexLocker locker(mutex);
-        if (!cache->containsNode(nhash))
-            goto start_playout;
-
-        Node *n = cache->node(nhash);
         // If we've never been scored or this is an exact node, then this is our playout node
         if (!n->setScoringOrScored() || n->isExact()) {
             ++n->m_virtualLoss;
@@ -674,14 +653,14 @@ start_playout:
             qDebug() << "decreasing try for" << n->toString() << *tryPlayoutLimit;
 #endif
             if (*tryPlayoutLimit <= 0)
-                return 0;
+                return nullptr;
 
             *vldMax -= increment;
 #if defined(DEBUG_PLAYOUT)
             qDebug() << "decreasing vldMax for" << n->toString() << *vldMax;
 #endif
             if (*vldMax <= 0)
-                return 0;
+                return nullptr;
 
             goto start_playout;
         }
@@ -725,14 +704,11 @@ start_playout:
             else
                 vld = qMin(vld, vldNew);
             Q_ASSERT(vld >= 1);
-            secondNode->relink(cache);
         }
-        firstNode->relink(cache);
 
         // Retrieve the actual first node
         NodeGenerationError error = NoError;
         n = firstNode->isPotential() ? n->generateEmbodiedChild(firstNode, cache, &error) : firstNode->node();
-        nhash = n->hash();
 
         if (!n) {
             if (error == OutOfMemory)
@@ -741,7 +717,7 @@ start_playout:
         }
     }
 
-    return nhash;
+    return n;
 }
 
 bool Node::isNoisy() const

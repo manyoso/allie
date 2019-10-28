@@ -235,18 +235,6 @@ void Tests::testBasicCache()
     QCOMPARE(cache.used(), 5);
     QCOMPARE(cache.size(), 5);
     QVERIFY(qFuzzyCompare(cache.percentFull(0), 1.f));
-
-    // Pin second and fourth item
-    cache.pin(item2->id);
-    cache.pin(item4->id);
-    QCOMPARE(cache.used(), 5);
-
-    // Check contents of hash everything should still be there
-    QVERIFY(cache.contains(1));
-    QVERIFY(cache.contains(2));
-    QVERIFY(cache.contains(3));
-    QVERIFY(cache.contains(4));
-    QVERIFY(cache.contains(5));
 }
 
 void Tests::testStart(const StandaloneGame &start)

@@ -71,22 +71,18 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
     search();
 }
 
-void SearchWorker::fetchBatch(const QVector<quint64> &batch,
+void SearchWorker::fetchBatch(const QVector<Node*> &batch,
     lczero::Network *network, Tree *tree, int searchId)
 {
-    Cache &cache = *Cache::globalInstance();
-    QVector<quint64> actualBatch;
+    QVector<Node*> actualBatch;
     actualBatch.reserve(batch.size());
     {
         Computation computation(network);
         for (int index = 0; index < batch.count(); ++index) {
             QMutexLocker locker(tree->treeMutex());
-            quint64 nodeHash = batch.at(index);
-            if (!cache.containsNode(nodeHash))
-                continue;
-            Node *node = cache.node(nodeHash);
-            actualBatch.append(nodeHash);
+            Node *node = batch.at(index);
             computation.addPositionToEvaluate(node);
+            actualBatch.append(node);
         }
 
 #if defined(DEBUG_EVAL)
@@ -102,15 +98,13 @@ void SearchWorker::fetchBatch(const QVector<quint64> &batch,
 
         for (int index = 0; index < actualBatch.count(); ++index) {
             QMutexLocker locker(tree->treeMutex());
-            quint64 nodeHash = actualBatch.at(index);
-            if (!cache.containsNode(nodeHash))
-                continue;
-
-            Node *node = cache.node(nodeHash);
+            Node *node = actualBatch.at(index);
             Q_ASSERT(node->hasChildren() || node->isCheckMate() || node->isStaleMate());
             node->setRawQValue(-computation.qVal(index));
-            if (node->hasChildren())
+            if (node->hasChildren()) {
                 computation.setPVals(index, node);
+                Node::sortByPVals(*node->children());
+            }
         }
 
         NeuralNet::globalInstance()->releaseNetwork(network);
@@ -120,13 +114,8 @@ void SearchWorker::fetchBatch(const QVector<quint64> &batch,
     {
         QMutexLocker locker(tree->treeMutex());
         for (int index = 0; index < actualBatch.count(); ++index) {
-            quint64 nodeHash = actualBatch.at(index);
-            if (!cache.containsNode(nodeHash))
-                continue;
-
-            Node *node = cache.node(nodeHash);
+            Node *node = actualBatch.at(index);
             node->backPropagateDirty();
-            Node::sortByPVals(*node->children());
 
             // Clone the transpositions
             QVector<Node*> transpositions = node->position()->nodes();
@@ -141,7 +130,6 @@ void SearchWorker::fetchBatch(const QVector<quint64> &batch,
         // Gather minimax scores;
         bool isExact = false;
         Node::minimax(m_tree->embodiedRoot(), 0 /*depth*/, &isExact, &info);
-        m_tree->constructPrincipalVariations();
 #if defined(DEBUG_VALIDATE_TREE)
         Node::validateTree(m_tree->root);
 #endif
@@ -155,7 +143,7 @@ void SearchWorker::fetchBatch(const QVector<quint64> &batch,
     emit sendInfo(info);
 }
 
-void SearchWorker::fetchFromNN(const QVector<quint64> &nodesToFetch, bool sync)
+void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, bool sync)
 {
     Q_ASSERT(!nodesToFetch.isEmpty());
     const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
@@ -180,13 +168,13 @@ bool SearchWorker::fillOutTree(bool *hardExit)
 {
     const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
     bool didWork = false;
-    QVector<quint64> playouts = playoutNodes(maximumBatchSize, &didWork, hardExit);
+    QVector<Node*> playouts = playoutNodes(maximumBatchSize, &didWork, hardExit);
     if (!playouts.isEmpty() || didWork)
         fetchAndMinimax(playouts, false /*sync*/);
     return didWork;
 }
 
-void SearchWorker::fetchAndMinimax(QVector<quint64> nodes, bool sync)
+void SearchWorker::fetchAndMinimax(QVector<Node*> nodes, bool sync)
 {
     if (!nodes.isEmpty()) {
         fetchFromNN(nodes, sync);
@@ -197,7 +185,6 @@ void SearchWorker::fetchAndMinimax(QVector<quint64> nodes, bool sync)
             // Gather minimax scores;
             bool isExact = false;
             Node::minimax(m_tree->embodiedRoot(), 0 /*depth*/, &isExact, &info);
-            m_tree->constructPrincipalVariations();
 #if defined(DEBUG_VALIDATE_TREE)
             Node::validateTree(m_tree->root);
 #endif
@@ -208,15 +195,6 @@ void SearchWorker::fetchAndMinimax(QVector<quint64> nodes, bool sync)
         info.threadId = QThread::currentThread()->objectName();
         emit sendInfo(info);
     }
-}
-
-bool SearchWorker::handlePlayout(quint64 playoutHash, Cache *hash)
-{
-    QMutexLocker locker(m_tree->treeMutex());
-    if (!hash->containsNode(playoutHash))
-        return false;
-
-    return handlePlayout(hash->node(playoutHash));
 }
 
 bool SearchWorker::handlePlayout(Node *playout)
@@ -266,28 +244,30 @@ bool SearchWorker::handlePlayout(Node *playout)
     return true; // Otherwise we should fetch from NN
 }
 
-QVector<quint64> SearchWorker::playoutNodes(int size, bool *didWork, bool *hardExit)
+QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, bool *hardExit)
 {
 #if defined(DEBUG_PLAYOUT)
     qDebug() << "begin playout filling" << size;
 #endif
 
     int exactOrCached = 0;
-    QVector<quint64> nodes;
+    QVector<Node*> nodes;
     int vldMax = SearchSettings::vldMax;
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
     Cache *hash = Cache::globalInstance();
     while (nodes.count() < size && exactOrCached < size) {
-        quint64 playoutHash = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash, m_tree->treeMutex());
-        if (!playoutHash)
+        // Check if the we are out of nodes
+        if (hash->used() == hash->size()) {
+            *hardExit = true;
+            break;
+        }
+
+        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash, m_tree->treeMutex());
+        if (!playout)
             break;
 
         {
             QMutexLocker locker(m_tree->treeMutex());
-            if (!hash->containsNode(playoutHash))
-                continue;
-
-            Node *playout = hash->node(playoutHash);
             const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
             *didWork = true;
 
@@ -295,17 +275,17 @@ QVector<quint64> SearchWorker::playoutNodes(int size, bool *didWork, bool *hardE
                 ++exactOrCached;
                 continue;
             }
-        }
 
-        bool shouldFetchFromNN = handlePlayout(playoutHash, hash);
-        if (!shouldFetchFromNN) {
-            ++exactOrCached;
-            continue;
-        }
+            bool shouldFetchFromNN = handlePlayout(playout);
+            if (!shouldFetchFromNN) {
+                ++exactOrCached;
+                continue;
+            }
 
-        exactOrCached = 0;
-        Q_ASSERT(!nodes.contains(playoutHash));
-        nodes.append(playoutHash);
+            exactOrCached = 0;
+            Q_ASSERT(!nodes.contains(playout));
+            nodes.append(playout);
+        }
     }
 
 #if defined(DEBUG_PLAYOUT)
@@ -321,12 +301,12 @@ void SearchWorker::ensureRootAndChildrenScored()
         // Fetch and minimax for root
         m_tree->treeMutex()->lock();
         Node *root = m_tree->embodiedRoot();
-        QVector<quint64> nodes;
+        QVector<Node*> nodes;
         if (!root->setScoringOrScored()) {
             root->m_virtualLoss += 1;
             bool shouldFetchFromNN = handlePlayout(root);
             if (shouldFetchFromNN)
-                nodes.append(root->hash());
+                nodes.append(root);
         }
         m_tree->treeMutex()->unlock();
         fetchAndMinimax(nodes, true /*sync*/);
@@ -352,11 +332,11 @@ void SearchWorker::ensureRootAndChildrenScored()
             didWork = true;
         }
 
-        QVector<quint64> nodes;
+        QVector<Node*> nodes;
         for (Node *child : children) {
             bool shouldFetchFromNN = handlePlayout(child);
             if (shouldFetchFromNN)
-                nodes.append(child->hash());
+                nodes.append(child);
         }
         m_tree->treeMutex()->unlock();
 

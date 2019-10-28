@@ -30,12 +30,6 @@
 
 //#define DEBUG_RESUME
 
-struct PrincipalVariation {
-    QString pv;
-    int depth = 0;
-    bool isTB = false;
-};
-
 class Tree {
 public:
     Tree(bool resumePreviousPositionIfPossible = true);
@@ -45,8 +39,6 @@ public:
     QMutex *treeMutex();
     void reset();
     void clearRoot();
-    void constructPrincipalVariations();
-    QVector<PrincipalVariation> multiPV();
 
 private:
     QMutex m_treeMutex;
@@ -70,10 +62,6 @@ inline Tree::~Tree()
 
 inline void Tree::reset()
 {
-    // If this is called it means the cache has already been reset
-    m_pinned.clear();
-    if (m_root)
-        Cache::globalInstance()->unpinNode(m_root->hash());
     m_root = nullptr;
 }
 
@@ -82,18 +70,10 @@ inline void Tree::clearRoot()
     const StandaloneGame rootGame = History::globalInstance()->currentGame();
     Cache &cache = *Cache::globalInstance();
 
-    // Clear the old pinned nodes and pv
-    for (quint64 pin : m_pinned)
-        cache.unpinNode(pin);
-
-    m_pinned.clear();
-
     if (m_root) {
-        // Unpin root
-        cache.unpinNode(m_root->hash());
-
         if (!m_resumePreviousPositionIfPossible) {
-            cache.unlinkNode(m_root->hash());
+            if (cache.containsNode(m_root->hash()))
+                cache.unlinkNode(m_root->hash());
             m_root = nullptr;
             Q_ASSERT(!cache.used());
         } else {
@@ -107,9 +87,6 @@ inline void Tree::clearRoot()
                         grandChild->setAsRootNode();
                         cache.unlinkNode(m_root->hash());
                         m_root = grandChild;
-                        // Pin the new root
-                        cache.pinNode(m_root->hash());
-                        constructPrincipalVariations();
                         foundResume = true;
                         break;
                     }
@@ -140,7 +117,6 @@ inline Node *Tree::embodiedRoot()
 
     quint64 rootHash = Node::nextHash();
     m_root = cache.newNode(rootHash);
-    cache.pinNode(rootHash);
     Q_ASSERT(m_root);
 
     Node::Position *rootPosition = nullptr;
@@ -163,27 +139,6 @@ inline Node *Tree::embodiedRoot()
 inline QMutex *Tree::treeMutex()
 {
     return &m_treeMutex;
-}
-
-inline void Tree::constructPrincipalVariations()
-{
-    Node *root = embodiedRoot();
-    Q_ASSERT(root);
-    Cache &cache = *Cache::globalInstance();
-
-    // Clear the old pinned nodes and pv
-    for (quint64 pin : m_pinned)
-        cache.unpinNode(pin);
-
-    m_pinned.clear();
-
-    QVector<Node::Child> *children = root->children();
-    for (Node::Child &ch : *children) {
-        if (ch.isPotential() || !ch.node())
-            continue;
-        ch.node()->pinPrincipalVariation(&m_pinned, &cache);
-    }
-    Q_ASSERT(m_pinned.count() < 1000);
 }
 
 #endif // TREE_H

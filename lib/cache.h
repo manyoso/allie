@@ -94,8 +94,6 @@ public:
     Node *node(quint64 hash, bool relink = false);
     Node *newNode(quint64 hash);
     void unlinkNode(quint64 hash);
-    void pinNode(quint64 hash);
-    void unpinNode(quint64 hash);
 
     bool containsNodePosition(quint64 hash) const;
     Node::Position *nodePosition(quint64 hash, bool relink = false);
@@ -488,16 +486,6 @@ inline Node *Cache::newNode(quint64 hash)
 inline void Cache::unlinkNode(quint64 hash)
 {
     m_nodeCache.unlink(hash);
-}
-
-inline void Cache::pinNode(quint64 hash)
-{
-    m_nodeCache.pin(hash);
-}
-
-inline void Cache::unpinNode(quint64 hash)
-{
-    m_nodeCache.unpin(hash);
 }
 
 inline bool Cache::containsNodePosition(quint64 hash) const

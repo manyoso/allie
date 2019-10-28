@@ -162,7 +162,7 @@ public:
     Node();
     ~Node();
 
-    static quint64 playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash, QMutex *mutex);
+    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash, QMutex *mutex);
     static float minimax(Node *, int depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
     static float uctFormula(float qValue, float uValue, quint64 visits);
@@ -246,7 +246,6 @@ public:
 
     Node *parent() const;
 
-    void pinPrincipalVariation(QVector<quint64> *pinnedList, Cache *cache) const; // recursive
     QString principalVariation(int *depth, bool *isTB) const; // recursive
 
     QString toString(Chess::NotationType = Chess::Computer) const;
@@ -471,10 +470,6 @@ inline void Node::cloneFromTransposition(Node *firstTransposition)
                 child.setPValue(childClone.node()->pValue());
             m_children.append(child);
         }
-
-        // We have to sort manually now as the firstTransposition might have had raw qvalue set
-        // but not sorted children yet
-        Node::sortByPVals(*children());
     }
 
     m_rawQValue = firstTransposition->m_rawQValue;
