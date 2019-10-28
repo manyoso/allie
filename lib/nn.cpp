@@ -38,6 +38,9 @@
 using namespace Chess;
 using namespace lczero;
 
+//#define USE_UNIFORM_BACKEND
+//#define USE_FAST_UNIFORM_POLICY
+
 const int s_moveHistory = 8;
 const int s_planesPerPos = 13;
 const int s_planeBase = s_planesPerPos * s_moveHistory;
@@ -247,7 +250,9 @@ void Computation::evaluate()
         return;
     }
 
+#if !defined(USE_UNIFORM_BACKEND)
     m_computation->ComputeBlocking();
+#endif
 }
 
 void Computation::clear()
@@ -261,11 +266,20 @@ void Computation::clear()
 float Computation::qVal(int index) const
 {
     Q_ASSERT(index < m_positions);
+#if !defined(USE_UNIFORM_BACKEND)
     return m_computation->GetQVal(index);
+#else
+    return 0.0f;
+#endif
 }
 
 void Computation::setPVals(int index, Node *node) const
 {
+#if defined(USE_FAST_UNIFORM_POLICY)
+    QVector<Node::Child> *children = node->children();
+    for (int i = 0; i < children->count(); ++i)
+        (&(*children)[i])->setPValue(1.0f);
+#else
     Q_ASSERT(index < m_positions);
     Q_ASSERT(node);
     Q_ASSERT(node->hasChildren());
@@ -280,7 +294,13 @@ void Computation::setPVals(int index, Node *node) const
         Move mv = child->move();
         if (p.activeArmy() == Chess::Black)
             mv.mirror(); // nn index expects the board to be flipped
+#if !defined(USE_UNIFORM_BACKEND)
         const float p = fastpow(m_computation->GetPVal(index, moveToNNIndex(mv)), SearchSettings::policySoftmaxTemp);
+#else
+        float fakePolicy = 1.0f;
+        moveToNNIndex(mv);
+        const float p = fastpow(fakePolicy, SearchSettings::policySoftmaxTemp);
+#endif
         total += p;
         policyValues.append(qMakePair(p, child));
     }
@@ -293,4 +313,5 @@ void Computation::setPVals(int index, Node *node) const
         it->second->setPValue(normalizedP);
         normalizedTotal += normalizedP;
     }
+#endif
 }
