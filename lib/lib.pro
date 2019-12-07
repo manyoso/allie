@@ -26,7 +26,6 @@ include(zlib.pri)
 PROTOS += $$PWD/proto/net.proto
 include(protobuf.pri)
 include(cuda.pri)
-include(blas.pri)
 
 CONFIG(release, debug|release) {
   CONFIG += optimize_full
@@ -98,20 +97,10 @@ SOURCES += \
 
 !win32 {
 HEADERS += \
-    $$PWD/neural/blas/blas.h \
-    $$PWD/neural/blas/convolution1.h \
-    $$PWD/neural/blas/fully_connected_layer.h \
-    $$PWD/neural/blas/se_unit.h \
-    $$PWD/neural/blas/winograd_convolution3.h \
     $$PWD/neural/shared/activation.h \
     $$PWD/neural/shared/winograd_filter.h \
 
 SOURCES += \
-    $$PWD/neural/blas/convolution1.cpp \
-    $$PWD/neural/blas/fully_connected_layer.cpp \
-    $$PWD/neural/blas/nn_blas.cpp \
-    $$PWD/neural/blas/se_unit.cpp \
-    $$PWD/neural/blas/winograd_convolution3.cpp \
     $$PWD/neural/shared/activation.cpp \
     $$PWD/neural/shared/winograd_filter.cpp \
 }
