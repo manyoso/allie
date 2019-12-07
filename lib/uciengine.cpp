@@ -678,12 +678,13 @@ void UciEngine::stop()
 void UciEngine::quit()
 {
     //qDebug() << "quit";
+    Q_ASSERT(m_searchEngine);
+    if (m_searchEngine && m_gameInitialized) {
 #if defined(AVERAGES)
-    sendAverages();
+        sendAverages();
 #endif
-    Q_ASSERT(m_searchEngine && m_gameInitialized);
-    if (m_searchEngine)
         m_searchEngine->stopPonder();
+    }
     QCoreApplication::instance()->quit();
 }
 
