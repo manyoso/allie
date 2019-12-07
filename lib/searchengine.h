@@ -30,11 +30,8 @@
 
 #include "search.h"
 
-namespace lczero {
-class Network;
-};
-
 class Cache;
+class Computation;
 class Node;
 class Tree;
 class SearchWorker : public QObject {
@@ -60,7 +57,7 @@ private Q_SLOTS:
 
 private:
     void fetchBatch(const QVector<Node*> &batch,
-        lczero::Network *network, Tree *tree, int searchId);
+        Computation *computation, Tree *tree, int searchId);
     void fetchFromNN(const QVector<Node*> &fetch, bool sync);
     void fetchAndMinimax(QVector<Node*> nodes, bool sync);
     bool fillOutTree(bool *hardExit);

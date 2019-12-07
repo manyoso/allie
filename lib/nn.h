@@ -25,15 +25,16 @@
 #include <QWaitCondition>
 
 #include "game.h"
+#include "node.h"
 
 #include "neural/network.h"
 
-class Node;
 class Computation {
 public:
     Computation(lczero::Network *network);
     ~Computation();
 
+    void reset();
     int addPositionToEvaluate(const Node *node);
     int positions() const { return m_positions; }
     void evaluate();
@@ -55,14 +56,15 @@ public:
 
     void reset();
     void setWeights(const QString &pathToWeights);
-    lczero::Network *acquireNetwork(); // will block until a network is ready
-    void releaseNetwork(lczero::Network *network); // must be called when you are done
+    Computation *acquireNetwork(); // will block until a network is ready
+    void releaseNetwork(Computation*); // must be called when you are done
 
 private:
     NeuralNet();
     ~NeuralNet();
     lczero::Network *createNewGPUNetwork(int id, bool fp16) const;
-    QVector<lczero::Network*> m_availableNetworks;
+
+    QVector<Computation*> m_availableNetworks;
     QMutex m_mutex;
     QWaitCondition m_condition;
     bool m_weightsValid;

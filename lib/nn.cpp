@@ -177,7 +177,7 @@ void NeuralNet::reset()
     qDeleteAll(m_availableNetworks);
     m_availableNetworks.clear();
     for (int i = 0; i < numberOfGPUCores; ++i)
-        m_availableNetworks.append(createNewGPUNetwork(i, m_usingFP16));
+        m_availableNetworks.append(new Computation(createNewGPUNetwork(i, m_usingFP16)));
 }
 
 void NeuralNet::setWeights(const QString &pathToWeights)
@@ -191,7 +191,7 @@ void NeuralNet::setWeights(const QString &pathToWeights)
     }
 }
 
-Network *NeuralNet::acquireNetwork()
+Computation *NeuralNet::acquireNetwork()
 {
     QMutexLocker locker(&m_mutex);
     while (m_availableNetworks.isEmpty())
@@ -199,24 +199,31 @@ Network *NeuralNet::acquireNetwork()
     return m_availableNetworks.takeFirst();
 }
 
-void NeuralNet::releaseNetwork(Network *network)
+void NeuralNet::releaseNetwork(Computation *network)
 {
     QMutexLocker locker(&m_mutex);
     m_availableNetworks.append(network);
     m_condition.wakeAll();
 }
 
-Computation::Computation(Network *network)
+Computation::Computation(lczero::Network *network)
     : m_positions(0),
-    m_network(network)
+    m_network(network),
+    m_computation(nullptr)
 {
-    m_computation = m_network->NewComputation().release();
     m_inputPlanes.resize(s_planeBase + s_moveHistory);
 }
 
 Computation::~Computation()
 {
     clear();
+    delete m_network;
+}
+
+void Computation::reset()
+{
+    clear();
+    m_computation = m_network->NewComputation().release();
 }
 
 int Computation::addPositionToEvaluate(const Node *node)
@@ -224,6 +231,7 @@ int Computation::addPositionToEvaluate(const Node *node)
     m_inputPlanes.clear();
     m_inputPlanes.resize(s_planeBase + s_moveHistory);
     gameToInputPlanes(node, &m_inputPlanes);
+    Q_ASSERT(m_computation);
     m_computation->AddInput(&m_inputPlanes);
     return m_positions++;
 }
@@ -245,11 +253,11 @@ void Computation::clear()
     m_positions = 0;
     delete m_computation;
     m_computation = nullptr;
-    m_network = nullptr;
 }
 
 float Computation::qVal(int index) const
 {
+    Q_ASSERT(m_computation);
     Q_ASSERT(index < m_positions);
 #if !defined(USE_UNIFORM_BACKEND)
     return m_computation->GetQVal(index);
@@ -265,6 +273,7 @@ void Computation::setPVals(int index, Node *node) const
     for (int i = 0; i < potentials->count(); ++i)
         (&(*potentials)[i])->setPValue(1.0f);
 #else
+    Q_ASSERT(m_computation);
     Q_ASSERT(index < m_positions);
     Q_ASSERT(node);
     Q_ASSERT(node->hasPotentials());

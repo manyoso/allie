@@ -72,22 +72,22 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
 }
 
 void SearchWorker::fetchBatch(const QVector<Node*> &batch,
-    lczero::Network *network, Tree *tree, int searchId)
+    Computation *computation, Tree *tree, int searchId)
 {
     {
-        Computation computation(network);
+        computation->reset();
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
-            computation.addPositionToEvaluate(node);
+            computation->addPositionToEvaluate(node);
         }
 
 #if defined(DEBUG_EVAL)
         qDebug() << "fetching batch of size" << batch.count() << QThread::currentThread()->objectName();
 #endif
-        computation.evaluate();
+        computation->evaluate();
 
-        Q_ASSERT(computation.positions() == batch.count());
-        if (computation.positions() != batch.count()) {
+        Q_ASSERT(computation->positions() == batch.count());
+        if (computation->positions() != batch.count()) {
             qCritical() << "NN index mismatch!";
             return;
         }
@@ -95,14 +95,14 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
             Q_ASSERT(node->hasPotentials() || node->isCheckMate() || node->isStaleMate());
-            node->setRawQValue(-computation.qVal(index));
+            node->setRawQValue(-computation->qVal(index));
             if (node->hasPotentials()) {
-                computation.setPVals(index, node);
+                computation->setPVals(index, node);
                 Node::sortByPVals(*node->m_position->potentials());
             }
         }
 
-        NeuralNet::globalInstance()->releaseNetwork(network);
+        NeuralNet::globalInstance()->releaseNetwork(computation);
     }
 
     WorkerInfo info;
@@ -149,7 +149,7 @@ void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, bool sync)
         emit reachedMaxBatchSize();
     }
 
-    lczero::Network *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
+    Computation *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
     Q_ASSERT(network);
     if (sync) {
         fetchBatch(nodesToFetch, network, m_tree, m_searchId);
