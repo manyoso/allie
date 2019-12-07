@@ -26,10 +26,7 @@
 
 #include "game.h"
 
-namespace lczero {
-    class Network;
-    class NetworkComputation;
-};
+#include "neural/network.h"
 
 class Node;
 class Computation {
@@ -49,6 +46,7 @@ private:
     int m_positions;
     lczero::Network *m_network;
     lczero::NetworkComputation *m_computation;
+    std::vector<lczero::InputPlane> m_inputPlanes;
 };
 
 class NeuralNet {

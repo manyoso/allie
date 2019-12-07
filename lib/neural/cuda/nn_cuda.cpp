@@ -143,14 +143,14 @@ class CudnnNetworkComputation : public NetworkComputation {
   CudnnNetworkComputation(CudnnNetwork<DataType>* network, bool wdl);
   ~CudnnNetworkComputation();
 
-  void AddInput(InputPlanes&& input) override {
+  void AddInput(InputPlanes *input) override {
     const auto iter_mask =
         &inputs_outputs_->input_masks_mem_[batch_size_ * kInputPlanes];
     const auto iter_val =
         &inputs_outputs_->input_val_mem_[batch_size_ * kInputPlanes];
 
     int i = 0;
-    for (const auto& plane : input) {
+    for (const auto& plane : *input) {
       iter_mask[i] = plane.mask;
       iter_val[i] = plane.value;
       i++;

@@ -90,11 +90,10 @@ inline void encodeGame(int i, const Game &g, const Game::Position &p,
     // FIXME: Encode enpassant target
 }
 
-inline InputPlanes gameToInputPlanes(const Node *node)
+inline void gameToInputPlanes(const Node *node, std::vector<InputPlane> *result)
 {
     const Game &game = node->game();
     const Game::Position &position = node->position()->position();
-    InputPlanes result(s_planeBase + s_moveHistory);
 
     // *us* refers to the perspective of whoever is next to move
     const bool nextMoveIsBlack = position.activeArmy() == Black;
@@ -108,7 +107,7 @@ inline InputPlanes gameToInputPlanes(const Node *node)
     for (; it != HistoryIterator::end() && gamesEncoded < s_moveHistory; ++it, ++gamesEncoded) {
         Game g = it.game();
         Game::Position p = it.position();
-        encodeGame(gamesEncoded, g, p, &result, us, them, nextMoveIsBlack);
+        encodeGame(gamesEncoded, g, p, result, us, them, nextMoveIsBlack);
         lastGameEncoded = g;
         lastPositionEncoded = p;
     }
@@ -117,22 +116,20 @@ inline InputPlanes gameToInputPlanes(const Node *node)
     // real history is not the startpos
     if (lastGameEncoded != Game()) {
         while (gamesEncoded < s_moveHistory) {
-            encodeGame(gamesEncoded, lastGameEncoded, lastPositionEncoded, &result, us, them, nextMoveIsBlack);
+            encodeGame(gamesEncoded, lastGameEncoded, lastPositionEncoded, result, us, them, nextMoveIsBlack);
             ++gamesEncoded;
         }
     }
 
-    if (position.isCastleAvailable(us, QueenSide)) result[s_planeBase + 0].SetAll();
-    if (position.isCastleAvailable(us, KingSide)) result[s_planeBase + 1].SetAll();
-    if (position.isCastleAvailable(them, QueenSide)) result[s_planeBase + 2].SetAll();
-    if (position.isCastleAvailable(them, KingSide)) result[s_planeBase + 3].SetAll();
-    if (us == Chess::Black) result[s_planeBase + 4].SetAll();
-    result[s_planeBase + 5].Fill(game.halfMoveClock());
+    if (position.isCastleAvailable(us, QueenSide)) (*result)[s_planeBase + 0].SetAll();
+    if (position.isCastleAvailable(us, KingSide)) (*result)[s_planeBase + 1].SetAll();
+    if (position.isCastleAvailable(them, QueenSide)) (*result)[s_planeBase + 2].SetAll();
+    if (position.isCastleAvailable(them, KingSide)) (*result)[s_planeBase + 3].SetAll();
+    if (us == Chess::Black) (*result)[s_planeBase + 4].SetAll();
+    (*result)[s_planeBase + 5].Fill(game.halfMoveClock());
     // Plane s_planeBase + 6 used to be movecount plane, now it's all zeros.
     // Plane s_planeBase + 7 is all ones to help NN find board edges.
-    result[s_planeBase + 7].SetAll();
-
-    return result;
+    (*result)[s_planeBase + 7].SetAll();
 }
 
 static WeightsFile s_weights;
@@ -214,6 +211,7 @@ Computation::Computation(Network *network)
     m_network(network)
 {
     m_computation = m_network->NewComputation().release();
+    m_inputPlanes.resize(s_planeBase + s_moveHistory);
 }
 
 Computation::~Computation()
@@ -223,7 +221,10 @@ Computation::~Computation()
 
 int Computation::addPositionToEvaluate(const Node *node)
 {
-    m_computation->AddInput(gameToInputPlanes(node));
+    m_inputPlanes.clear();
+    m_inputPlanes.resize(s_planeBase + s_moveHistory);
+    gameToInputPlanes(node, &m_inputPlanes);
+    m_computation->AddInput(&m_inputPlanes);
     return m_positions++;
 }
 
