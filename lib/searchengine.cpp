@@ -46,6 +46,7 @@ SearchWorker::SearchWorker(int id, QObject *parent)
       m_tree(nullptr),
       m_stop(true)
 {
+    m_useTranspositions = Options::globalInstance()->option("UseTranspositions").value() == "true";
 }
 
 SearchWorker::~SearchWorker()
@@ -112,12 +113,14 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             Node *node = batch.at(index);
 
             // Clone the transpositions as well
-            const QVector<Node*> &transpositions = node->position()->nodes();
-            for (Node *t : transpositions) {
-                if (t == node)
-                    continue;
-                t->m_rawQValue = node->m_rawQValue;
-                t->backPropagateDirty();
+            if (m_useTranspositions) {
+                const QVector<Node*> &transpositions = node->position()->nodes();
+                for (Node *t : transpositions) {
+                    if (t == node)
+                        continue;
+                    t->m_rawQValue = node->m_rawQValue;
+                    t->backPropagateDirty();
+                }
             }
 
             node->backPropagateDirty();
@@ -226,7 +229,7 @@ bool SearchWorker::handlePlayout(Node *playout)
     }
 
     Node *firstTransposition = playout->position()->nodes().first();
-    if (firstTransposition && firstTransposition != playout) {
+    if (m_useTranspositions && firstTransposition && firstTransposition != playout) {
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding cloned transposition playout" << playout->toString();
 #endif

@@ -172,6 +172,14 @@ Options::Options()
     useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
     insertOption(useHalfFloatingPoint);
 
+    UciOption useTranspositions;
+    useTranspositions.m_name = QLatin1Literal("UseTranspositions");
+    useTranspositions.m_type = UciOption::Check;
+    useTranspositions.m_default = QLatin1Literal("true");
+    useTranspositions.m_value = useTranspositions.m_default;
+    useTranspositions.m_description = QLatin1String("Whether to use transpositions");
+    insertOption(useTranspositions);
+
     UciOption weightsFile;
     weightsFile.m_name = QLatin1Literal("WeightsFile");
     weightsFile.m_type = UciOption::String;
