@@ -611,11 +611,10 @@ QStringList Game::Position::stateOfPositionToFen() const
     return fenOfPosition;
 }
 
-BitBoard Game::Position::kingAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::kingAttackBoard(const Movegen *gen,
+    const BitBoard &friends, const BitBoard &enemies) const
 {
     BitBoard bits;
-    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
-    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard pieces(friends & board(King));
     BitBoard::Iterator sq = pieces.begin();
     for (int i = 0; sq != pieces.end(); ++sq, ++i) {
@@ -625,11 +624,10 @@ BitBoard Game::Position::kingAttackBoard(Chess::Army army, const Movegen *gen) c
     return bits;
 }
 
-BitBoard Game::Position::queenAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::queenAttackBoard(const Movegen *gen,
+    const BitBoard &friends, const BitBoard &enemies) const
 {
     BitBoard bits;
-    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
-    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard pieces(friends & board(Queen));
     BitBoard::Iterator sq = pieces.begin();
     for (; sq != pieces.end(); ++sq)
@@ -637,11 +635,10 @@ BitBoard Game::Position::queenAttackBoard(Chess::Army army, const Movegen *gen) 
     return bits;
 }
 
-BitBoard Game::Position::rookAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::rookAttackBoard(const Movegen *gen,
+    const BitBoard &friends, const BitBoard &enemies) const
 {
     BitBoard bits;
-    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
-    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard pieces(friends & board(Rook));
     BitBoard::Iterator sq = pieces.begin();
     for (; sq != pieces.end(); ++sq)
@@ -649,11 +646,10 @@ BitBoard Game::Position::rookAttackBoard(Chess::Army army, const Movegen *gen) c
     return bits;
 }
 
-BitBoard Game::Position::bishopAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::bishopAttackBoard(const Movegen *gen,
+    const BitBoard &friends, const BitBoard &enemies) const
 {
     BitBoard bits;
-    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
-    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
             const BitBoard pieces(friends & board(Bishop));
             BitBoard::Iterator sq = pieces.begin();
             for (; sq != pieces.end(); ++sq)
@@ -661,11 +657,10 @@ BitBoard Game::Position::bishopAttackBoard(Chess::Army army, const Movegen *gen)
             return bits;
 }
 
-BitBoard Game::Position::knightAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::knightAttackBoard(const Movegen *gen,
+    const BitBoard &friends, const BitBoard &enemies) const
 {
     BitBoard bits;
-    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
-    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard pieces(friends & board(Knight));
     BitBoard::Iterator sq = pieces.begin();
     for (; sq != pieces.end(); ++sq)
@@ -673,11 +668,10 @@ BitBoard Game::Position::knightAttackBoard(Chess::Army army, const Movegen *gen)
     return bits;
 }
 
-BitBoard Game::Position::pawnAttackBoard(Chess::Army army, const Movegen *gen) const
+BitBoard Game::Position::pawnAttackBoard(Chess::Army army, const Movegen *gen,
+    const BitBoard &friends, const BitBoard &enemies) const
 {
     BitBoard bits;
-    const BitBoard friends = army == White ? m_whitePositionBoard : m_blackPositionBoard;
-    const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard pieces(friends & board(Pawn));
     BitBoard::Iterator sq = pieces.begin();
     BitBoard enemiesPlusEnpassant = enemies;
@@ -835,34 +829,39 @@ bool Game::Position::isChecked(Chess::Army army) const
     const Chess::Army enemies = army == Black ? White : Black;
     const BitBoard kingBoard(board(friends) & board(King));
     const Movegen *gen = Movegen::globalInstance();
+
+    // Boards from perspective of attacker!
+    const BitBoard friendsBoard = enemies == White ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard enemiesBoard = enemies == Black ? m_whitePositionBoard : m_blackPositionBoard;
+
     {
-        const BitBoard b(kingBoard & queenAttackBoard(enemies, gen));
+        const BitBoard b(kingBoard & queenAttackBoard(gen, friendsBoard, enemiesBoard));
         if (!b.isClear())
             return true;
     }
     {
-        const BitBoard b(kingBoard & rookAttackBoard(enemies, gen));
+        const BitBoard b(kingBoard & rookAttackBoard(gen, friendsBoard, enemiesBoard));
         if (!b.isClear())
             return true;
     }
     {
-        const BitBoard b(kingBoard & bishopAttackBoard(enemies, gen));
+        const BitBoard b(kingBoard & bishopAttackBoard(gen, friendsBoard, enemiesBoard));
         if (!b.isClear())
             return true;
     }
     {
-        const BitBoard b(kingBoard & knightAttackBoard(enemies, gen));
+        const BitBoard b(kingBoard & knightAttackBoard(gen, friendsBoard, enemiesBoard));
         if (!b.isClear())
             return true;
     }
     {
         // Checks for illegality...
-        const BitBoard b(kingBoard & kingAttackBoard(enemies, gen));
+        const BitBoard b(kingBoard & kingAttackBoard(gen, friendsBoard, enemiesBoard));
         if (!b.isClear())
             return true;
     }
     {
-        const BitBoard b(kingBoard & pawnAttackBoard(enemies, gen));
+        const BitBoard b(kingBoard & pawnAttackBoard(enemies, gen, friendsBoard, enemiesBoard));
         if (!b.isClear())
             return true;
     }
@@ -935,12 +934,15 @@ bool Game::Position::isCastleLegal(Chess::Army army, Chess::Castle castle) const
 
     const Movegen *gen = Movegen::globalInstance();
     const Chess::Army attackArmy = army == White ? Black : White;
-    const BitBoard atb = kingAttackBoard(attackArmy, gen) |
-        queenAttackBoard(attackArmy, gen) |
-        rookAttackBoard(attackArmy, gen) |
-        bishopAttackBoard(attackArmy, gen) |
-        knightAttackBoard(attackArmy, gen) |
-        pawnAttackBoard(attackArmy, gen);
+    const BitBoard friends = attackArmy == White ? m_whitePositionBoard : m_blackPositionBoard;
+    const BitBoard enemies = attackArmy == Black ? m_whitePositionBoard : m_blackPositionBoard;
+
+    const BitBoard atb = kingAttackBoard(gen, friends, enemies) |
+        queenAttackBoard(gen, friends, enemies) |
+        rookAttackBoard(gen, friends, enemies) |
+        bishopAttackBoard(gen, friends, enemies) |
+        knightAttackBoard(gen, friends, enemies) |
+        pawnAttackBoard(attackArmy, gen, friends, enemies);
 
     // 4) The king is not currently in check.
     // 5) The king does not pass through a square that is attacked by an enemy piece.
