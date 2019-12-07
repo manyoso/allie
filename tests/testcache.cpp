@@ -250,17 +250,15 @@ void Tests::testStart(const StandaloneGame &start)
     QVERIFY(root);
     QCOMPARE(nullptr, root->parent());
     QCOMPARE(start.position().positionHash(), root->position()->positionHash());
-    root->generateChildren();
+    root->generatePotentials();
 
-    QVector<Node::Child> *childRefs = root->children(); // not a copy
-    QCOMPARE(childRefs->count(), 20);
-    for (int i = 0; i < childRefs->count(); ++i) {
-        Node::Child *childRef = &((*childRefs)[i]);
-        QVERIFY(childRef->isPotential());
+    QVector<Node::Potential> *potentials = root->m_position->potentials(); // not a copy
+    QCOMPARE(potentials->count(), 20);
+    for (int i = 0; i < potentials->count(); ++i) {
+        Node::Potential *potential = &((*potentials)[i]);
         Node::NodeGenerationError error = Node::NoError;
-        Node *child = root->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
+        Node *child = root->generateNode(potential->move(), potential->pValue(), root, Cache::globalInstance(), &error);
         QVERIFY(child);
-        QVERIFY(!childRef->isPotential());
         QCOMPARE(child->parent(), root);
         QVERIFY(!child->hasChildren());
         QCOMPARE(quint32(0), child->visits());

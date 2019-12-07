@@ -107,14 +107,14 @@ void Tests::testBasicStructures()
 
 void Tests::testSizes()
 {
-    QCOMPARE(sizeof(Square),        ulong(1));
-    QCOMPARE(sizeof(Move),          ulong(4));
-    QCOMPARE(sizeof(BitBoard),      ulong(8));
-    QCOMPARE(sizeof(Game),          ulong(8));
-    QCOMPARE(sizeof(Node::Child),   ulong(16));
-    QCOMPARE(sizeof(Game::Position),ulong(72));
-    QCOMPARE(sizeof(Node),          ulong(72));
-    QCOMPARE(sizeof(Node::Position),ulong(88));
+    QCOMPARE(sizeof(Square),          ulong(1));
+    QCOMPARE(sizeof(Move),            ulong(4));
+    QCOMPARE(sizeof(BitBoard),        ulong(8));
+    QCOMPARE(sizeof(Game),            ulong(8));
+    QCOMPARE(sizeof(Node::Potential), ulong(8));
+    QCOMPARE(sizeof(Game::Position),  ulong(72));
+    QCOMPARE(sizeof(Node),            ulong(72));
+    QCOMPARE(sizeof(Node::Position),  ulong(96));
 }
 
 void Tests::testVLDFormula()

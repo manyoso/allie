@@ -276,23 +276,23 @@ float Computation::qVal(int index) const
 void Computation::setPVals(int index, Node *node) const
 {
 #if defined(USE_FAST_UNIFORM_POLICY)
-    QVector<Node::Child> *children = node->children();
-    for (int i = 0; i < children->count(); ++i)
-        (&(*children)[i])->setPValue(1.0f);
+    QVector<Node::Potential> *potentials = node->position()->potentials();
+    for (int i = 0; i < potentials->count(); ++i)
+        (&(*potentials)[i])->setPValue(1.0f);
 #else
     Q_ASSERT(index < m_positions);
     Q_ASSERT(node);
-    Q_ASSERT(node->hasChildren());
-    const Game::Position &p = node->position()->position();
-    QVector<Node::Child> *children = node->children();
-    QVector<QPair<float, Node::Child*>> policyValues;
-    policyValues.reserve(children->size());
+    Q_ASSERT(node->hasPotentials());
+    const Chess::Army activeArmy = node->position()->position().activeArmy();
+    QVector<Node::Potential> *potentials = node->position()->potentials();
+    QVector<QPair<float, Node::Potential*>> policyValues;
+    policyValues.reserve(potentials->size());
     float total = 0;
-    for (int i = 0; i < children->count(); ++i) {
+    for (int i = 0; i < potentials->count(); ++i) {
         // We get a non-const reference to the actual value and change it in place
-        Node::Child *child = &(*children)[i];
-        Move mv = child->move();
-        if (p.activeArmy() == Chess::Black)
+        Node::Potential *potential = &(*potentials)[i];
+        Move mv = potential->move();
+        if (activeArmy == Chess::Black)
             mv.mirror(); // nn index expects the board to be flipped
 #if !defined(USE_UNIFORM_BACKEND)
         const float p = fastpow(m_computation->GetPVal(index, moveToNNIndex(mv)), SearchSettings::policySoftmaxTemp);
@@ -302,10 +302,10 @@ void Computation::setPVals(int index, Node *node) const
         const float p = fastpow(fakePolicy, SearchSettings::policySoftmaxTemp);
 #endif
         total += p;
-        policyValues.append(qMakePair(p, child));
+        policyValues.append(qMakePair(p, potential));
     }
 
-    QVector<QPair<float, Node::Child*>>::const_iterator it = policyValues.begin();
+    QVector<QPair<float, Node::Potential*>>::const_iterator it = policyValues.begin();
     const float scale = 1.0f / total;
     float normalizedTotal = 0;
     for (; it != policyValues.end(); ++it) {

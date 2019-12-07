@@ -47,39 +47,68 @@ extern float cpToScore(int cp);
 
 class Node {
 public:
-    class Child {
+    class Potential {
     public:
-        Child()
-            : m_isPotential(true)
+        Potential()
         {
             m_pValue = -2.0f;
             Q_ASSERT(!m_move.isValid());
         }
 
-        Child(const Move &move)
-            : m_isPotential(true)
+        Potential(const Move &move)
         {
             m_pValue = -2.0f;
             m_move = move;
             Q_ASSERT(m_move.isValid());
         }
 
-        inline bool isPotential() const { return m_isPotential; }
-        inline void setPotential(bool p) { m_isPotential = p; }
-        inline Node *node() const { return m_node; }
-        inline void setNode(Node *node) { m_node = node; }
-        inline bool hasPValue() const { return !qFuzzyCompare(pValue(), -2.0f); }
-        inline void setPValue(float pValue) { Q_ASSERT(isPotential()); m_pValue = pValue; }
+        inline bool hasPValue() const { return !qFuzzyCompare(m_pValue, -2.0f); }
+        inline float pValue() const { return m_pValue; }
+        inline void setPValue(float pValue) { m_pValue = pValue; }
         inline Move move() const { return m_move; }
         inline bool isValid() const { return m_move.isValid(); }
-        inline bool operator==(const Child &other) const { return m_move == other.m_move; }
-        QString toString() const { return Notation::moveToString(m_move, Chess::Computer); }
+
+        inline QString toString() const { return Notation::moveToString(m_move, Chess::Computer); }
+        bool operator==(const Potential &other) const { return m_move == other.m_move; }
+
+    private:
+        Move m_move;
+        float m_pValue;
+    };
+
+    class Playout {
+    public:
+        Playout()
+            : m_potential(nullptr)
+            , m_isPotential(true)
+        { }
+
+        Playout(Node *node)
+            : m_node(node)
+            , m_isPotential(false)
+        { }
+
+        Playout(Potential *potential)
+            : m_potential(potential)
+            , m_isPotential(true)
+        { }
+
+        inline bool isNull() const { return m_isPotential && !m_potential; }
+        inline Node *node() const { return m_node; }
+        inline Potential *potential() const { return m_potential; }
+        inline bool isPotential() const { return m_isPotential; }
+        inline bool hasPValue() const { return !qFuzzyCompare(pValue(), -2.0f); }
+
+        inline bool operator==(const Playout &other) const
+        {
+            return m_isPotential == other.m_isPotential && (m_isPotential ? m_potential == other.m_potential : m_node == other.m_node);
+        }
 
         // For playouts
         inline float pValue() const
         {
             if (isPotential())
-                return m_pValue;
+                return potential()->pValue();
             return node()->pValue();
         }
 
@@ -114,9 +143,8 @@ public:
     private:
         union {
             Node *m_node;
-            float m_pValue;
+            Potential *m_potential;
         };
-        Move m_move;
         bool m_isPotential : 1;
     };
 
@@ -130,25 +158,19 @@ public:
         void addNode(Node *node);
         void removeNode(Node *node);
         static Node::Position *relink(quint64 positionHash, Cache *cache);
-        bool nodesNotInHash() const; // only used for debugging
-        inline bool hasNode(Node *node) const
-        {
-            return m_nodes.contains(node);
-        }
-        inline const QVector<Node*>& embodiedNodes() const
-        {
-            Q_ASSERT(!nodesNotInHash());
-            return m_nodes;
-        }
-
+        inline bool hasNode(Node *node) const { return m_nodes.contains(node); }
+        inline const QVector<Node*>& nodes() const { return m_nodes; }
+        inline bool hasPotentials() const { return !m_potentials.isEmpty(); }
+        inline QVector<Potential> *potentials() { return &m_potentials; }
+        inline const QVector<Potential> *potentials() const { return &m_potentials; }
         inline const Game::Position &position() const { return m_position; }
         inline quint64 positionHash() const { return m_positionHash; }
-        inline const QVector<Node*>& nodes() const { return m_nodes; }
 
     private:
         Game::Position m_position;
         quint64 m_positionHash;
         QVector<Node*> m_nodes;
+        QVector<Potential> m_potentials;
         friend class Node;
         friend class Tests;
     };
@@ -176,16 +198,12 @@ public:
     quint32 virtualLoss() const;
 
     // parents and children
-    Node::Child findChild(const Move &child) const;
-
-    Node *bestEmbodiedChild() const;
-    QVector<Node*> embodiedChildren() const; // FIXME: expensive do not use in hot paths!
-    void nullifyChildRef(Node *child);
-    bool allChildrenPruned() const;
+    Node *bestChild() const;
+    bool hasPotentials() const;
 
     inline bool hasChildren() const { return !m_children.isEmpty(); }
-    inline QVector<Node::Child> *children() { return &m_children; }
-    inline const QVector<Node::Child> *children() const { return &m_children; }
+    inline QVector<Node*> *children() { return &m_children; }
+    inline const QVector<Node*> *children() const { return &m_children; }
 
     bool isNotExtendable() const;
 
@@ -211,14 +229,14 @@ public:
     };
 
     bool checkAndGenerateDTZ(int *dtz);
-    void generateChildren();
-    void reserveChildren(int totalSize);
-    Node::Child *generateChild(const Move &move);
-    Node *generateEmbodiedChild(Node::Child *child, Cache *cache, NodeGenerationError *error);
-    static Node *generateEmbodiedNode(const Move &move, float, Node *parent, Cache *cache, NodeGenerationError *error);
+    void generatePotentials();
+    void reservePotentials(int totalSize);
+    Node::Potential *generatePotential(const Move &move);
+    Node *generateNextChild(Cache *cache, NodeGenerationError *error);
+    static Node *generateNode(const Move &move, float, Node *parent, Cache *cache, NodeGenerationError *error);
 
     // children
-    const Node *findEmbodiedSuccessor(const QVector<QString> &child) const;
+    const Node *findSuccessor(const QVector<QString> &child) const;
 
     inline const Game &game() const { return m_game; }
 
@@ -250,11 +268,10 @@ public:
 
     static bool greaterThan(const Node *a, const Node *b);
     static void sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnlyy);
-    static void sortByPVals(QVector<Node::Child> &children);
+    static void sortByPVals(QVector<Node::Potential> &potentials);
 
     Node::Position *position() const;
 
-    void cloneFromTransposition(Node *firstTransposition);
     bool hasQValue() const;
     float qValueDefault() const;
     float qValue() const;
@@ -274,7 +291,7 @@ private:
     Game m_game;                        // 8
     Node *m_parent;                     // 8
     Node::Position *m_position;         // 8
-    QVector<Node::Child> m_children;    // 8
+    QVector<Node*> m_children;          // 8
     quint32 m_refs;                     // 4
     quint32 m_visited;                  // 4
     quint32 m_virtualLoss;              // 4
@@ -283,6 +300,7 @@ private:
     float m_pValue;                     // 4
     float m_policySum;                  // 4
     float m_uCoeff;                     // 4
+    quint8 m_potentialIndex;            // 2
     bool m_isExact: 1;                  // 1
     bool m_isTB: 1;                     // 1
     bool m_isDirty: 1;                  // 1
@@ -297,11 +315,9 @@ inline int Node::treeDepth() const
 {
     int d = 0;
     const Node *n = this;
-    while (n) {
-        QVector<Node*> children = n->embodiedChildren();
-        if (children.isEmpty())
-            break;
-        Node::sortByScore(children, true /*partialSortFirstOnly*/);
+    while (n && n->hasChildren()) {
+        QVector<Node*> children = n->m_children;
+        sortByScore(children, true /*partialSortFirstOnly*/);
         n = children.first();
         ++d;
     }
@@ -331,17 +347,18 @@ inline bool Node::isDirty() const
 inline int Node::count() const
 {
     int c = isRootNode() ? 0 : 1; // me, myself, and I
-    QVector<Node*> children = embodiedChildren();
-    for (const Node *n : children)
+    for (Node *n : m_children)
         c += n->count();
     return c;
 }
 
 inline bool Node::isNotExtendable() const
 {
-    // If we don't have children (either exact or haven't generated them yet)
-    // or if our children don't have pValues then we are not extendable
-    return !hasChildren() || !m_children.first().hasPValue();
+    // If we don't have children or potentials (either exact or haven't generated them yet)
+    // or if our children or potentials don't have pValues then we are not extendable
+    Q_ASSERT(m_position);
+    return (!hasChildren() || !m_children.first()->hasPValue())
+        && (!hasPotentials() || !m_position->potentials()->first().hasPValue());
 }
 
 inline float Node::uCoeff() const
@@ -357,6 +374,12 @@ inline quint32 Node::visits() const
 inline quint32 Node::virtualLoss() const
 {
     return m_virtualLoss;
+}
+
+inline bool Node::hasPotentials() const
+{
+    Q_ASSERT(m_position);
+    return m_potentialIndex != m_position->m_potentials.count();
 }
 
 inline bool Node::isAlreadyPlayingOut() const
@@ -384,7 +407,7 @@ inline void Node::setAsRootNode()
 {
     // Need to remove ourself from our parent's children
     if (m_parent) {
-        m_parent->nullifyChildRef(this);
+        m_parent->m_children.removeAll(this);
         --m_parent->m_refs;
     }
 
@@ -421,10 +444,10 @@ inline void Node::sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly)
     }
 }
 
-inline void Node::sortByPVals(QVector<Node::Child> &children)
+inline void Node::sortByPVals(QVector<Node::Potential> &potentials)
 {
-    std::stable_sort(children.begin(), children.end(),
-        [](const Node::Child &a, const Node::Child &b) {
+    std::stable_sort(potentials.begin(), potentials.end(),
+        [](const Node::Potential &a, const Node::Potential &b) {
         return a.pValue() > b.pValue();
     });
 }
@@ -442,28 +465,6 @@ inline float Node::qValueDefault() const
 #else
     return -1.0f;
 #endif
-}
-
-inline void Node::cloneFromTransposition(Node *firstTransposition)
-{
-    // Clone the relevant state from first transposition
-    Q_ASSERT(firstTransposition->hasRawQValue());
-    if (!firstTransposition->isExact()) {
-        QVector<Node::Child> childrenToClone = firstTransposition->m_children;
-        m_children.reserve(childrenToClone.size());
-        for (Node::Child childClone : childrenToClone) {
-            Child child(childClone.move());
-            if (childClone.isPotential())
-                child.setPValue(childClone.pValue());
-            else
-                child.setPValue(childClone.node()->pValue());
-            m_children.append(child);
-        }
-    }
-
-    m_rawQValue = firstTransposition->m_rawQValue;
-    m_isExact = firstTransposition->m_isExact;
-    m_isTB = firstTransposition->m_isTB;
 }
 
 inline bool Node::hasQValue() const

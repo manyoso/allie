@@ -786,7 +786,7 @@ void Game::Position::pseudoLegalMoves(Node *parent) const
     totalMoves += 2;
 
     // Reserve conservative estimate for number of children
-    parent->reserveChildren(totalMoves);
+    parent->reservePotentials(totalMoves);
 
     for (QPair<Square, BitBoard> piece : kingMoves) {
         BitBoard::Iterator newSq = piece.second.begin();
@@ -857,7 +857,7 @@ void Game::Position::generateCastle(Chess::Army army, Chess::Castle castleSide, 
     mv.setCastle(true);
     mv.setCastleSide(castleSide);
     Q_ASSERT(parent);
-    parent->generateChild(mv);
+    parent->generatePotential(mv);
 }
 
 void Game::Position::generateMove(Chess::PieceType piece, const Square &start, const Square &end, Node *parent) const
@@ -873,16 +873,16 @@ void Game::Position::generateMove(Chess::PieceType piece, const Square &start, c
     mv.setCapture(isCapture);
     Q_ASSERT(parent);
     if (!isPromotion) {
-        parent->generateChild(mv);
+        parent->generatePotential(mv);
     } else {
         mv.setPromotion(Queen);
-        parent->generateChild(mv);
+        parent->generatePotential(mv);
         mv.setPromotion(Knight);
-        parent->generateChild(mv);
+        parent->generatePotential(mv);
         mv.setPromotion(Rook);
-        parent->generateChild(mv);
+        parent->generatePotential(mv);
         mv.setPromotion(Bishop);
-        parent->generateChild(mv);
+        parent->generatePotential(mv);
     }
 }
 

@@ -78,9 +78,9 @@ inline void Tree::clearRoot()
         } else {
             // Attempt to resume root if possible
             bool foundResume = false;
-            const QVector<Node*> children = m_root->embodiedChildren();
+            const QVector<Node*> children = *m_root->children();
             for (Node *child : children) {
-                const QVector<Node*> grandChildren = child->embodiedChildren();
+                const QVector<Node*> grandChildren = *child->children();
                 for (Node *grandChild : grandChildren) {
                     if (grandChild->m_position->position().isSamePosition(rootGame.position()) && !grandChild->isTrueTerminal()) {
                         grandChild->setAsRootNode();

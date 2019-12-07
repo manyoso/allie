@@ -285,16 +285,16 @@ void Tests::testCastlingAnd960()
         QVERIFY(root);
         QCOMPARE(nullptr, root->parent());
         QCOMPARE(g.position().positionHash(), root->position()->positionHash());
-        root->generateChildren();
+        root->generatePotentials();
 
         // Make sure this is encoded as king captures rook
         bool foundCastleKingSide = false;
-        for (Node::Child child : *root->children()) {
-            if (child.toString() == QLatin1String("f8h8"))
+        for (Node::Potential potential : *root->m_position->potentials()) {
+            if (potential.toString() == QLatin1String("f8h8"))
                 foundCastleKingSide = true;
         }
 
-        QCOMPARE(root->children()->count(), 36);
+        QCOMPARE(root->position()->potentials()->count(), 36);
         QVERIFY(foundCastleKingSide);
     }
 
@@ -421,9 +421,9 @@ void Tests::testHistory()
     QVector<QString> nodeMoves = QString("a6a1 c8d7 f1g1 d7c6 a1a8 c6b7 a8d8 b7a7").split(" ").toVector();
     for (QString move : nodeMoves) {
         Move mv = Notation::stringToMove(move, Chess::Computer);
-        Node::Child *childRef = lastNode->generateChild(mv);
+        Node::Potential *potential = lastNode->generatePotential(mv);
         Node::NodeGenerationError error = Node::NoError;
-        lastNode = lastNode->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
+        lastNode = lastNode->generateNode(potential->move(), potential->pValue(), lastNode, Cache::globalInstance(), &error);
         Q_ASSERT(lastNode);
     }
 
@@ -524,20 +524,20 @@ void Tests::testThreeFold4()
     Node *root = tree.embodiedRoot();
     QVERIFY(root);
     QVERIFY(!root->isThreeFold());
-    root->generateChildren();
+    root->generatePotentials();
 
     bool found = false;
-    QVector<Node::Child> *childRefs = root->children(); // not a copy
-    QVERIFY(!childRefs->isEmpty());
-    for (int i = 0; i < childRefs->count(); ++i) {
+    QVector<Node::Potential> *potentials = root->m_position->potentials(); // not a copy
+    QVERIFY(!potentials->isEmpty());
+    for (int i = 0; i < potentials->count(); ++i) {
         // We get a non-const reference to the actual value and change it in place
-        Node::Child *childRef = &((*childRefs)[i]);
-        if (QLatin1String("a4b4") == Notation::moveToString(childRef->move(), Chess::Computer)) {
+        Node::Potential *potential = &((*potentials)[i]);
+        if (QLatin1String("a4b4") == Notation::moveToString(potential->move(), Chess::Computer)) {
             found = true;
             Node::NodeGenerationError error = Node::NoError;
-            Node *threeFold = root->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
+            Node *threeFold = root->generateNode(potential->move(), potential->pValue(), root, Cache::globalInstance(), &error);
             Q_ASSERT(threeFold);
-            threeFold->generateChildren();
+            threeFold->generatePotentials();
             QVERIFY(threeFold->isThreeFold());
         }
     }
@@ -580,7 +580,7 @@ void Tests::checkGame(const QString &fen, const QVector<QString> &mv)
         Node *root = tree->embodiedRoot();
         QVERIFY(root);
         QVERIFY(!root->isThreeFold());
-        root->generateChildren();
+        root->generatePotentials();
 
         if (root->isThreeFold()) {
             r = ThreeFold;

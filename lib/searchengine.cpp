@@ -74,15 +74,11 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
 void SearchWorker::fetchBatch(const QVector<Node*> &batch,
     lczero::Network *network, Tree *tree, int searchId)
 {
-    QVector<Node*> actualBatch;
-    actualBatch.reserve(batch.size());
     {
         Computation computation(network);
         for (int index = 0; index < batch.count(); ++index) {
-            QMutexLocker locker(tree->treeMutex());
             Node *node = batch.at(index);
             computation.addPositionToEvaluate(node);
-            actualBatch.append(node);
         }
 
 #if defined(DEBUG_EVAL)
@@ -90,29 +86,19 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
 #endif
         computation.evaluate();
 
-        Q_ASSERT(computation.positions() == actualBatch.count());
-        if (computation.positions() != actualBatch.count()) {
+        Q_ASSERT(computation.positions() == batch.count());
+        if (computation.positions() != batch.count()) {
             qCritical() << "NN index mismatch!";
             return;
         }
 
-        for (int index = 0; index < actualBatch.count(); ++index) {
-            QMutexLocker locker(tree->treeMutex());
-            Node *node = actualBatch.at(index);
-            Q_ASSERT(node->hasChildren() || node->isCheckMate() || node->isStaleMate());
+        for (int index = 0; index < batch.count(); ++index) {
+            Node *node = batch.at(index);
+            Q_ASSERT(node->hasPotentials() || node->isCheckMate() || node->isStaleMate());
             node->setRawQValue(-computation.qVal(index));
-            if (node->hasChildren()) {
+            if (node->hasPotentials()) {
                 computation.setPVals(index, node);
-                Node::sortByPVals(*node->children());
-            }
-
-            // Clone the transpositions
-            const QVector<Node*> &transpositions = node->position()->nodes();
-            for (Node *t : transpositions) {
-                if (t == node)
-                    continue;
-                t->cloneFromTransposition(node);
-                t->backPropagateDirty();
+                Node::sortByPVals(*node->m_position->potentials());
             }
         }
 
@@ -122,8 +108,18 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
     WorkerInfo info;
     {
         QMutexLocker locker(tree->treeMutex());
-        for (int index = 0; index < actualBatch.count(); ++index) {
-            Node *node = actualBatch.at(index);
+        for (int index = 0; index < batch.count(); ++index) {
+            Node *node = batch.at(index);
+
+            // Clone the transpositions as well
+            const QVector<Node*> &transpositions = node->position()->nodes();
+            for (Node *t : transpositions) {
+                if (t == node)
+                    continue;
+                t->m_rawQValue = node->m_rawQValue;
+                t->backPropagateDirty();
+            }
+
             node->backPropagateDirty();
         }
 
@@ -135,8 +131,8 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
 #endif
     }
 
-    info.nodesCacheHits = info.nodesVisited - actualBatch.count();
-    info.nodesEvaluated += actualBatch.count();
+    info.nodesCacheHits = info.nodesVisited - batch.count();
+    info.nodesEvaluated += batch.count();
     info.numberOfBatches += 1;
     info.searchId = searchId;
     info.threadId = QThread::currentThread()->objectName();
@@ -215,23 +211,8 @@ bool SearchWorker::handlePlayout(Node *playout)
         return false;
     }
 
-    Node *firstTransposition = playout->position()->nodes().first();
-    if (firstTransposition && firstTransposition != playout) {
-#if defined(DEBUG_PLAYOUT)
-        qDebug() << "adding cloned transposition playout" << playout->toString();
-#endif
-        // We can go ahead and clone now only if the first transposition has been scored
-        // otherwise it will be cloned automatically when it is scored
-        QMutexLocker locker(m_tree->treeMutex());
-        if (firstTransposition->hasRawQValue()) {
-            playout->cloneFromTransposition(firstTransposition);
-            playout->backPropagateDirty();
-        }
-        return false;
-    }
-
     // Generate children of the node if possible
-    playout->generateChildren();
+    playout->generatePotentials();
 
     // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
     // then let's just back propagate dirty
@@ -241,6 +222,22 @@ bool SearchWorker::handlePlayout(Node *playout)
 #endif
         QMutexLocker locker(m_tree->treeMutex());
         playout->backPropagateDirty();
+        return false;
+    }
+
+    Node *firstTransposition = playout->position()->nodes().first();
+    if (firstTransposition && firstTransposition != playout) {
+#if defined(DEBUG_PLAYOUT)
+        qDebug() << "adding cloned transposition playout" << playout->toString();
+#endif
+        // We can go ahead and clone now only if the first transposition has been scored
+        // otherwise we will clone the rest of the transpositions when it has
+        QMutexLocker locker(m_tree->treeMutex());
+        if (firstTransposition->hasQValue()) {
+            playout->m_rawQValue = firstTransposition->m_rawQValue;
+            playout->backPropagateDirty();
+        }
+
         return false;
     }
 
@@ -320,13 +317,9 @@ void SearchWorker::ensureRootAndChildrenScored()
         bool didWork = false;
         QVector<Node *> children;
         Node *root = m_tree->embodiedRoot();
-        QVector<Node::Child> *childRefs = root->children(); // not a copy
-        for (int i = 0; i < childRefs->count(); ++i) {
-            Node::Child *childRef = &((*childRefs)[i]);
-            if (!childRef->isPotential())
-                continue;
+        for (int i = root->m_potentialIndex; i < root->m_position->potentials()->count(); ++i) {
             Node::NodeGenerationError error = Node::NoError;
-            Node *child = root->generateEmbodiedChild(childRef, Cache::globalInstance(), &error);
+            Node *child = root->generateNextChild(Cache::globalInstance(), &error);
             Q_ASSERT(child);
             child->m_virtualLoss += 1;
             child->setScoringOrScored();
@@ -507,18 +500,18 @@ void SearchEngine::startSearch()
         m_currentInfo.workerInfo.nodesTBHits += 1;
         m_currentInfo.workerInfo.sumDepths = depth;
         m_currentInfo.workerInfo.maxDepth = depth;
-        const Node *dtzNode = root->bestEmbodiedChild();
+        const Node *dtzNode = root->bestChild();
         Q_ASSERT(dtzNode);
         m_currentInfo.bestMove = Notation::moveToString(dtzNode->m_game.lastMove(), Chess::Computer);
         m_currentInfo.pv = m_currentInfo.bestMove;
         m_currentInfo.score = mateDistanceOrScore(-dtzNode->qValue(), depth + 1, true /*isTB*/);
         emit sendInfo(m_currentInfo, false /*isPartial*/);
         return; // We are all done
-    } else if (const Node *best = root->bestEmbodiedChild()) {
+    } else if (const Node *best = root->bestChild()) {
         // If we have a bestmove candidate, set it now
         m_currentInfo.isResume = true;
         m_currentInfo.bestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
-        if (const Node *ponder = best->bestEmbodiedChild())
+        if (const Node *ponder = best->bestChild())
             m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
         else
             m_currentInfo.ponderMove = QString();
@@ -573,7 +566,7 @@ void SearchEngine::printTree(const QVector<QString> &node, int depth, bool print
     const Node *n = m_tree->embodiedRoot();
     if (n) {
         if (!node.isEmpty())
-            n = n->findEmbodiedSuccessor(node);
+            n = n->findSuccessor(node);
         if (n) {
             qDebug() << "printing" << node.toList().join(" ") << "at depth" << depth << "with potentials" << printPotentials;
             qDebug().noquote() << n->printTree(n->depth(), depth, printPotentials);
@@ -620,7 +613,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
 
     // See if root has a best child
     Node *root = m_tree->embodiedRoot();
-    const Node *best = root->bestEmbodiedChild();
+    const Node *best = root->bestChild();
     if (!best) {
         m_tree->treeMutex()->unlock();
         return;
@@ -634,7 +627,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.bestMove = newBestMove;
 
     // Record a ponder move
-    if (const Node *ponder = best->bestEmbodiedChild())
+    if (const Node *ponder = best->bestChild())
         m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
     else
         m_currentInfo.ponderMove = QString();
@@ -649,20 +642,20 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     // Check for an early exit
     bool shouldEarlyExit = false;
     Q_ASSERT(root->hasChildren());
-    const bool onlyOneLegalMove = (root->children()->count() == 1);
+    const bool onlyOneLegalMove = (!root->hasPotentials() && root->children()->count() == 1);
     if (onlyOneLegalMove) {
         shouldEarlyExit = true;
         m_currentInfo.bestIsMostVisited = true;
     } else {
-        QVector<Node*> embodiedChildren = root->embodiedChildren();
-        if (embodiedChildren.count() > 1) {
+        QVector<Node*> children = *root->children();
+        if (children.count() > 1) {
             // Sort top two by score
-            std::partial_sort(embodiedChildren.begin(), embodiedChildren.begin() + 2, embodiedChildren.end(),
+            std::partial_sort(children.begin(), children.begin() + 2, children.end(),
                 [](const Node *a, const Node *b) {
                 return Node::greaterThan(a, b);
             });
-            const Node *firstChild = embodiedChildren.at(0);
-            const Node *secondChild = embodiedChildren.at(1);
+            const Node *firstChild = children.at(0);
+            const Node *secondChild = children.at(1);
             const qint64 diff = qint64(firstChild->m_visited) - qint64(secondChild->m_visited);
             const bool bestIsMostVisited = diff >= 0 || qFuzzyCompare(firstChild->qValue(), secondChild->qValue());
             shouldEarlyExit = bestIsMostVisited && diff >= m_estimatedNodes;
