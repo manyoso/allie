@@ -40,6 +40,8 @@ float cpToScore(int cp)
 
 Node::Position::Position()
 {
+    const int reserve = Options::globalInstance()->option("ReserveBranches").value().toInt();
+    m_potentials.reserve(reserve);
 }
 
 Node::Position::~Position()
