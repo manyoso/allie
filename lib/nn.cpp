@@ -270,7 +270,7 @@ void Computation::setPVals(int index, Node *node) const
     Q_ASSERT(node->hasPotentials());
     const Chess::Army activeArmy = node->position()->position().activeArmy();
     QVector<Node::Potential> *potentials = node->position()->potentials();
-    QVector<QPair<float, Node::Potential*>> policyValues;
+    std::vector<QPair<float, Node::Potential*>> policyValues;
     policyValues.reserve(potentials->size());
     float total = 0;
     for (int i = 0; i < potentials->count(); ++i) {
@@ -287,10 +287,10 @@ void Computation::setPVals(int index, Node *node) const
         const float p = fastpow(fakePolicy, SearchSettings::policySoftmaxTemp);
 #endif
         total += p;
-        policyValues.append(qMakePair(p, potential));
+        policyValues.push_back(qMakePair(p, potential));
     }
 
-    QVector<QPair<float, Node::Potential*>>::const_iterator it = policyValues.begin();
+    std::vector<QPair<float, Node::Potential*>>::const_iterator it = policyValues.begin();
     const float scale = 1.0f / total;
     float normalizedTotal = 0;
     for (; it != policyValues.end(); ++it) {
