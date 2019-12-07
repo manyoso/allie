@@ -99,6 +99,7 @@ inline void FixedSizeArena<T>::reset()
 template <class T>
 inline void FixedSizeArena<T>::clear()
 {
+    qDeleteAll(m_arena);
     m_arena.clear();
     m_used = -1;
 }
