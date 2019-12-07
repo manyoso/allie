@@ -50,9 +50,13 @@ public:
         quint64 m_data;
     };
 
-    BitBoard() { m_data = 0; }
-    BitBoard(quint64 data) { m_data = data; }
-    BitBoard(const Square &square);
+    inline BitBoard() { m_data = 0; }
+    inline BitBoard(quint64 data) { m_data = data; }
+    inline BitBoard(const Square &square)
+        : m_data(0)
+    {
+        setSquare(square);
+    }
 
     inline bool isClear() const
     {
@@ -67,8 +71,24 @@ public:
         return testBit(squareToIndex(square));
     }
 
-    void setBoard(const SquareList &squareList);
-    void setSquare(const Square &square);
+    inline void setBoard(const SquareList &squareList)
+    {
+        if (squareList.isEmpty())
+            return;
+
+        m_data = 0;
+
+        for (Square square : squareList) {
+            if (square.isValid())
+                setSquare(square);
+        }
+    }
+
+    inline void setSquare(const Square &square)
+    {
+        int index = squareToIndex(square);
+        setBit(index);
+    }
 
     inline static Square indexToSquare(quint8 bit)
     {
