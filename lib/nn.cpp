@@ -278,11 +278,11 @@ void Computation::setPVals(int index, Node *node) const
     Q_ASSERT(node);
     Q_ASSERT(node->hasPotentials());
     const Chess::Army activeArmy = node->position()->position().activeArmy();
-    QVector<Node::Potential> *potentials = node->position()->potentials();
+    const QVector<Node::Potential> *potentials = node->position()->potentials();
     float total = 0;
-    for (int i = 0; i < potentials->count(); ++i) {
+    for (int i = 0; i < potentials->size(); ++i) {
         // We get a non-const reference to the actual value and change it in place
-        Node::Potential *potential = &(*potentials)[i];
+        const Node::Potential *potential = &(*potentials)[i];
         Move mv = potential->move();
         if (activeArmy == Chess::Black)
             mv.mirror(); // nn index expects the board to be flipped
@@ -294,14 +294,14 @@ void Computation::setPVals(int index, Node *node) const
         const float p = fastpow(fakePolicy, SearchSettings::policySoftmaxTemp);
 #endif
         total += p;
-        potential->setPValue(p);
+        const_cast<Node::Potential*>(potential)->setPValue(p);
     }
 
     const float scale = 1.0f / total;
-    for (int i = 0; i < potentials->count(); ++i) {
+    for (int i = 0; i < potentials->size(); ++i) {
         // We get a non-const reference to the actual value and change it in place
-        Node::Potential *potential = &(*potentials)[i];
-        potential->setPValue(scale * potential->pValue());
+        const Node::Potential *potential = &(*potentials)[i];
+        const_cast<Node::Potential*>(potential)->setPValue(scale * potential->pValue());
     }
 #endif
 }
