@@ -89,7 +89,7 @@ Options::Options()
     UciOption cache;
     cache.m_name = QLatin1Literal("Cache");
     cache.m_type = UciOption::Spin;
-    cache.m_default = QLatin1Literal("20000000");
+    cache.m_default = QLatin1Literal("5000000");
     cache.m_value = cache.m_default;
     cache.m_min = QLatin1Literal("100000");
     cache.m_max = QString::number(999999999);
