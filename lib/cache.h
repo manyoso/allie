@@ -161,7 +161,7 @@ private:
     ObjectInfo* unlinkFromUnused();
     void linkToUsed(ObjectInfo &);
     void relinkToUsed(ObjectInfo &);
-    void relinkToUnused(ObjectInfo &);
+    void relinkToUnused(ObjectInfo &, quint64 hash);
     ObjectInfo *m_first;
     ObjectInfo *m_last;
     ObjectInfo *m_unused;
@@ -387,13 +387,14 @@ inline void FixedSizeCache<T>::relinkToUsed(ObjectInfo &info)
 }
 
 template <class T>
-inline void FixedSizeCache<T>::relinkToUnused(ObjectInfo &info)
+inline void FixedSizeCache<T>::relinkToUnused(ObjectInfo &info, quint64 hash)
 {
     // Remove from actual hash
     bool success = info.object.deinitialize(false /*forcedFree*/);
     Q_ASSERT(success);
-    Q_ASSERT(m_cache.count(fixedHash(info.object)));
-    m_cache.erase(fixedHash(info.object));
+    Q_ASSERT(m_cache.count(hash));
+    Q_ASSERT(fixedHash(info.object) == hash);
+    m_cache.erase(hash);
 
     // Possibly update first and last
     if (m_first == &info) {
@@ -474,7 +475,7 @@ inline void FixedSizeCache<T>::unlink(quint64 hash)
     ObjectInfo *info = m_cache.at(hash);
     if (isPinned(info->object))
         return;
-    relinkToUnused(*info);
+    relinkToUnused(*info, hash);
 }
 
 template <class T>

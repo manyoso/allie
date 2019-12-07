@@ -153,7 +153,7 @@ public:
         Position();
         ~Position();
 
-        void initialize(Node *node, const Game::Position &position, quint64 positionHash);
+        void initialize(Node *node, const Game::Position &position);
         bool deinitialize(bool forcedFree);
         void addNode(Node *node);
         void removeNode(Node *node);
@@ -164,11 +164,10 @@ public:
         inline QVector<Potential> *potentials() { return &m_potentials; }
         inline const QVector<Potential> *potentials() const { return &m_potentials; }
         inline const Game::Position &position() const { return m_position; }
-        inline quint64 positionHash() const { return m_positionHash; }
+        inline quint64 positionHash() const { return m_position.positionHash(); }
 
     private:
         Game::Position m_position;
-        quint64 m_positionHash;
         QVector<Node*> m_nodes;
         QVector<Potential> m_potentials;
         friend class Node;
@@ -292,7 +291,6 @@ private:
     Node *m_parent;                     // 8
     Node::Position *m_position;         // 8
     QVector<Node*> m_children;          // 8
-    quint32 m_refs;                     // 4
     quint32 m_visited;                  // 4
     quint32 m_virtualLoss;              // 4
     float m_qValue;                     // 4
@@ -406,10 +404,8 @@ inline bool Node::isRootNode() const
 inline void Node::setAsRootNode()
 {
     // Need to remove ourself from our parent's children
-    if (m_parent) {
+    if (m_parent)
         m_parent->m_children.removeAll(this);
-        --m_parent->m_refs;
-    }
 
     // Now we have no parent
     m_parent = nullptr;

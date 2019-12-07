@@ -39,7 +39,6 @@ float cpToScore(int cp)
 }
 
 Node::Position::Position()
-    : m_positionHash(0)
 {
 }
 
@@ -47,10 +46,9 @@ Node::Position::~Position()
 {
 }
 
-void Node::Position::initialize(Node *node, const Game::Position &position, quint64 positionHash)
+void Node::Position::initialize(Node *node, const Game::Position &position)
 {
     m_position = position;
-    m_positionHash = positionHash;
     m_nodes.clear();
     m_potentials.clear();
     if (node) {
@@ -154,11 +152,10 @@ Node::~Node()
 void Node::initialize(Node *parent, const Game &game, Node::Position *position)
 {
     if (parent) {
-        ++parent->m_refs;
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
-        stream << "ref " << parent->m_refs << " [" << parent->hash() << "]";
+        stream << "ref " << " [" << parent->hash() << "]";
         qDebug().noquote() << string;
 #endif
     }
@@ -167,7 +164,6 @@ void Node::initialize(Node *parent, const Game &game, Node::Position *position)
     m_position = position;
     m_potentialIndex = 0;
     m_children.clear();
-    m_refs = 0;
     m_visited = 0;
     m_virtualLoss = 0;
     m_qValue = -2.0f;
@@ -195,9 +191,6 @@ bool Node::deinitialize(bool forcedFree)
 {
     Cache *cache = Cache::globalInstance();
     if (Node *parent = this->parent()) {
-        // Decrement parent's refs
-        --parent->m_refs;
-
         // Remove ourself from parent's child list
         if (forcedFree)
             parent->m_children.removeAll(this);
@@ -205,14 +198,10 @@ bool Node::deinitialize(bool forcedFree)
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
-        stream << "deref " << parent->m_refs << " [" << parent->hash() << "]";
+        stream << "deref " << " [" << parent->hash() << "]";
         qDebug().noquote() << string;
 
 #endif
-        // Delete parent if it no longer has any refs and this node is being freed to make room
-        // in fixed size hash
-        if (!parent->m_refs && forcedFree)
-            cache->unlinkNode(parent);
     }
 
     // Unlink all children as we do not want to leave them parentless
@@ -235,7 +224,6 @@ bool Node::deinitialize(bool forcedFree)
 
     m_parent = nullptr;
     m_position = nullptr;
-    m_refs = 0;
     m_isDirty = false;
     m_children.clear();
 
@@ -837,7 +825,7 @@ Node *Node::generateNode(const Move &childMove, float childPValue, Node *parent,
         }
         Q_ASSERT(childNodePosition);
         child->initialize(parent, childGame, childNodePosition);
-        childNodePosition->initialize(child, childPosition, childPositionHash);
+        childNodePosition->initialize(child, childPosition);
     }
 
     child->setPValue(childPValue);

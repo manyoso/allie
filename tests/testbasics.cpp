@@ -113,8 +113,8 @@ void Tests::testSizes()
     QCOMPARE(sizeof(Game),            ulong(8));
     QCOMPARE(sizeof(Node::Potential), ulong(8));
     QCOMPARE(sizeof(Game::Position),  ulong(72));
-    QCOMPARE(sizeof(Node),            ulong(72));
-    QCOMPARE(sizeof(Node::Position),  ulong(96));
+    QCOMPARE(sizeof(Node),            ulong(64));
+    QCOMPARE(sizeof(Node::Position),  ulong(88));
 }
 
 void Tests::testVLDFormula()

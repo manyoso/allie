@@ -125,11 +125,11 @@ inline Node *Tree::embodiedRoot()
     if (m_resumePreviousPositionIfPossible && cache.containsNodePosition(rootPositionHash)) {
         rootPosition = cache.nodePosition(rootPositionHash);
         m_root->initialize(nullptr, rootGame, rootPosition);
-        rootPosition->initialize(m_root, rootGame.position(), rootPositionHash);
+        rootPosition->initialize(m_root, rootGame.position());
     } else {
         rootPosition = cache.newNodePosition(rootPositionHash);
         m_root->initialize(nullptr, rootGame, rootPosition);
-        rootPosition->initialize(m_root, rootGame.position(), rootPositionHash);
+        rootPosition->initialize(m_root, rootGame.position());
     }
 
     return m_root;
