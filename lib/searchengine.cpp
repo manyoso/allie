@@ -236,7 +236,7 @@ bool SearchWorker::handlePlayout(Node *playout)
         // We can go ahead and clone now only if the first transposition has been scored
         // otherwise we will clone the rest of the transpositions when it has
         QMutexLocker locker(m_tree->treeMutex());
-        if (firstTransposition->hasQValue()) {
+        if (firstTransposition->hasQValue() && !playout->hasRawQValue()) {
             playout->m_rawQValue = firstTransposition->m_rawQValue;
             playout->backPropagateDirty();
         }
