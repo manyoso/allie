@@ -661,7 +661,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
             const Node *secondChild = children.at(1);
             const qint64 diff = qint64(firstChild->m_visited) - qint64(secondChild->m_visited);
             const bool bestIsMostVisited = diff >= 0 || qFuzzyCompare(firstChild->qValue(), secondChild->qValue());
-            shouldEarlyExit = bestIsMostVisited && diff >= m_estimatedNodes;
+            shouldEarlyExit = bestIsMostVisited && diff >= m_estimatedNodes*1.33;
             m_currentInfo.bestIsMostVisited = bestIsMostVisited;
         } else {
             m_currentInfo.bestIsMostVisited = true;
