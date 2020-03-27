@@ -518,7 +518,7 @@ void SearchEngine::startSearch()
             m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
         else
             m_currentInfo.ponderMove = QString();
-        onlyLegalMove = !root->hasChildren() && root->children()->count() == 1;
+        onlyLegalMove = !root->hasPotentials() && root->children()->count() == 1;
         int pvDepth = 0;
         bool isTB = false;
         m_currentInfo.pv = root->principalVariation(&pvDepth, &isTB);
@@ -665,8 +665,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
             m_currentInfo.bestIsMostVisited = bestIsMostVisited;
         } else {
             m_currentInfo.bestIsMostVisited = true;
-            printTree(QVector<QString>(), 1000 /*depth*/, true /*printPotentials*/, false /*lock*/);
-            Q_UNREACHABLE();
+            isPartial = true;
         }
     }
 
