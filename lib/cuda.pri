@@ -1,5 +1,7 @@
 CUDA_FLAGS = $$QMAKE_CXXFLAGS $$QMAKE_CXXFLAGS_SHLIB
 
+CUDA_PROBE_BASES = /usr/local/cuda /opt/cuda
+
 CUDA_INC_DIR = $$(CUDA_INC_DIR)
 !isEmpty(CUDA_INC_DIR) {
     INCLUDEPATH += $(CUDA_INC_DIR)
@@ -8,7 +10,18 @@ CUDA_INC_DIR = $$(CUDA_INC_DIR)
         INCLUDEPATH += "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.0\include" \
             "C:\cache\cuda\include"
     } else {
-        INCLUDEPATH += /usr/local/cuda/include
+        # probe CUDA include location
+        for (cuda_probe_base, CUDA_PROBE_BASES) {
+	    cuda_probe_dir = $${cuda_probe_base}/include
+	    isEmpty(CUDA_INC_DIR): exists($${cuda_probe_dir}) {
+	        message(Adding probed CUDA include path $${cuda_probe_dir})
+		CUDA_INC_DIR = $${cuda_probe_dir}
+            }
+        }
+
+        isEmpty(CUDA_INC_DIR): error(CUDA include directory not found!)
+
+        INCLUDEPATH += $${CUDA_INC_DIR}
     }
 }
 
@@ -20,11 +33,21 @@ CUDA_LIB_DIR = $$(CUDA_LIB_DIR)
         QMAKE_LIBDIR += "C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.0\lib\x64" \
             "C:\cache\cuda\lib\x64"
     } else {
-        QMAKE_LIBDIR += /usr/local/cuda/lib64
+        # probe CUDA libs location
+        for (cuda_probe_base, CUDA_PROBE_BASES) {
+	    cuda_probe_dir = $${cuda_probe_base}/lib64
+	    isEmpty(CUDA_LIB_DIR): exists($${cuda_probe_dir}) {
+	        message(Adding probed CUDA lib path $${cuda_probe_dir})
+		CUDA_LIB_DIR = $${cuda_probe_dir}
+            }
+        }
+
+        isEmpty(CUDA_LIB_DIR): error(CUDA lib directory not found!)
+
+        QMAKE_LIBDIR += $${CUDA_LIB_DIR}
     }
 }
 
-NVCC_EXEC = nvcc
 
 win32 {
     NVCC_EXEC = "\""C:\Program Files\NVIDIA GPU Computing Toolkit\CUDA\v10.0\bin\nvcc""\"
@@ -36,6 +59,10 @@ win32 {
     }
 
 } else {
+    # allow NVCC to be overridden
+    NVCC_EXEC = $$(NVCC)
+    isEmpty(NVCC_EXEC): NVCC_EXEC = nvcc
+
     CUDA_FLAGS += -fno-exceptions
 }
 
