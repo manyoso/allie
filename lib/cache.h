@@ -48,19 +48,22 @@ public:
     void reset();
     T *newObject();
     void unlink(T*);
-    int size() const { return int(m_arena.size()); }
+    int size() const { return m_maxSize; }
     int used() const { return m_used + 1; }
     float percentFull(int halfMoveNumber) const;
 
 private:
     void clear();
+    void grow();
     std::vector<T*> m_arena;
     int m_used;
+    int m_maxSize;
 };
 
 template <class T>
 inline FixedSizeArena<T>::FixedSizeArena()
-    : m_used(-1)
+    : m_used(-1),
+    m_maxSize(0)
 {
 }
 
@@ -77,13 +80,19 @@ inline void FixedSizeArena<T>::reset(int nodes)
     if (!nodes)
         return;
 
-    m_arena.reserve(size_t(nodes));
-    for (quint32 i = 0; i < m_arena.capacity(); ++i)
-        m_arena.push_back(new T);
+    m_maxSize = nodes;
 #if defined(DEBUG_CACHE)
         quint64 bytes = nodes * sizeof(T);
-        qDebug() << "node cache size is" << bytes << "holding" << nodes << "max nodes";
+        qDebug() << "node cache size is" << bytes << "holding" << nodes
+            << "max nodes";
 #endif
+}
+
+template <class T>
+inline void FixedSizeArena<T>::grow()
+{
+    Q_ASSERT(int(m_arena.size()) < m_maxSize);
+    m_arena.push_back(new T);
 }
 
 template <class T>
@@ -102,11 +111,15 @@ inline void FixedSizeArena<T>::clear()
     qDeleteAll(m_arena);
     m_arena.clear();
     m_used = -1;
+    m_maxSize = 0;
 }
 
 template <class T>
 inline T *FixedSizeArena<T>::newObject()
 {
+    if (int(m_arena.size()) < m_maxSize)
+        grow();
+
     Q_ASSERT(m_arena.size());
     const size_t index = size_t(++m_used);
     Q_ASSERT(index < m_arena.size());
@@ -124,9 +137,9 @@ inline void FixedSizeArena<T>::unlink(T *object)
 template <class T>
 inline float FixedSizeArena<T>::percentFull(int halfMoveNumber) const
 {
-    Q_ASSERT(m_arena.size());
+    Q_ASSERT(size());
     Q_UNUSED(halfMoveNumber)
-    return quint64(m_used) / float(m_arena.size());
+    return quint64(m_used) / float(size());
 }
 
 template <class T>
@@ -141,7 +154,7 @@ public:
     T *newObject(quint64 hash);
     void unlink(quint64 hash);
     float percentFull(int halfMoveNumber) const;
-    int size() const { return m_size; }
+    int size() const { return m_maxSize; }
     int used() const { return m_used; }
 
 private:
@@ -156,6 +169,7 @@ private:
     };
 
     void clear();
+    void grow();
     void sanityCheck();
     ObjectInfo* unlinkFromUsed();
     ObjectInfo* unlinkFromUnused();
@@ -168,6 +182,7 @@ private:
     std::unordered_map<quint64, ObjectInfo*> m_cache;
     int m_size;
     int m_used;
+    int m_maxSize;
 };
 
 template <class T>
@@ -176,7 +191,8 @@ inline FixedSizeCache<T>::FixedSizeCache()
     m_last(nullptr),
     m_unused(nullptr),
     m_size(0),
-    m_used(0)
+    m_used(0),
+    m_maxSize(0)
 {
 }
 
@@ -193,26 +209,11 @@ inline void FixedSizeCache<T>::reset(int positions)
     if (!positions)
         return;
 
-    m_size = positions;
-    for (int i = 0; i < m_size; ++i) {
-        ObjectInfo *info = new ObjectInfo;
-        if (m_unused) {
-            info->next = m_unused;
-            m_unused->previous = info;
-        }
-        m_unused = info;
-        m_unused->previous = nullptr;
-    }
-
-    // FIXME: Still see malloc during insertion
-    m_cache.reserve(size_t(m_size));
-    Q_ASSERT(!m_first);
-    Q_ASSERT(!m_last);
-    Q_ASSERT(m_unused);
-
+    m_maxSize = positions;
 #if defined(DEBUG_CACHE)
         quint64 bytes = positions * sizeof(ObjectInfo);
-        qDebug() << "position cache size is" << bytes << "holding" << m_size << "max positions";
+        qDebug() << "position cache size is" << bytes << "holding" << m_maxSize
+            << "max positions";
 #endif
     sanityCheck();
 }
@@ -242,6 +243,22 @@ inline void FixedSizeCache<T>::clear()
     m_cache.clear();
     m_size = 0;
     m_used = 0;
+    m_maxSize = 0;
+}
+
+template <class T>
+inline void FixedSizeCache<T>::grow()
+{
+    Q_ASSERT(int(m_size) < m_maxSize);
+    ObjectInfo *info = new ObjectInfo;
+    if (m_unused) {
+        info->next = m_unused;
+        m_unused->previous = info;
+    }
+    m_unused = info;
+    m_unused->previous = nullptr;
+    ++m_size;
+    sanityCheck();
 }
 
 template <class T>
@@ -426,14 +443,14 @@ inline void FixedSizeCache<T>::relinkToUnused(ObjectInfo &info, quint64 hash)
 template <class T>
 inline bool FixedSizeCache<T>::contains(quint64 hash) const
 {
-    Q_ASSERT(m_size);
+    Q_ASSERT(m_maxSize);
     return m_cache.count(hash);
 }
 
 template <class T>
 inline T *FixedSizeCache<T>::object(quint64 hash, bool update)
 {
-    Q_ASSERT(m_size);
+    Q_ASSERT(m_maxSize);
     Q_ASSERT(m_cache.count(hash));
 
     ObjectInfo *info = m_cache.at(hash);
@@ -448,7 +465,10 @@ inline T *FixedSizeCache<T>::object(quint64 hash, bool update)
 template <class T>
 inline T *FixedSizeCache<T>::newObject(quint64 hash)
 {
-    Q_ASSERT(m_size);
+    Q_ASSERT(m_maxSize);
+    if (int(m_size) < m_maxSize)
+        grow();
+
     Q_ASSERT(!m_cache.count(hash));
 
     ObjectInfo *info = nullptr;
@@ -481,9 +501,9 @@ inline void FixedSizeCache<T>::unlink(quint64 hash)
 template <class T>
 inline float FixedSizeCache<T>::percentFull(int halfMoveNumber) const
 {
-    Q_ASSERT(m_size);
+    Q_ASSERT(size());
     Q_UNUSED(halfMoveNumber)
-    return quint64(m_used) / float(m_size);
+    return quint64(m_used) / float(size());
 }
 
 class Cache {

@@ -5,7 +5,7 @@ DESTDIR=../bin
 
 QT += testlib
 QT -= gui network
-CONFIG += c++2a console
+CONFIG += c++14 console
 
 include($$PWD/../lib/git.pri)
 
