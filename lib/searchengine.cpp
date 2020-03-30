@@ -303,7 +303,7 @@ void SearchWorker::ensureRootAndChildrenScored()
         // Fetch and minimax for root
         Node *root = m_tree->embodiedRoot();
         QVector<Node*> nodes;
-        if (!root->setScoringOrScored()) {
+        if (!root->setScoringOrScored() || !root->hasRawQValue()) {
             m_tree->treeMutex()->lock();
             root->m_virtualLoss += 1;
             m_tree->treeMutex()->unlock();
