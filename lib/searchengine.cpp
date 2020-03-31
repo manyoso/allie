@@ -98,8 +98,10 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             Q_ASSERT(node->hasPotentials() || node->isCheckMate() || node->isStaleMate());
             node->setRawQValue(-computation->qVal(index));
             if (node->hasPotentials()) {
-                computation->setPVals(index, node);
-                Node::sortByPVals(*node->m_position->potentials());
+                if (node->position()->firstNode() == node) { // first transposition only sets pvals
+                    computation->setPVals(index, node);
+                    Node::sortByPVals(*node->m_position->potentials());
+                }
             }
         }
 
@@ -111,18 +113,6 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         QMutexLocker locker(tree->treeMutex());
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
-
-            // Clone the transpositions as well
-            if (m_useTranspositions) {
-                const QVector<Node*> &transpositions = node->position()->nodes();
-                for (Node *t : transpositions) {
-                    if (t == node)
-                        continue;
-                    t->m_rawQValue = node->m_rawQValue;
-                    t->backPropagateDirty();
-                }
-            }
-
             node->backPropagateDirty();
         }
 
@@ -228,7 +218,7 @@ bool SearchWorker::handlePlayout(Node *playout)
         return false;
     }
 
-    Node *firstTransposition = playout->position()->nodes().first();
+    const Node *firstTransposition = playout->position()->firstNode();
     if (m_useTranspositions && firstTransposition && firstTransposition != playout) {
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "adding cloned transposition playout" << playout->toString();
@@ -239,9 +229,8 @@ bool SearchWorker::handlePlayout(Node *playout)
         if (firstTransposition->hasQValue() && !playout->hasRawQValue()) {
             playout->m_rawQValue = firstTransposition->m_rawQValue;
             playout->backPropagateDirty();
+            return false;
         }
-
-        return false;
     }
 
     return true; // Otherwise we should fetch from NN

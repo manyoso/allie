@@ -40,8 +40,7 @@ float cpToScore(int cp)
 
 Node::Position::Position()
 {
-    const int reserve = Options::globalInstance()->option("ReserveBranches").value().toInt();
-    m_potentials.reserve(reserve);
+    m_firstNode = nullptr;
 }
 
 Node::Position::~Position()
@@ -51,10 +50,10 @@ Node::Position::~Position()
 void Node::Position::initialize(Node *node, const Game::Position &position)
 {
     m_position = position;
-    m_nodes.clear();
+    m_firstNode = nullptr;
     m_potentials.clear();
     if (node) {
-        m_nodes.append(node);
+        m_firstNode = node;
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
@@ -88,34 +87,6 @@ bool Node::Position::deinitialize(bool forcedFree)
     qDebug().noquote() << string;
 #endif
     return true;
-}
-
-void Node::Position::addNode(Node *node)
-{
-    Q_ASSERT(!hasNode(node));
-    m_nodes.append(node);
-#if defined(DEBUG_CHURN)
-    QString string;
-    QTextStream stream(&string);
-    stream << "addn p ";
-    stream << positionHash();
-    stream << " [";
-    int i = 0;
-    for (Node *node : m_nodes) {
-        if (i)
-            stream << " ";
-        stream << node->hash();
-        ++i;
-    }
-    stream << "]";
-    qDebug().noquote() << string;
-#endif
-}
-
-void Node::Position::removeNode(Node *node)
-{
-    Q_ASSERT(hasNode(node));
-    m_nodes.removeAll(node);
 }
 
 Node::Position *Node::Position::relink(quint64 positionHash, Cache *cache)
@@ -210,8 +181,8 @@ bool Node::deinitialize(bool forcedFree)
     for (int i = 0; i < m_children.count(); ++i)
         cache->unlinkNode(m_children.at(i));
 
-    if (m_position)
-        m_position->removeNode(this);
+    if (m_position && m_position->firstNode() == this)
+        m_position->clearFirstNode();
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -811,7 +782,6 @@ Node *Node::generateNode(const Move &childMove, float childPValue, Node *parent,
         childNodePosition = Node::Position::relink(childPositionHash, cache);
         Q_ASSERT(childNodePosition);
         child->initialize(parent, childGame, childNodePosition);
-        childNodePosition->addNode(child);
     } else {
         childNodePosition = cache->newNodePosition(childPositionHash);
         if (!childNodePosition) {

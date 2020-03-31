@@ -155,11 +155,9 @@ public:
 
         void initialize(Node *node, const Game::Position &position);
         bool deinitialize(bool forcedFree);
-        void addNode(Node *node);
-        void removeNode(Node *node);
         static Node::Position *relink(quint64 positionHash, Cache *cache);
-        inline bool hasNode(Node *node) const { return m_nodes.contains(node); }
-        inline const QVector<Node*>& nodes() const { return m_nodes; }
+        inline void clearFirstNode() { m_firstNode = nullptr; }
+        inline const Node* firstNode() const { return m_firstNode; }
         inline bool hasPotentials() const { return !m_potentials.isEmpty(); }
         inline QVector<Potential> *potentials() { return &m_potentials; }
         inline const QVector<Potential> *potentials() const { return &m_potentials; }
@@ -168,7 +166,7 @@ public:
 
     private:
         Game::Position m_position;
-        QVector<Node*> m_nodes;
+        Node* m_firstNode;
         QVector<Potential> m_potentials;
         friend class Node;
         friend class Tests;
@@ -557,7 +555,7 @@ inline quint64 fixedHash(const Node::Position &position)
 
 inline bool isPinned(const Node::Position &position)
 {
-    return !position.nodes().isEmpty();
+    return position.firstNode();
 }
 
 inline bool isPinned(Node *node)
