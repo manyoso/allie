@@ -40,7 +40,7 @@ float cpToScore(int cp)
 
 Node::Position::Position()
 {
-    m_firstNode = nullptr;
+    m_transpositionNode = nullptr;
 }
 
 Node::Position::~Position()
@@ -50,10 +50,10 @@ Node::Position::~Position()
 void Node::Position::initialize(Node *node, const Game::Position &position)
 {
     m_position = position;
-    m_firstNode = nullptr;
+    m_transpositionNode = nullptr;
     m_potentials.clear();
     if (node) {
-        m_firstNode = node;
+        m_transpositionNode = node;
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
@@ -181,8 +181,8 @@ bool Node::deinitialize(bool forcedFree)
     for (int i = 0; i < m_children.count(); ++i)
         cache->unlinkNode(m_children.at(i));
 
-    if (m_position && m_position->firstNode() == this)
-        m_position->clearFirstNode();
+    if (m_position && m_position->transposition() == this)
+        m_position->clearTransposition();
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -201,6 +201,14 @@ bool Node::deinitialize(bool forcedFree)
     m_children.clear();
 
     return true;
+}
+
+void Node::updateTranspositions() const
+{
+    m_position->updateTransposition(const_cast<const Node*>(this));
+
+    for (int i = 0; i < m_children.count(); ++i)
+        m_children.at(i)->updateTranspositions();
 }
 
 Node *Node::bestChild() const

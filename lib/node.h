@@ -160,8 +160,9 @@ public:
         void initialize(Node *node, const Game::Position &position);
         bool deinitialize(bool forcedFree);
         static Node::Position *relink(quint64 positionHash, Cache *cache);
-        inline void clearFirstNode() { m_firstNode = nullptr; }
-        inline const Node* firstNode() const { return m_firstNode; }
+        inline void clearTransposition() { m_transpositionNode = nullptr; }
+        inline const Node* transposition() const { return m_transpositionNode; }
+        inline void updateTransposition(const Node *node) { m_transpositionNode = node; }
         inline bool hasPotentials() const { return !m_potentials.isEmpty(); }
         inline QVector<Potential> *potentials() { return &m_potentials; }
         inline const QVector<Potential> *potentials() const { return &m_potentials; }
@@ -170,7 +171,7 @@ public:
 
     private:
         Game::Position m_position;
-        Node* m_firstNode;
+        const Node* m_transpositionNode;
         QVector<Potential> m_potentials;
         friend class Node;
         friend class Tests;
@@ -187,6 +188,7 @@ public:
 
     void initialize(Node *parent, const Game &game, Node::Position *nodePosition);
     bool deinitialize(bool forcedFree);
+    void updateTranspositions() const;
 
     int treeDepth() const;
     bool isExact() const;
@@ -540,8 +542,8 @@ inline int Node::virtualLossDistance(float swec, float uCoeff, float q, float p,
         return 1;
     else if (q > wec)
         return SearchSettings::vldMax;
-    const qreal nf = qreal(q + p * uCoeff - wec) / qreal(wec - q);
-    int n = qMax(1, qCeil(nf)) - currentVisits;
+    const float nf = (q + p * uCoeff - wec) / (wec - q);
+    int n = qMax(1, qCeil(qreal(nf))) - currentVisits;
     if (n > SearchSettings::vldMax)
         return SearchSettings::vldMax;
 
@@ -561,7 +563,7 @@ inline quint64 fixedHash(const Node::Position &position)
 
 inline bool isPinned(const Node::Position &position)
 {
-    return position.firstNode();
+    return position.transposition();
 }
 
 inline bool isPinned(Node *node)

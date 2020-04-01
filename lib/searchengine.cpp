@@ -98,7 +98,8 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             Q_ASSERT(node->hasPotentials() || node->isCheckMate() || node->isStaleMate());
             node->setRawQValue(-computation->qVal(index));
             if (node->hasPotentials()) {
-                if (node->position()->firstNode() == node) { // first transposition only sets pvals
+                // Only the first transposition needs to set pvals
+                if (node->position()->transposition() == node) {
                     computation->setPVals(index, node);
                     Node::sortByPVals(*node->m_position->potentials());
                 }
@@ -113,6 +114,7 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         QMutexLocker locker(tree->treeMutex());
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
+            node->position()->updateTransposition(node);
             node->backPropagateDirty();
         }
 
@@ -218,16 +220,16 @@ bool SearchWorker::handlePlayout(Node *playout)
         return false;
     }
 
-    const Node *firstTransposition = playout->position()->firstNode();
-    if (m_useTranspositions && firstTransposition && firstTransposition != playout) {
-#if defined(DEBUG_PLAYOUT)
-        qDebug() << "adding cloned transposition playout" << playout->toString();
-#endif
+    const Node *transposition = playout->position()->transposition();
+    if (m_useTranspositions && transposition && transposition != playout) {
         // We can go ahead and clone now only if the first transposition has been scored
         // otherwise we will clone the rest of the transpositions when it has
         QMutexLocker locker(m_tree->treeMutex());
-        if (firstTransposition->hasQValue() && !playout->hasRawQValue()) {
-            playout->m_rawQValue = firstTransposition->m_rawQValue;
+        if (transposition->hasQValue() && !playout->hasRawQValue()) {
+            playout->setRawQValue(transposition->m_rawQValue);
+#if defined(DEBUG_PLAYOUT)
+            qDebug() << "found cached playout" << playout->toString();
+#endif
             playout->backPropagateDirty();
             return false;
         }
