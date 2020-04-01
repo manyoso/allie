@@ -47,6 +47,7 @@ extern float cpToScore(int cp);
 
 class Node {
 public:
+    class Playout;
     class Potential {
     public:
         Potential()
@@ -72,23 +73,24 @@ public:
         bool operator==(const Potential &other) const { return m_move == other.m_move; }
 
     private:
+        friend class Node::Playout;
         Move m_move;
         float m_pValue;
     };
 
     class Playout {
     public:
-        Playout()
+        inline Playout()
             : m_potential(nullptr)
             , m_isPotential(true)
         { }
 
-        Playout(Node *node)
+        inline Playout(Node *node)
             : m_node(node)
             , m_isPotential(false)
         { }
 
-        Playout(Potential *potential)
+        inline Playout(Node::Potential *potential)
             : m_potential(potential)
             , m_isPotential(true)
         { }
@@ -107,37 +109,39 @@ public:
         // For playouts
         inline float pValue() const
         {
-            if (isPotential())
-                return potential()->pValue();
-            return node()->pValue();
+            if (m_isPotential)
+                return m_potential->m_pValue;
+            return m_node->m_pValue;
         }
 
         inline float qValue(float parentQValueDefault) const
         {
-            if (isPotential() || !node()->m_visited)
+            if (m_isPotential || !m_node->m_visited)
                 return parentQValueDefault;
             // This method already checks for visited or using parent default so this is faster
             // than using node overload
-            return node()->m_qValue;
+            return m_node->m_qValue;
         }
 
         inline float uValue(float uCoeff) const
         {
-            return uCoeff * pValue() / (visits() + virtualLoss() + 1);
+            if (m_isPotential)
+                return uCoeff * m_potential->m_pValue;
+            return uCoeff * m_node->m_pValue / (m_node->m_visited + m_node->m_virtualLoss + 1);
         }
 
         inline quint32 visits() const
         {
-            if (isPotential())
+            if (m_isPotential)
                 return 0;
             return node()->visits();
         }
 
         inline quint32 virtualLoss() const
         {
-            if (isPotential())
+            if (m_isPotential)
                 return 0;
-            return node()->virtualLoss();
+            return m_node->m_virtualLoss;
         }
 
     private:
@@ -178,7 +182,7 @@ public:
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
     static float minimax(Node *, int depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
-    static float uctFormula(float qValue, float uValue, quint64 visits);
+    static float uctFormula(float qValue, float uValue);
     static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
 
     void initialize(Node *parent, const Game &game, Node::Position *nodePosition);
@@ -514,9 +518,8 @@ inline float Node::uValue(const float uCoeff) const
     return uCoeff * pValue() / (visits() + virtualLoss() + 1);
 }
 
-inline float Node::uctFormula(float qValue, float uValue, quint64 visits)
+inline float Node::uctFormula(float qValue, float uValue)
 {
-    Q_UNUSED(visits)
     return qValue + uValue;
 }
 

@@ -537,7 +537,7 @@ start_playout:
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
             Node::Playout playout(child);
-            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff), playout.visits() + playout.virtualLoss());
+            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff));
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondPlayout = firstPlayout;
@@ -557,7 +557,7 @@ start_playout:
             // We get a non-const reference to the actual value
             Node::Potential *potential = &n->m_position->m_potentials[i];
             Node::Playout playout(potential);
-            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff), playout.visits() + playout.virtualLoss());
+            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff));
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondPlayout = firstPlayout;
@@ -860,7 +860,7 @@ QString Node::printTree(int topDepth, int depth, bool printPotentials) const
         << qSetFieldWidth(4) << left << " p: " << qSetFieldWidth(5) << qSetRealNumberPrecision(2) << right << pValue() * 100 << qSetFieldWidth(1) << left << "%"
         << qSetFieldWidth(4) << left << " q: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << qValue()
         << qSetFieldWidth(4) << " u: " << qSetFieldWidth(6) << qSetRealNumberPrecision(5) << right << uValue(uCoeff)
-        << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : Node::uctFormula(qValue(), uValue(uCoeff), visits()))
+        << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : Node::uctFormula(qValue(), uValue(uCoeff)))
         << qSetFieldWidth(4) << " v: " << qSetFieldWidth(7) << qSetRealNumberPrecision(4) << right << rawQValue()
         << qSetFieldWidth(4) << " h: " << qSetFieldWidth(2) << right << qMax(1, treeDepth() - d)
         << qSetFieldWidth(4) << " cp: " << qSetFieldWidth(2) << right << scoreToCP(qValue());
