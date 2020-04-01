@@ -249,8 +249,8 @@ void Node::backPropagateValue(float v)
     m_qValue = qBound(-1.f, (m_visited * currentQValue + v) / float(m_visited + 1), 1.f);
     incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
-    qDebug() << "bp " << toString() << " n:" << m_position->m_visited
-        << "v:" << v << "oq:" << currentQValue << "fq:" << m_position->m_qValue;
+    qDebug() << "bp " << toString() << " n:" << m_visited
+        << "v:" << v << "oq:" << currentQValue << "fq:" << m_qValue;
 #endif
 }
 
@@ -274,8 +274,8 @@ void Node::setQValueAndPropagate()
     setQValueFromRaw();
     incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
-    qDebug() << "bp " << toString() << " n:" << m_position->m_visited
-        << "v:" << m_position->m_rawQValue << "oq:" << 0.0 << "fq:" << m_position->m_qValue;
+    qDebug() << "bp " << toString() << " n:" << m_visited
+        << "v:" << m_rawQValue << "oq:" << 0.0 << "fq:" << m_qValue;
 #endif
     backPropagateValueFull();
 }

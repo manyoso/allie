@@ -496,6 +496,9 @@ inline float Node::rawQValue() const
 inline void Node::setRawQValue(float rawQValue)
 {
     m_rawQValue = rawQValue;
+#if defined(DEBUG_FETCHANDBP)
+    qDebug() << "sq " << toString() << " v:" << rawQValue;
+#endif
 }
 
 inline bool Node::hasPValue() const
