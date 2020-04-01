@@ -63,7 +63,7 @@ private:
     bool fillOutTree(bool *hardExit);
 
     // Playout methods
-    bool handlePlayout(Node *playout);
+    bool handlePlayout(Node *playout, Cache *cache);
     QVector<Node*> playoutNodes(int size, bool *didWork, bool *hardExit);
     void ensureRootAndChildrenScored();
 

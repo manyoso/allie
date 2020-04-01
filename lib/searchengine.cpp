@@ -184,7 +184,7 @@ void SearchWorker::fetchAndMinimax(QVector<Node*> nodes, bool sync)
     }
 }
 
-bool SearchWorker::handlePlayout(Node *playout)
+bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 {
 #if defined(DEBUG_PLAYOUT)
     qDebug() << "adding regular playout" << playout->toString();
@@ -200,6 +200,14 @@ bool SearchWorker::handlePlayout(Node *playout)
         QMutexLocker locker(m_tree->treeMutex());
         playout->backPropagateDirty();
         return false;
+    }
+
+    // If we don't have a position, we must initialize it
+    {
+        // We need the lock because we query qValue if the position in hash already has a value
+        // which is set under lock by another thread
+        QMutexLocker locker(m_tree->treeMutex());
+        playout->initializePosition(cache);
     }
 
     // Generate children of the node if possible
@@ -268,7 +276,7 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, bool *hardExi
             continue;
         }
 
-        bool shouldFetchFromNN = handlePlayout(playout);
+        bool shouldFetchFromNN = handlePlayout(playout, hash);
         if (!shouldFetchFromNN) {
             ++exactOrCached;
             continue;
@@ -288,6 +296,8 @@ QVector<Node*> SearchWorker::playoutNodes(int size, bool *didWork, bool *hardExi
 
 void SearchWorker::ensureRootAndChildrenScored()
 {
+    Cache *hash = Cache::globalInstance();
+
     {
         // Fetch and minimax for root
         Node *root = m_tree->embodiedRoot();
@@ -296,7 +306,7 @@ void SearchWorker::ensureRootAndChildrenScored()
             m_tree->treeMutex()->lock();
             root->m_virtualLoss += 1;
             m_tree->treeMutex()->unlock();
-            bool shouldFetchFromNN = handlePlayout(root);
+            bool shouldFetchFromNN = handlePlayout(root, hash);
             if (shouldFetchFromNN)
                 nodes.append(root);
         }
@@ -322,7 +332,7 @@ void SearchWorker::ensureRootAndChildrenScored()
 
         QVector<Node*> nodes;
         for (Node *child : children) {
-            bool shouldFetchFromNN = handlePlayout(child);
+            bool shouldFetchFromNN = handlePlayout(child, hash);
             if (shouldFetchFromNN)
                 nodes.append(child);
         }

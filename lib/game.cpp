@@ -1091,6 +1091,11 @@ bool Game::Position::isDeadPosition() const
     return true;
 }
 
+void Game::storeMove(const Move &move)
+{
+    m_lastMove = move;
+}
+
 bool Game::makeMove(const Move &move, Position *position)
 {
     Move mv = move;

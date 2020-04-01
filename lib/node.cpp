@@ -108,14 +108,14 @@ Node::Position *Node::Position::relinkOrClone(quint64 positionHash, Cache *cache
 
 Node::Node()
 {
-    initialize(nullptr, Game(), nullptr);
+    initialize(nullptr, Game());
 }
 
 Node::~Node()
 {
 }
 
-void Node::initialize(Node *parent, const Game &game, Node::Position *position)
+void Node::initialize(Node *parent, const Game &game)
 {
     if (parent) {
 #if defined(DEBUG_CHURN)
@@ -127,7 +127,7 @@ void Node::initialize(Node *parent, const Game &game, Node::Position *position)
     }
     m_game = game;
     m_parent = parent;
-    m_position = position;
+    m_position = nullptr;
     m_potentialIndex = 0;
     m_children.clear();
     m_visited = 0;
@@ -140,6 +140,51 @@ void Node::initialize(Node *parent, const Game &game, Node::Position *position)
     m_isTB = false;
     m_isDirty = false;
     m_scoringOrScored.clear();
+}
+
+void Node::initializePosition(Cache *cache)
+{
+    // Nothing to do if we already have a position which is true for root
+    if (m_position)
+        return;
+
+    Game::Position childPosition = m_parent->m_position->position(); // copy
+    const bool success = m_game.makeMove(m_game.lastMove(), &childPosition);
+    Q_ASSERT(success);
+
+    // Get a node position from hashpositions
+    quint64 childPositionHash = childPosition.positionHash();
+    if (!SearchSettings::useTranspositions)
+        childPositionHash ^= reinterpret_cast<quint64>(this);
+
+    bool cloned = false;
+    m_position = Node::Position::relinkOrClone(childPositionHash, cache, &cloned);
+    if (!m_position || cloned) {
+        m_position = cache->newNodePosition(childPositionHash);
+        if (!m_position) {
+            qFatal("Fatal error: we have run out of positions in memory!");
+        }
+    }
+
+    Q_ASSERT(m_position);
+    m_position->initialize(this, childPosition);
+
+#if defined(DEBUG_CHURN)
+    QString string;
+    QTextStream stream(&string);
+    stream << "ctor n ";
+    stream << m_position->positionHash();
+    stream << " [";
+    stream << this;
+    stream << "]";
+    qDebug().noquote() << string;
+#endif
+}
+
+void Node::setPosition(Node::Position *position)
+{
+    m_position = position;
+
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -658,6 +703,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     if (!child) {
         NodeGenerationError error = NoError;
         child = Node::generateNode(move, 0.0f, this, Cache::globalInstance(), &error);
+        child->initializePosition(Cache::globalInstance());
     }
 
     Q_ASSERT(child);
@@ -809,34 +855,16 @@ Node *Node::generateNode(const Move &childMove, float childPValue, Node *parent,
         return nullptr;
     }
 
-    // Make the child move
-    Game::Position childPosition = parent->m_position->position(); // copy
+    // Store the child move
     Game childGame = parent->m_game;
-    const bool success = childGame.makeMove(childMove, &childPosition);
-    Q_ASSERT(success);
-
-    // Get a node position from hashpositions
-    quint64 childPositionHash = childPosition.positionHash();
-    if (!SearchSettings::useTranspositions)
-        childPositionHash ^= reinterpret_cast<quint64>(child);
-
-    bool cloned = false;
-    Node::Position *childNodePosition = Node::Position::relinkOrClone(childPositionHash, cache, &cloned);
-    if (!childNodePosition || cloned) {
-        childNodePosition = cache->newNodePosition(childPositionHash);
-        if (!childNodePosition) {
-            *error = OutOfPositions;
-            qFatal("Fatal error: we have run out of positions in memory!");
-        }
-    }
-
-    Q_ASSERT(childNodePosition);
-    child->initialize(parent, childGame, childNodePosition);
-    childNodePosition->initialize(child, childPosition);
+    childGame.storeMove(childMove);
+    child->initialize(parent, childGame);
     child->setPValue(childPValue);
     parent->m_children.append(child);
     return child;
 }
+
+
 
 const Node *Node::findSuccessor(const QVector<QString> &child) const
 {

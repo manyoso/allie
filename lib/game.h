@@ -179,6 +179,7 @@ public:
     int repetitions() const { return m_repetitions; }
 
     // non-const and will modify in-place
+    void storeMove(const Move &move);
     bool makeMove(const Move &move, Position *position);
     void setFen(const QString &fen, Position *position);
 

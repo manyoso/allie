@@ -137,20 +137,19 @@ inline Node *Tree::embodiedRoot()
         return m_root;
 
     Cache &cache = *Cache::globalInstance();
+    Q_ASSERT(!cache.used());
     m_root = cache.newNode();
     Q_ASSERT(m_root);
 
     Node::Position *rootPosition = nullptr;
     quint64 rootPositionHash = rootGame.position().positionHash();
-    if (m_resumePreviousPositionIfPossible && cache.containsNodePosition(rootPositionHash)) {
+    if (cache.containsNodePosition(rootPositionHash))
         rootPosition = cache.nodePosition(rootPositionHash);
-        m_root->initialize(nullptr, rootGame, rootPosition);
-        rootPosition->initialize(m_root, rootGame.position());
-    } else {
+    else
         rootPosition = cache.newNodePosition(rootPositionHash);
-        m_root->initialize(nullptr, rootGame, rootPosition);
-        rootPosition->initialize(m_root, rootGame.position());
-    }
+    m_root->initialize(nullptr, rootGame);
+    m_root->setPosition(rootPosition);
+    rootPosition->initialize(m_root, rootGame.position());
 
     return m_root;
 }

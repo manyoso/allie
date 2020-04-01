@@ -188,7 +188,9 @@ public:
     static float uctFormula(float qValue, float uValue);
     static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
 
-    void initialize(Node *parent, const Game &game, Node::Position *nodePosition);
+    void initialize(Node *parent, const Game &game);
+    void initializePosition(Cache *cache);
+    void setPosition(Node::Position *position);
     bool deinitialize(bool forcedFree);
     void updateTranspositions() const;
 

@@ -258,6 +258,7 @@ void Tests::testStart(const StandaloneGame &start)
         Node::Potential *potential = &((*potentials)[i]);
         Node::NodeGenerationError error = Node::NoError;
         Node *child = root->generateNode(potential->move(), potential->pValue(), root, Cache::globalInstance(), &error);
+        child->initializePosition(Cache::globalInstance());
         QVERIFY(child);
         QCOMPARE(child->parent(), root);
         QVERIFY(!child->hasChildren());

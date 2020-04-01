@@ -424,6 +424,7 @@ void Tests::testHistory()
         Node::Potential *potential = lastNode->generatePotential(mv);
         Node::NodeGenerationError error = Node::NoError;
         lastNode = lastNode->generateNode(potential->move(), potential->pValue(), lastNode, Cache::globalInstance(), &error);
+        lastNode->initializePosition(Cache::globalInstance());
         Q_ASSERT(lastNode);
     }
 
@@ -536,6 +537,7 @@ void Tests::testThreeFold4()
             found = true;
             Node::NodeGenerationError error = Node::NoError;
             Node *threeFold = root->generateNode(potential->move(), potential->pValue(), root, Cache::globalInstance(), &error);
+            threeFold->initializePosition(Cache::globalInstance());
             Q_ASSERT(threeFold);
             threeFold->generatePotentials();
             QVERIFY(threeFold->isThreeFold());
