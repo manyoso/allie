@@ -33,6 +33,7 @@ qint64 SearchSettings::earlyExitMinimumTime = 500;
 int SearchSettings::tryPlayoutLimit = 32;
 int SearchSettings::vldMax = 10000;
 QString SearchSettings::weightsFile = QString();
+bool SearchSettings::useTranspositions = true;
 
 void SearchInfo::calculateSpeeds(qint64 t)
 {

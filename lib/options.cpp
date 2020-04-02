@@ -161,7 +161,7 @@ Options::Options()
     UciOption useTranspositions;
     useTranspositions.m_name = QLatin1Literal("UseTranspositions");
     useTranspositions.m_type = UciOption::Check;
-    useTranspositions.m_default = QLatin1Literal("true");
+    useTranspositions.m_default = SearchSettings::useTranspositions ? QLatin1String("true") : QLatin1String("false");
     useTranspositions.m_value = useTranspositions.m_default;
     useTranspositions.m_description = QLatin1String("Whether to use transpositions");
     insertOption(useTranspositions);

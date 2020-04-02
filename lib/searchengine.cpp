@@ -46,7 +46,6 @@ SearchWorker::SearchWorker(int id, QObject *parent)
       m_tree(nullptr),
       m_stop(true)
 {
-    m_useTranspositions = Options::globalInstance()->option("UseTranspositions").value() == "true";
 }
 
 SearchWorker::~SearchWorker()
@@ -221,7 +220,7 @@ bool SearchWorker::handlePlayout(Node *playout)
     }
 
     const Node *transposition = playout->position()->transposition();
-    if (m_useTranspositions && transposition && transposition != playout) {
+    if (SearchSettings::useTranspositions && transposition && transposition != playout) {
         // We can go ahead and clone now only if the first transposition has been scored
         // otherwise we will clone the rest of the transpositions when it has
         QMutexLocker locker(m_tree->treeMutex());
@@ -470,6 +469,7 @@ void SearchEngine::startSearch()
     SearchSettings::cpuctF = Options::globalInstance()->option("CpuctF").value().toFloat();
     SearchSettings::cpuctInit = Options::globalInstance()->option("CpuctInit").value().toFloat();
     SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();
+    SearchSettings::useTranspositions = Options::globalInstance()->option("UseTranspositions").value() == "true";
 
     m_startedWorkers = 0;
     m_currentInfo = SearchInfo();

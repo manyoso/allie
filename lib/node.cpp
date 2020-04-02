@@ -785,7 +785,9 @@ Node *Node::generateNode(const Move &childMove, float childPValue, Node *parent,
 
     // Get a node position from hashpositions
     Node::Position *childNodePosition = nullptr;
-    const quint64 childPositionHash = childPosition.positionHash();
+    quint64 childPositionHash = childPosition.positionHash();
+    if (!SearchSettings::useTranspositions)
+        childPositionHash ^= reinterpret_cast<quint64>(child);
     if (cache->containsNodePosition(childPositionHash)) {
         childNodePosition = Node::Position::relink(childPositionHash, cache);
         Q_ASSERT(childNodePosition);
