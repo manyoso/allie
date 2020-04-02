@@ -41,6 +41,7 @@ float cpToScore(int cp)
 Node::Position::Position()
 {
     m_transpositionNode = nullptr;
+    m_rawQValue = -2.0f;
 }
 
 Node::Position::~Position()
@@ -49,19 +50,20 @@ Node::Position::~Position()
 
 void Node::Position::initialize(Node *node, const Game::Position &position)
 {
+    if (m_transpositionNode)
+        return;
+
     m_position = position;
-    m_transpositionNode = nullptr;
-    m_potentials.clear();
-    if (node) {
-        m_transpositionNode = node;
-        Q_ASSERT(m_transpositionNode->m_position == this);
+    m_transpositionNode = node;
+    Q_ASSERT(m_transpositionNode->m_position == this);
+    if (m_transpositionNode) {
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
         stream << "ctor p ";
-        stream << positionHash;
+        stream << positionHash();
         stream << " [";
-        stream << node->hash();
+        stream << m_transpositionNode;
         stream << "]";
         qDebug().noquote() << string;
 #endif
@@ -71,45 +73,35 @@ void Node::Position::initialize(Node *node, const Game::Position &position)
 bool Node::Position::deinitialize(bool forcedFree)
 {
     Q_UNUSED(forcedFree)
+    m_position = Game::Position();
+    m_transpositionNode = nullptr;
+    m_potentials.clear();
+    m_rawQValue = -2.0f;
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
     stream << "dtor p ";
     stream << positionHash();
-    stream << " [";
-    int i = 0;
-    for (Node *node : m_nodes) {
-        if (i)
-            stream << " ";
-        stream << node->hash();
-        ++i;
-    }
-    stream << "]";
     qDebug().noquote() << string;
 #endif
     return true;
 }
 
-Node::Position *Node::Position::relink(quint64 positionHash, Cache *cache)
+Node::Position *Node::Position::relinkOrClone(quint64 positionHash, Cache *cache, bool *cloned)
 {
+    if (!cache->containsNodePosition(positionHash))
+        return nullptr;
+
     // Update the reference for this position in LRU hash
-    Q_ASSERT(cache->containsNodePosition(positionHash));
-    Node::Position *p = cache->nodePosition(positionHash, true /*relink*/);
+    Node::Position *p = cache->nodePositionRelinkOrClone(positionHash, cloned);
 #if defined(DEBUG_CHURN)
-    QString string;
-    QTextStream stream(&string);
-    stream << "relk p ";
-    stream << positionHash;
-    stream << " [";
-    int i = 0;
-    for (Node *node : p->m_nodes) {
-        if (i)
-            stream << " ";
-        stream << node->hash();
-        ++i;
+    if (*cloned) {
+        QString string;
+        QTextStream stream(&string);
+        stream << "relk p ";
+        stream << positionHash;
+        qDebug().noquote() << string;
     }
-    stream << "]";
-    qDebug().noquote() << string;
 #endif
     return p;
 }
@@ -129,7 +121,7 @@ void Node::initialize(Node *parent, const Game &game, Node::Position *position)
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
-        stream << "ref " << " [" << parent->hash() << "]";
+        stream << "ref " << " [" << parent << "]";
         qDebug().noquote() << string;
 #endif
     }
@@ -141,7 +133,6 @@ void Node::initialize(Node *parent, const Game &game, Node::Position *position)
     m_visited = 0;
     m_virtualLoss = 0;
     m_qValue = -2.0f;
-    m_rawQValue = -2.0f;
     m_pValue = -2.0f;
     m_policySum = 0;
     m_uCoeff = -2.0f;
@@ -172,7 +163,7 @@ bool Node::deinitialize(bool forcedFree)
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
-        stream << "deref " << " [" << parent->hash() << "]";
+        stream << "deref " << " [" << parent << "]";
         qDebug().noquote() << string;
 
 #endif
@@ -228,7 +219,7 @@ void Node::scoreMiniMax(float score, bool isExact)
     Q_ASSERT(!m_isExact || isExact);
     m_isExact = isExact;
     if (m_isExact) {
-        m_rawQValue = score;
+        setRawQValue(score);
         m_qValue = score;
     } else
         m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
@@ -285,7 +276,7 @@ void Node::setQValueAndPropagate()
     incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "bp " << toString() << " n:" << m_visited
-        << "v:" << m_rawQValue << "oq:" << 0.0 << "fq:" << m_qValue;
+        << "v:" << rawQValue() << "oq:" << 0.0 << "fq:" << m_qValue;
 #endif
     backPropagateValueFull();
 }
@@ -677,17 +668,17 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->m_rawQValue = 1.0f;
+        child->setRawQValue(1.0f);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
     case TB::Loss:
-        child->m_rawQValue = -1.0f;
+        child->setRawQValue(-1.0f);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
     case TB::Draw:
-        child->m_rawQValue = 0.0f;
+        child->setRawQValue(0.0f);
         child->m_isExact = true;
         child->m_isTB = true;
         break;
@@ -698,7 +689,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
 
     // If this root has never been scored, then do so now to prevent asserts in back propagation
     if (!m_visited) {
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         backPropagateDirty();
         setQValueFromRaw();
         ++m_visited;
@@ -710,17 +701,19 @@ bool Node::checkAndGenerateDTZ(int *dtz)
 
 void Node::generatePotentials()
 {
+    Q_ASSERT(m_children.isEmpty());
+
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         m_isExact = true;
         return;
     } else if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         m_isExact = true;
         return;
     } else if (Q_UNLIKELY(isThreeFold())) {
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         m_isExact = true;
         return;
     }
@@ -731,17 +724,17 @@ void Node::generatePotentials()
     case TB::NotFound:
         break;
     case TB::Win:
-        m_rawQValue = 1.0f;
+        setRawQValue(1.0f);
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Loss:
-        m_rawQValue = -1.0f;
+        setRawQValue(-1.0f);
         m_isExact = true;
         m_isTB = true;
         return;
     case TB::Draw:
-        m_rawQValue = 0.0f;
+        setRawQValue(0.0f);
         m_isExact = true;
         m_isTB = true;
         return;
@@ -761,11 +754,11 @@ void Node::generatePotentials()
 
         if (isChecked) {
             m_game.setCheckMate(true);
-            m_rawQValue = 1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f);
+            setRawQValue(1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f));
             m_isExact = true;
         } else {
             m_game.setStaleMate(true);
-            m_rawQValue = 0.0f;
+            setRawQValue(0.0f);
             m_isExact = true;
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
@@ -823,25 +816,23 @@ Node *Node::generateNode(const Move &childMove, float childPValue, Node *parent,
     Q_ASSERT(success);
 
     // Get a node position from hashpositions
-    Node::Position *childNodePosition = nullptr;
     quint64 childPositionHash = childPosition.positionHash();
     if (!SearchSettings::useTranspositions)
         childPositionHash ^= reinterpret_cast<quint64>(child);
-    if (cache->containsNodePosition(childPositionHash)) {
-        childNodePosition = Node::Position::relink(childPositionHash, cache);
-        Q_ASSERT(childNodePosition);
-        child->initialize(parent, childGame, childNodePosition);
-    } else {
+
+    bool cloned = false;
+    Node::Position *childNodePosition = Node::Position::relinkOrClone(childPositionHash, cache, &cloned);
+    if (!childNodePosition || cloned) {
         childNodePosition = cache->newNodePosition(childPositionHash);
         if (!childNodePosition) {
             *error = OutOfPositions;
             qFatal("Fatal error: we have run out of positions in memory!");
         }
-        Q_ASSERT(childNodePosition);
-        child->initialize(parent, childGame, childNodePosition);
-        childNodePosition->initialize(child, childPosition);
     }
 
+    Q_ASSERT(childNodePosition);
+    child->initialize(parent, childGame, childNodePosition);
+    childNodePosition->initialize(child, childPosition);
     child->setPValue(childPValue);
     parent->m_children.append(child);
     return child;

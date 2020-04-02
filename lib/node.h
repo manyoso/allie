@@ -152,7 +152,7 @@ public:
 
         void initialize(Node *node, const Game::Position &position);
         bool deinitialize(bool forcedFree);
-        static Node::Position *relink(quint64 positionHash, Cache *cache);
+        static Node::Position *relinkOrClone(quint64 positionHash, Cache *cache, bool *cloned);
         inline void clearTransposition() { m_transpositionNode = nullptr; }
         inline const Node* transposition() const { return m_transpositionNode; }
         inline void updateTransposition(const Node *node)
@@ -165,11 +165,15 @@ public:
         inline const QVector<Potential> *potentials() const { return &m_potentials; }
         inline const Game::Position &position() const { return m_position; }
         inline quint64 positionHash() const { return m_position.positionHash(); }
+        inline bool hasRawQValue() const { return !qFuzzyCompare(m_rawQValue, -2.0f); }
+        inline float rawQValue() const { return m_rawQValue; }
+        inline void setRawQValue(float rawQvalue) { m_rawQValue = rawQvalue; }
 
     private:
         Game::Position m_position;
         const Node* m_transpositionNode;
         QVector<Potential> m_potentials;
+        float m_rawQValue;
         friend class Node;
         friend class Tests;
     };
@@ -294,7 +298,6 @@ private:
     quint32 m_visited;                  // 4
     quint32 m_virtualLoss;              // 4
     float m_qValue;                     // 4
-    float m_rawQValue;                  // 4
     float m_pValue;                     // 4
     float m_policySum;                  // 4
     float m_uCoeff;                     // 4
@@ -470,22 +473,25 @@ inline void Node::setQValueFromRaw()
 {
     Q_ASSERT(hasRawQValue());
     if (!m_visited)
-        m_qValue = m_rawQValue;
+        m_qValue = rawQValue();
 }
 
 inline bool Node::hasRawQValue() const
 {
-    return !qFuzzyCompare(m_rawQValue, -2.0f);
+    Q_ASSERT(m_position);
+    return m_position->hasRawQValue();
 }
 
 inline float Node::rawQValue() const
 {
-    return m_rawQValue;
+    Q_ASSERT(m_position);
+    return m_position->rawQValue();
 }
 
 inline void Node::setRawQValue(float rawQValue)
 {
-    m_rawQValue = rawQValue;
+    Q_ASSERT(m_position);
+    m_position->setRawQValue(rawQValue);
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "sq " << toString() << " v:" << rawQValue;
 #endif
@@ -550,6 +556,12 @@ inline bool isPinned(const Node::Position &position)
 inline bool isPinned(Node *node)
 {
     return node->position();
+}
+
+inline bool shouldClone(const Node::Position &position)
+{
+    Q_ASSERT(position.transposition() || position.hasRawQValue());
+    return position.transposition() && !position.transposition()->hasQValue();
 }
 
 QDebug operator<<(QDebug debug, const Node &node);

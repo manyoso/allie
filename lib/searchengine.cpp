@@ -97,11 +97,9 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             Q_ASSERT(node->hasPotentials() || node->isCheckMate() || node->isStaleMate());
             node->setRawQValue(-computation->qVal(index));
             if (node->hasPotentials()) {
-                // Only the first transposition needs to set pvals
-                if (node->position()->transposition() == node) {
-                    computation->setPVals(index, node);
-                    Node::sortByPVals(*node->m_position->potentials());
-                }
+                Q_ASSERT(node->position()->transposition() == node);
+                computation->setPVals(index, node);
+                Node::sortByPVals(*node->m_position->potentials());
             }
         }
 
@@ -113,7 +111,6 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         QMutexLocker locker(tree->treeMutex());
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
-            node->position()->updateTransposition(node);
             node->backPropagateDirty();
         }
 
@@ -220,13 +217,14 @@ bool SearchWorker::handlePlayout(Node *playout)
     }
 
     const Node *transposition = playout->position()->transposition();
-    if (SearchSettings::useTranspositions && transposition && transposition != playout) {
-        // We can go ahead and clone now only if the first transposition has been scored
-        // otherwise we will clone the rest of the transpositions when it has
-        Q_ASSERT(transposition->position() == playout->position());
+    Q_ASSERT(transposition);
+    Q_ASSERT(transposition->position() == playout->position());
+    if (SearchSettings::useTranspositions) {
+        // We can go ahead and use the transposition iff it is not this playout AND
+        // it has been fully scored OR it is this playout AND it already has a rawQValue
         QMutexLocker locker(m_tree->treeMutex());
-        if (transposition->hasQValue() && !playout->hasRawQValue()) {
-            playout->setRawQValue(transposition->m_rawQValue);
+        if ((transposition != playout && transposition->hasQValue()) ||
+            (transposition == playout && transposition->hasRawQValue())) {
 #if defined(DEBUG_PLAYOUT)
             qDebug() << "found cached playout" << playout->toString();
 #endif

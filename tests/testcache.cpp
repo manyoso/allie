@@ -61,7 +61,7 @@ void Tests::testBasicCache()
         CacheItem *item = cache.newObject(id1);
         item->id = id1;
         QVERIFY(cache.contains(id1));
-        CacheItem *copyItem = cache.object(id1, false /*relink*/);
+        CacheItem *copyItem = cache.object(id1);
         QCOMPARE(copyItem, item);
         QCOMPARE(copyItem->id, item->id);
     }
@@ -79,7 +79,7 @@ void Tests::testBasicCache()
         QCOMPARE(item->id, id1);        // But should still be set to previous id, because we do not
                                         // reset in deinitialize
         item->id = id2;                 // Update the id
-        CacheItem *copyItem = cache.object(id2, false /*relink*/);
+        CacheItem *copyItem = cache.object(id2);
         QCOMPARE(copyItem, item);
         QCOMPARE(copyItem->id, item->id);
     }
@@ -264,7 +264,7 @@ void Tests::testStart(const StandaloneGame &start)
         QCOMPARE(quint32(0), child->visits());
         QCOMPARE(quint32(0), child->virtualLoss());
         QVERIFY(qFuzzyCompare(-2.f, child->m_qValue));
-        QVERIFY(qFuzzyCompare(-2.f, child->m_rawQValue));
+        QVERIFY(qFuzzyCompare(-2.f, child->rawQValue()));
         QVERIFY(qFuzzyCompare(-2.f, child->m_pValue));
         QVERIFY(!child->isExact());
         QVERIFY(!child->isTB());

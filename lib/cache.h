@@ -39,6 +39,9 @@ template <class T>
 extern bool isPinned(const T &object);
 
 template <class T>
+extern bool shouldClone(const T &object);
+
+template <class T>
 class FixedSizeArena {
 public:
     FixedSizeArena();
@@ -150,7 +153,8 @@ public:
 
     void reset(int positions);
     bool contains(quint64 hash) const;
-    T *object(quint64 hash, bool relink);
+    T *object(quint64 hash);
+    T *objectRelinkOrClone(quint64 hash, bool *cloned);
     T *newObject(quint64 hash);
     void unlink(quint64 hash);
     float percentFull(int halfMoveNumber) const;
@@ -448,7 +452,20 @@ inline bool FixedSizeCache<T>::contains(quint64 hash) const
 }
 
 template <class T>
-inline T *FixedSizeCache<T>::object(quint64 hash, bool update)
+inline T *FixedSizeCache<T>::object(quint64 hash)
+{
+    Q_ASSERT(m_maxSize);
+    Q_ASSERT(m_cache.count(hash));
+
+    ObjectInfo *info = m_cache.at(hash);
+    if (!info)
+        return nullptr;
+    return &(info->object);
+}
+
+
+template <class T>
+inline T *FixedSizeCache<T>::objectRelinkOrClone(quint64 hash, bool *cloned)
 {
     Q_ASSERT(m_maxSize);
     Q_ASSERT(m_cache.count(hash));
@@ -457,8 +474,15 @@ inline T *FixedSizeCache<T>::object(quint64 hash, bool update)
     if (!info)
         return nullptr;
 
-    if (update)
+    if (shouldClone(info->object)) {
+        // Clone by using hash ^ address of object, thereby freeing up the hash
+        // to be used by something else
+        m_cache.erase(hash);
+        m_cache.insert({hash ^ reinterpret_cast<quint64>(&(info->object)), info});
+        *cloned = true;
+    } else {
         relinkToUsed(*info);
+    }
     return &(info->object);
 }
 
@@ -520,7 +544,8 @@ public:
     void resetNodes();
 
     bool containsNodePosition(quint64 hash) const;
-    Node::Position *nodePosition(quint64 hash, bool relink = false);
+    Node::Position *nodePosition(quint64 hash);
+    Node::Position *nodePositionRelinkOrClone(quint64 hash, bool *cloned);
     Node::Position *newNodePosition(quint64 hash);
     void unlinkNodePosition(quint64 hash);
 
@@ -575,9 +600,14 @@ inline bool Cache::containsNodePosition(quint64 hash) const
     return m_positionCache.contains(hash);
 }
 
-inline Node::Position *Cache::nodePosition(quint64 hash, bool relink)
+inline Node::Position *Cache::nodePosition(quint64 hash)
 {
-    return m_positionCache.object(hash, relink);
+    return m_positionCache.object(hash);
+}
+
+inline Node::Position *Cache::nodePositionRelinkOrClone(quint64 hash, bool *cloned)
+{
+    return m_positionCache.objectRelinkOrClone(hash, cloned);
 }
 
 inline Node::Position *Cache::newNodePosition(quint64 hash)
