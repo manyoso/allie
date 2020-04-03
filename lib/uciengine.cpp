@@ -41,7 +41,7 @@
 #include "searchengine.h"
 #include "tb.h"
 
-//#define AVERAGES
+#define AVERAGES
 static bool s_firstLog = true;
 
 //#define DEBUG_TIME
@@ -259,7 +259,7 @@ void IOWorker::readyReadOutput(const QString &output)
 
 UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     : QObject(parent),
-    m_debug(false),
+    m_debug(true),
     m_gameInitialized(false),
     m_debugFile(debugFile),
     m_searchEngine(nullptr),
