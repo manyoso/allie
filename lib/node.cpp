@@ -54,6 +54,7 @@ void Node::Position::initialize(Node *node, const Game::Position &position)
     m_potentials.clear();
     if (node) {
         m_transpositionNode = node;
+        Q_ASSERT(m_transpositionNode->m_position == this);
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
@@ -205,7 +206,8 @@ bool Node::deinitialize(bool forcedFree)
 
 void Node::updateTranspositions() const
 {
-    m_position->updateTransposition(const_cast<const Node*>(this));
+    if (!m_position->transposition())
+        m_position->updateTransposition(const_cast<const Node*>(this));
 
     for (int i = 0; i < m_children.count(); ++i)
         m_children.at(i)->updateTranspositions();
@@ -401,6 +403,9 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
 
         Q_ASSERT(node->m_isDirty);
         *isExact = nodeIsExact;
+        // If this node has children and was proven to be an exact node, then it is possible that
+        // recently leafs have been made to we must trim the tree of any leafs
+        trimUnscoredFromTree(node);
         node->setQValueAndPropagate();
         return node->m_qValue;
     }
@@ -428,12 +433,13 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
         Node *child = node->m_children.at(index);
         Q_ASSERT(child);
 
-        // If the child doesn't have a raw qValue then it has not been scored yet so just continue
-        // or if it does have one, but not visited and is not marked dirty yet
-        if (!child->hasRawQValue() || (!child->m_visited && !child->m_isDirty)) {
+        // If the child is not visited and is not marked dirty then it has not been scored yet, so
+        // just continue
+        if (!child->m_visited && !child->m_isDirty) {
             everythingScored = false;
             continue;
         }
+        Q_ASSERT(child->hasRawQValue());
 
         bool subtreeIsExact = false;
         float score = minimax(child, depth + 1, &subtreeIsExact, info);
@@ -472,16 +478,44 @@ void Node::validateTree(const Node *node)
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
         Q_ASSERT(child);
+        Q_ASSERT(child->parent() == node);
 
-        // If the child doesn't have a raw qValue then it has not been scored yet so just continue
-        if (!child->hasRawQValue())
+        // If the child is not visited and is not marked dirty then it has not been scored yet, so
+        // just continue
+        if (!child->m_visited && !child->m_isDirty)
             continue;
 
         validateTree(child);
         childVisits += child->m_visited;
     }
 
-    Q_ASSERT(node->m_visited == childVisits + 1);
+    Q_ASSERT(node->isExact() || node->m_visited == childVisits + 1);
+}
+
+void Node::trimUnscoredFromTree(Node *node)
+{
+    // If this is not dirty, then we don't need to trim
+    if (!node->isDirty())
+        return;
+
+    QMutableVectorIterator<Node*> it(node->m_children);
+    while (it.hasNext()) {
+        Node *child = it.next();
+        // If this child has not been scored and dirty, then it should be trimmed
+        if (!child->m_visited && child->isDirty()) {
+            Q_ASSERT(child->m_children.isEmpty());
+            --node->m_potentialIndex;
+            if (child->m_position && child->m_position->transposition() == child)
+                child->m_position->clearTransposition(); // Unpins the position
+            it.remove();                    // deletes ourself from our parent
+            child->m_position = nullptr;    // unpins the node
+            child->m_parent = nullptr;      // make sure to nullify our parent
+        } else {
+            trimUnscoredFromTree(child);
+        }
+    }
+
+    node->m_isDirty = false;
 }
 
 Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache)
@@ -533,6 +567,7 @@ start_playout:
 
         // Otherwise calculate the virtualLossDistance to advance past this node
         Q_ASSERT(n->hasChildren() || n->hasPotentials());
+        Q_ASSERT(!n->isExact());
 
         Node::Playout firstPlayout;
         Node::Playout secondPlayout;

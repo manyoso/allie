@@ -121,7 +121,7 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         bool isExact = false;
         Node::minimax(m_tree->embodiedRoot(), 0 /*depth*/, &isExact, &info);
 #if defined(DEBUG_VALIDATE_TREE)
-        Node::validateTree(m_tree->root);
+        Node::validateTree(m_tree->embodiedRoot());
 #endif
     }
 
@@ -176,7 +176,7 @@ void SearchWorker::fetchAndMinimax(QVector<Node*> nodes, bool sync)
             bool isExact = false;
             Node::minimax(m_tree->embodiedRoot(), 0 /*depth*/, &isExact, &info);
 #if defined(DEBUG_VALIDATE_TREE)
-            Node::validateTree(m_tree->root);
+            Node::validateTree(m_tree->embodiedRoot());
 #endif
         }
 
@@ -223,6 +223,7 @@ bool SearchWorker::handlePlayout(Node *playout)
     if (SearchSettings::useTranspositions && transposition && transposition != playout) {
         // We can go ahead and clone now only if the first transposition has been scored
         // otherwise we will clone the rest of the transpositions when it has
+        Q_ASSERT(transposition->position() == playout->position());
         QMutexLocker locker(m_tree->treeMutex());
         if (transposition->hasQValue() && !playout->hasRawQValue()) {
             playout->setRawQValue(transposition->m_rawQValue);
@@ -293,7 +294,7 @@ void SearchWorker::ensureRootAndChildrenScored()
         // Fetch and minimax for root
         Node *root = m_tree->embodiedRoot();
         QVector<Node*> nodes;
-        if (!root->setScoringOrScored() || !root->hasRawQValue()) {
+        if (!root->setScoringOrScored()) {
             m_tree->treeMutex()->lock();
             root->m_virtualLoss += 1;
             m_tree->treeMutex()->unlock();
@@ -366,6 +367,10 @@ void SearchWorker::search()
     for (QFuture<void> f : m_futures)
         f.waitForFinished();
     m_futures.clear();
+
+#if defined(DEBUG_VALIDATE_TREE)
+    Tree::validateTree(m_tree->embodiedRoot(), nullptr);
+#endif
 
     emit searchWorkerStopped();
 }

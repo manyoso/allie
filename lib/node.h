@@ -162,7 +162,11 @@ public:
         static Node::Position *relink(quint64 positionHash, Cache *cache);
         inline void clearTransposition() { m_transpositionNode = nullptr; }
         inline const Node* transposition() const { return m_transpositionNode; }
-        inline void updateTransposition(const Node *node) { m_transpositionNode = node; }
+        inline void updateTransposition(const Node *node)
+        {
+            m_transpositionNode = node;
+            Q_ASSERT(m_transpositionNode->position() == this);
+        }
         inline bool hasPotentials() const { return !m_potentials.isEmpty(); }
         inline QVector<Potential> *potentials() { return &m_potentials; }
         inline const QVector<Potential> *potentials() const { return &m_potentials; }
@@ -183,6 +187,7 @@ public:
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
     static float minimax(Node *, int depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
+    static void trimUnscoredFromTree(Node *);
     static float uctFormula(float qValue, float uValue);
     static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
 

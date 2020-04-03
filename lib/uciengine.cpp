@@ -683,6 +683,7 @@ void UciEngine::quit()
 #if defined(AVERAGES)
         sendAverages();
 #endif
+        m_searchEngine->stopSearch();
         m_searchEngine->stopPonder();
     }
     QCoreApplication::instance()->quit();

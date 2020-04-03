@@ -39,6 +39,7 @@ public:
     QMutex *treeMutex();
     void reset();
     void clearRoot();
+    static void validateTree(Node *node, int *total);
 
 private:
     QMutex m_treeMutex;
@@ -65,6 +66,19 @@ inline void Tree::reset()
     m_root = nullptr;
 }
 
+inline void Tree::validateTree(Node *node, int *total)
+{
+    if (total)
+       ++(*total);
+    Q_ASSERT(node->hasQValue());
+    Q_ASSERT(node->isRootNode() || node->hasPValue());
+    Q_ASSERT(node->position());
+    Q_ASSERT(node->position()->transposition());
+    const QVector<Node*> children = *node->children();
+    for (Node *child : children)
+        validateTree(child, total);
+}
+
 inline void Tree::clearRoot()
 {
     const StandaloneGame rootGame = History::globalInstance()->currentGame();
@@ -74,7 +88,6 @@ inline void Tree::clearRoot()
         if (!m_resumePreviousPositionIfPossible) {
             cache.unlinkNode(m_root);
             m_root = nullptr;
-            Q_ASSERT(!cache.used());
         } else {
             // Attempt to resume root if possible
             bool foundResume = false;
@@ -84,9 +97,9 @@ inline void Tree::clearRoot()
                 for (Node *grandChild : grandChildren) {
                     if (grandChild->m_position->position().isSamePosition(rootGame.position()) && !grandChild->isTrueTerminal()) {
                         grandChild->setAsRootNode();
-                        grandChild->updateTranspositions();
                         cache.unlinkNode(m_root);
                         m_root = grandChild;
+                        m_root->updateTranspositions();
                         foundResume = true;
                         break;
                     }
@@ -94,7 +107,6 @@ inline void Tree::clearRoot()
             }
             if (!foundResume) {
                 cache.unlinkNode(m_root);
-                Q_ASSERT(!cache.used());
                 m_root = nullptr;
             }
         }
@@ -104,6 +116,13 @@ inline void Tree::clearRoot()
     cache.resetNodes();
 
 #if defined(DEBUG_RESUME)
+    if (m_root) {
+        int total = 0;
+        validateTree(m_root, &total);
+        Q_ASSERT(cache.used() == total);
+    } else {
+        Q_ASSERT(!cache.used());
+    }
     const int sizeAfter = cache.used();
     if (sizeAfter)
         qDebug() << "Resume resulted in" << sizeAfter << "reused nodes.";
