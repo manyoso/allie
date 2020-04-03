@@ -774,6 +774,13 @@ void Node::generatePotentials()
     }
 }
 
+void Node::reservePotentials(int totalSize)
+{
+    Q_ASSERT(m_position);
+    m_children.reserve(totalSize);
+    m_position->m_potentials.reserve(totalSize);
+}
+
 Node::Potential *Node::generatePotential(const Move &move)
 {
     Q_ASSERT(move.isValid());

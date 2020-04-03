@@ -238,6 +238,7 @@ public:
 
     bool checkAndGenerateDTZ(int *dtz);
     void generatePotentials();
+    void reservePotentials(int totalSize);
     Node::Potential *generatePotential(const Move &move);
     Node *generateNextChild(Cache *cache, NodeGenerationError *error);
     static Node *generateNode(const Move &move, float, Node *parent, Cache *cache, NodeGenerationError *error);

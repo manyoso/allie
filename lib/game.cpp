@@ -689,64 +689,75 @@ void Game::Position::pseudoLegalMoves(Node *parent) const
     const BitBoard enemies = army == Black ? m_whitePositionBoard : m_blackPositionBoard;
     const Movegen *gen = Movegen::globalInstance();
 
+    int totalMoves = 0;
+    QVector<QPair<Square, BitBoard>> kingMoves;
+    QVector<QPair<Square, BitBoard>> queenMoves;
+    QVector<QPair<Square, BitBoard>> rookMoves;
+    QVector<QPair<Square, BitBoard>> bishopMoves;
+    QVector<QPair<Square, BitBoard>> knightMoves;
+    QVector<QPair<Square, BitBoard>> pawnMoves;
+    QVector<QPair<Square, BitBoard>> pawnAttacks;
+
     {
         const BitBoard pieces(friends & board(King));
+        kingMoves.reserve(pieces.count());
         BitBoard::Iterator sq = pieces.begin();
         for (int i = 0; sq != pieces.end(); ++sq, ++i) {
             Q_ASSERT(i < 1);
             const BitBoard moves = gen->kingMoves(*sq, friends, enemies);
-            BitBoard::Iterator newSq = moves.begin();
-            for (; newSq != moves.end(); ++newSq)
-                generateMove(King, *sq, *newSq, parent);
+            totalMoves += moves.count();
+            kingMoves.append(qMakePair(*sq, moves));
         }
     }
 
     {
         const BitBoard pieces(friends & board(Queen));
+        queenMoves.reserve(pieces.count());
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             const BitBoard moves = gen->queenMoves(*sq, friends, enemies);
-            BitBoard::Iterator newSq = moves.begin();
-            for (; newSq != moves.end(); ++newSq)
-                generateMove(Queen, *sq, *newSq, parent);
+            totalMoves += moves.count();
+            queenMoves.append(qMakePair(*sq, moves));
         }
     }
 
     {
         const BitBoard pieces(friends & board(Rook));
+        rookMoves.reserve(pieces.count());
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             const BitBoard moves = gen->rookMoves(*sq, friends, enemies);
-            BitBoard::Iterator newSq = moves.begin();
-            for (; newSq != moves.end(); ++newSq)
-                generateMove(Rook, *sq, *newSq, parent);
+            totalMoves += moves.count();
+            rookMoves.append(qMakePair(*sq, moves));
         }
     }
 
     {
         const BitBoard pieces(friends & board(Bishop));
+        bishopMoves.reserve(pieces.count());
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             const BitBoard moves = gen->bishopMoves(*sq, friends, enemies);
-            BitBoard::Iterator newSq = moves.begin();
-            for (; newSq != moves.end(); ++newSq)
-                generateMove(Bishop, *sq, *newSq, parent);
+            totalMoves += moves.count();
+            bishopMoves.append(qMakePair(*sq, moves));
         }
     }
 
     {
         const BitBoard pieces(friends & board(Knight));
+        knightMoves.reserve(pieces.count());
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
             const BitBoard moves = gen->knightMoves(*sq, friends, enemies);
-            BitBoard::Iterator newSq = moves.begin();
-            for (; newSq != moves.end(); ++newSq)
-                generateMove(Knight, *sq, *newSq, parent);
+            totalMoves += moves.count();
+            knightMoves.append(qMakePair(*sq, moves));
         }
     }
 
     {
         const BitBoard pieces(friends & board(Pawn));
+        pawnMoves.reserve(pieces.count());
+        pawnAttacks.reserve(pieces.count());
         BitBoard::Iterator sq = pieces.begin();
         BitBoard enemiesPlusEnpassant = enemies;
         if (m_enPassantTarget.isValid())
@@ -754,22 +765,68 @@ void Game::Position::pseudoLegalMoves(Node *parent) const
         for (; sq != pieces.end(); ++sq) {
             {
                 const BitBoard moves = gen->pawnMoves(army, *sq, friends, enemies);
-                BitBoard::Iterator newSq = moves.begin();
-                for (; newSq != moves.end(); ++newSq) {
-                    bool forwardTwo = qAbs((*newSq).rank() - (*sq).rank()) > 1;
-                    Square forwardOne = Square((*newSq).file(), army == White ? (*newSq).rank() - 1 : (*newSq).rank() + 1);
-                    if (forwardTwo && BitBoard(friends | enemies).testBit(forwardOne.data()))
-                        continue; // can't move through another piece
-                    generateMove(Pawn, *sq, *newSq, parent);
-                }
+                totalMoves += moves.count();
+                pawnMoves.append(qMakePair(*sq, moves));
             }
             {
                 const BitBoard moves = gen->pawnAttacks(army, *sq, friends, enemiesPlusEnpassant);
-                BitBoard::Iterator newSq = moves.begin();
-                for (; newSq != moves.end(); ++newSq)
-                    generateMove(Pawn, *sq, *newSq, parent);
+                totalMoves += moves.count();
+                pawnAttacks.append(qMakePair(*sq, moves));
             }
         }
+    }
+
+    // For castle moves
+    totalMoves += 2;
+
+    // Reserve conservative estimate for number of children
+    parent->reservePotentials(totalMoves);
+
+    for (QPair<Square, BitBoard> piece : kingMoves) {
+        BitBoard::Iterator newSq = piece.second.begin();
+        for (; newSq != piece.second.end(); ++newSq)
+            generateMove(King, piece.first, *newSq, parent);
+    }
+
+    for (QPair<Square, BitBoard> piece : queenMoves) {
+        BitBoard::Iterator newSq = piece.second.begin();
+        for (; newSq != piece.second.end(); ++newSq)
+            generateMove(Queen, piece.first, *newSq, parent);
+    }
+
+    for (QPair<Square, BitBoard> piece : rookMoves) {
+        BitBoard::Iterator newSq = piece.second.begin();
+        for (; newSq != piece.second.end(); ++newSq)
+            generateMove(Rook, piece.first, *newSq, parent);
+    }
+
+    for (QPair<Square, BitBoard> piece : bishopMoves) {
+        BitBoard::Iterator newSq = piece.second.begin();
+        for (; newSq != piece.second.end(); ++newSq)
+            generateMove(Bishop, piece.first, *newSq, parent);
+    }
+
+    for (QPair<Square, BitBoard> piece : knightMoves) {
+        BitBoard::Iterator newSq = piece.second.begin();
+        for (; newSq != piece.second.end(); ++newSq)
+            generateMove(Knight, piece.first, *newSq, parent);
+    }
+
+    for (QPair<Square, BitBoard> piece : pawnMoves) {
+        BitBoard::Iterator newSq = piece.second.begin();
+        for (; newSq != piece.second.end(); ++newSq) {
+            bool forwardTwo = qAbs((*newSq).rank() - (piece.first).rank()) > 1;
+            Square forwardOne = Square((*newSq).file(), army == White ? (*newSq).rank() - 1 : (*newSq).rank() + 1);
+            if (forwardTwo && BitBoard(friends | enemies).testBit(forwardOne.data()))
+                continue; // can't move through another piece
+            generateMove(Pawn, piece.first, *newSq, parent);
+        }
+    }
+
+    for (QPair<Square, BitBoard> piece : pawnAttacks) {
+        BitBoard::Iterator newSq = piece.second.begin();
+        for (; newSq != piece.second.end(); ++newSq)
+            generateMove(Pawn, piece.first, *newSq, parent);
     }
 
     // Add castle moves
