@@ -76,6 +76,14 @@ Options::Options()
     debugLog.m_description = QLatin1String("Output a debug log in binary directory");
     insertOption(debugLog);
 
+    UciOption debugInfo;
+    debugInfo.m_name = QLatin1Literal("DebugInfo");
+    debugInfo.m_type = UciOption::Check;
+    debugInfo.m_default = QLatin1Literal("false");
+    debugInfo.m_value = debugInfo.m_default;
+    debugInfo.m_description = QLatin1String("Output additional debug info");
+    insertOption(debugInfo);
+
     UciOption GPUCores;
     GPUCores.m_name = QLatin1Literal("GPUCores");
     GPUCores.m_type = UciOption::Spin;

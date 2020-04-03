@@ -34,6 +34,7 @@ int SearchSettings::tryPlayoutLimit = 32;
 int SearchSettings::vldMax = 10000;
 QString SearchSettings::weightsFile = QString();
 bool SearchSettings::useTranspositions = true;
+bool SearchSettings::debugInfo = true;
 
 void SearchInfo::calculateSpeeds(qint64 t)
 {

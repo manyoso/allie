@@ -41,7 +41,6 @@
 #include "searchengine.h"
 #include "tb.h"
 
-//#define AVERAGES
 static bool s_firstLog = true;
 
 //#define DEBUG_TIME
@@ -260,7 +259,6 @@ void IOWorker::readyReadOutput(const QString &output)
 UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     : QObject(parent),
     m_instantRawNPS(0.0f),
-    m_debug(false),
     m_gameInitialized(false),
     m_debugFile(debugFile),
     m_searchEngine(nullptr),
@@ -294,11 +292,11 @@ void UciEngine::readyRead(const QString &line)
         QList<QString> debug = line.split(' ');
         if (debug.count() == 2) {
             if (debug.at(1) == "on")
-                m_debug = true;
+                SearchSettings::debugInfo = true;
             else if (debug.at(1) == "off")
-                m_debug = false;
+                SearchSettings::debugInfo = false;
         } else {
-            m_debug = true;
+            SearchSettings::debugInfo = true;
         }
     } else if (line == QLatin1Literal("isready")) {
         sendReadyOk();
@@ -572,7 +570,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
         << endl;
 #endif
 
-    if (m_debug) {
+    if (SearchSettings::debugInfo) {
         stream << "info"
                << " isResume " << (m_lastInfo.isResume ? "true" : "false")
                << " rawnps " << m_lastInfo.rawnps
@@ -603,9 +601,8 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     Q_ASSERT(m_clock->isActive());
     output(out);
 
-#if defined(AVERAGES)
-    calculateRollingAverage(m_lastInfo);
-#endif
+    if (SearchSettings::debugInfo)
+        calculateRollingAverage(m_lastInfo);
 
     // Stop at specific targets if requested or if we have a dtz move
     if (targetReached)
@@ -652,6 +649,7 @@ void UciEngine::uciNewGame()
 
     m_searchEngine->reset();
     Cache::globalInstance()->reset();
+    SearchSettings::debugInfo = Options::globalInstance()->option("DebugInfo").value() == "true";
     SearchSettings::weightsFile = Options::globalInstance()->option("WeightsFile").value();
     Q_ASSERT(!SearchSettings::weightsFile.isEmpty());
     NeuralNet::globalInstance()->setWeights(SearchSettings::weightsFile);
@@ -680,9 +678,8 @@ void UciEngine::quit()
     //qDebug() << "quit";
     Q_ASSERT(m_searchEngine);
     if (m_searchEngine && m_gameInitialized) {
-#if defined(AVERAGES)
-        sendAverages();
-#endif
+        if (SearchSettings::debugInfo)
+            sendAverages();
         m_searchEngine->stopSearch();
         m_searchEngine->stopPonder();
     }

@@ -52,6 +52,7 @@ struct SearchSettings {
     static int vldMax;
     static QString weightsFile;
     static bool useTranspositions;
+    static bool debugInfo;
 };
 
 QDebug operator<<(QDebug, const Search &);
