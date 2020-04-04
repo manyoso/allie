@@ -546,13 +546,6 @@ inline int Node::virtualLossDistance(float swec, float uCoeff, float q, float p,
     int n = qMax(1, qCeil(qreal(nf))) - currentVisits;
     if (n > SearchSettings::vldMax)
         return SearchSettings::vldMax;
-
-#ifndef NDEBUG
-    const float after = q + uCoeff * p / (currentVisits + n + 1);
-    Q_ASSERT(after < swec);
-    Q_ASSERT(n != 0);
-#endif
-
     return n;
 }
 

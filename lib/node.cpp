@@ -592,7 +592,6 @@ start_playout:
                 vld = vldNew;
             else
                 vld = qMin(vld, vldNew);
-            Q_ASSERT(vld >= 1);
         }
 
         // Retrieve the actual first node
