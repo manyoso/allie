@@ -547,7 +547,7 @@ start_playout:
 
         // If we've already calculated virtualLossDistance or we are not extendable,
         // then decrement the try and vld limits and check if we should exit
-        if (alreadyPlayingOut || n->isNotExtendable()) {
+        if (alreadyPlayingOut || n->isExact()) {
             --(*tryPlayoutLimit);
 #if defined(DEBUG_PLAYOUT)
             qDebug() << "decreasing try for" << n->toString() << *tryPlayoutLimit;
@@ -579,16 +579,15 @@ start_playout:
         // First look at the actual children
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
-            Node::Playout playout(child);
-            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff));
+            float score = Node::uctFormula(child->qValue(), child->uValue(uCoeff));
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondPlayout = firstPlayout;
                 secondBestScore = bestScore;
-                firstPlayout = playout;
+                firstPlayout = Node::Playout(child);
                 bestScore = score;
             } else if (score > secondBestScore) {
-                secondPlayout = playout;
+                secondPlayout = Node::Playout(child);
                 secondBestScore = score;
             }
         }
@@ -599,16 +598,15 @@ start_playout:
         for (int i = n->m_potentialIndex; i < n->m_position->m_potentials.count() && i < n->m_potentialIndex + 2; ++i) {
             // We get a non-const reference to the actual value
             Node::Potential *potential = &n->m_position->m_potentials[i];
-            Node::Playout playout(potential);
-            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff));
+            float score = Node::uctFormula(parentQValueDefault, uCoeff * potential->pValue());
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondPlayout = firstPlayout;
                 secondBestScore = bestScore;
-                firstPlayout = playout;
+                firstPlayout = Node::Playout(potential);
                 bestScore = score;
             } else if (score > secondBestScore) {
-                secondPlayout = playout;
+                secondPlayout = Node::Playout(potential);
                 secondBestScore = score;
             }
         }

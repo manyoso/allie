@@ -123,13 +123,6 @@ public:
             return m_node->m_qValue;
         }
 
-        inline float uValue(float uCoeff) const
-        {
-            if (m_isPotential)
-                return uCoeff * m_potential->m_pValue;
-            return uCoeff * m_node->m_pValue / (m_node->m_visited + m_node->m_virtualLoss + 1);
-        }
-
         inline quint32 visits() const
         {
             if (m_isPotential)
@@ -212,8 +205,6 @@ public:
     inline bool hasChildren() const { return !m_children.isEmpty(); }
     inline QVector<Node*> *children() { return &m_children; }
     inline const QVector<Node*> *children() const { return &m_children; }
-
-    bool isNotExtendable() const;
 
     void scoreMiniMax(float score, bool isExact);
     bool isAlreadyPlayingOut() const;
@@ -357,15 +348,6 @@ inline int Node::count() const
     for (Node *n : m_children)
         c += n->count();
     return c;
-}
-
-inline bool Node::isNotExtendable() const
-{
-    // If we don't have children or potentials (either exact or haven't generated them yet)
-    // or if our children or potentials don't have pValues then we are not extendable
-    Q_ASSERT(m_position);
-    return (!hasChildren() || !m_children.first()->hasPValue())
-        && (!hasPotentials() || !m_position->potentials()->first().hasPValue());
 }
 
 inline float Node::uCoeff() const
