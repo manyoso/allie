@@ -285,7 +285,7 @@ void Tests::testCastlingAnd960()
         QVERIFY(root);
         QCOMPARE(nullptr, root->parent());
         QCOMPARE(g.position().positionHash(), root->position()->positionHash());
-        root->generatePotentials();
+        root->generatePotentials(Cache::globalInstance(), root->position()->positionHash());
 
         // Make sure this is encoded as king captures rook
         bool foundCastleKingSide = false;
@@ -525,7 +525,7 @@ void Tests::testThreeFold4()
     Node *root = tree.embodiedRoot();
     QVERIFY(root);
     QVERIFY(!root->isThreeFold());
-    root->generatePotentials();
+    root->generatePotentials(Cache::globalInstance(), root->position()->positionHash());
 
     bool found = false;
     QVector<Node::Potential> *potentials = root->m_position->potentials(); // not a copy
@@ -539,7 +539,7 @@ void Tests::testThreeFold4()
             Node *threeFold = root->generateNode(potential->move(), potential->pValue(), root, Cache::globalInstance(), &error);
             threeFold->initializePosition(Cache::globalInstance());
             Q_ASSERT(threeFold);
-            threeFold->generatePotentials();
+            threeFold->generatePotentials(Cache::globalInstance(), threeFold->position()->positionHash());
             QVERIFY(threeFold->isThreeFold());
         }
     }
@@ -582,7 +582,7 @@ void Tests::checkGame(const QString &fen, const QVector<QString> &mv)
         Node *root = tree->embodiedRoot();
         QVERIFY(root);
         QVERIFY(!root->isThreeFold());
-        root->generatePotentials();
+        root->generatePotentials(Cache::globalInstance(), root->position()->positionHash());
 
         if (root->isThreeFold()) {
             r = ThreeFold;

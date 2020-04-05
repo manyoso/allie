@@ -142,11 +142,11 @@ void Node::initialize(Node *parent, const Game &game)
     m_scoringOrScored.clear();
 }
 
-void Node::initializePosition(Cache *cache)
+quint64 Node::initializePosition(Cache *cache)
 {
     // Nothing to do if we already have a position which is true for root
     if (m_position)
-        return;
+        return 0;
 
     Game::Position childPosition = m_parent->m_position->position(); // copy
     const bool success = m_game.makeMove(m_game.lastMove(), &childPosition);
@@ -179,6 +179,7 @@ void Node::initializePosition(Cache *cache)
     stream << "]";
     qDebug().noquote() << string;
 #endif
+    return childPositionHash;
 }
 
 void Node::setPosition(Node::Position *position)
@@ -263,10 +264,9 @@ void Node::scoreMiniMax(float score, bool isExact)
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
     Q_ASSERT(!m_isExact || isExact);
     m_isExact = isExact;
-    if (m_isExact) {
-        setRawQValue(score);
+    if (m_isExact)
         m_qValue = score;
-    } else
+    else
         m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
 }
 
@@ -525,7 +525,7 @@ void Node::validateTree(const Node *node)
         childVisits += child->m_visited;
     }
 
-    Q_ASSERT(node->isExact() || node->m_visited == childVisits + 1);
+    Q_ASSERT(node->isRootNode() || node->isExact() || node->m_visited == childVisits + 1);
 }
 
 void Node::trimUnscoredFromTree(Node *node)
@@ -745,7 +745,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     return true;
 }
 
-void Node::generatePotentials()
+void Node::generatePotentials(Cache *cache, quint64 hash)
 {
     Q_ASSERT(m_children.isEmpty());
 
@@ -753,6 +753,7 @@ void Node::generatePotentials()
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
         setRawQValue(0.0f);
         m_isExact = true;
+        cache->nodePositionClone(hash); // This can never be a transposition
         return;
     } else if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
         setRawQValue(0.0f);
@@ -761,6 +762,7 @@ void Node::generatePotentials()
     } else if (Q_UNLIKELY(isThreeFold())) {
         setRawQValue(0.0f);
         m_isExact = true;
+        cache->nodePositionClone(hash); // This can never be a transposition
         return;
     }
 
@@ -786,11 +788,12 @@ void Node::generatePotentials()
         return;
     }
 
-    // Otherwise try and generate potential moves if they have not already been generated for this
-    // position
+    // Otherwise try and generate potential moves if we own this position and we don't have any
+    // potentials already...
     Q_ASSERT(m_position);
-    if (!m_position->hasPotentials())
+    if (m_position->potentials()->isEmpty() && m_position->transposition() == this) {
         m_position->position().pseudoLegalMoves(this);
+    }
 
     // Override the NN in case of checkmates or stalemates
     if (!hasPotentials()) {

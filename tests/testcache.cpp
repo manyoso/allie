@@ -250,7 +250,7 @@ void Tests::testStart(const StandaloneGame &start)
     QVERIFY(root);
     QCOMPARE(nullptr, root->parent());
     QCOMPARE(start.position().positionHash(), root->position()->positionHash());
-    root->generatePotentials();
+    root->generatePotentials(Cache::globalInstance(), root->position()->positionHash());
 
     QVector<Node::Potential> *potentials = root->m_position->potentials(); // not a copy
     QCOMPARE(potentials->count(), 20);

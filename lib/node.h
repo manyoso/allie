@@ -189,7 +189,7 @@ public:
     static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
 
     void initialize(Node *parent, const Game &game);
-    void initializePosition(Cache *cache);
+    quint64 initializePosition(Cache *cache);
     void setPosition(Node::Position *position);
     bool deinitialize(bool forcedFree);
     void updateTranspositions() const;
@@ -234,7 +234,7 @@ public:
     };
 
     bool checkAndGenerateDTZ(int *dtz);
-    void generatePotentials();
+    void generatePotentials(Cache *cache, quint64 hash);
     void reservePotentials(int totalSize);
     Node::Potential *generatePotential(const Move &move);
     Node *generateNextChild(Cache *cache, NodeGenerationError *error);
@@ -563,7 +563,7 @@ inline bool isPinned(Node *node)
 inline bool shouldClone(const Node::Position &position)
 {
     Q_ASSERT(position.transposition() || position.hasRawQValue());
-    return position.transposition() && !position.transposition()->hasQValue();
+    return position.transposition() && (!position.transposition()->hasQValue());
 }
 
 QDebug operator<<(QDebug debug, const Node &node);
