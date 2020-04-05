@@ -203,15 +203,16 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     }
 
     // If we don't have a position, we must initialize it
+    quint64 hash = 0;
     {
         // We need the lock because we query qValue if the position in hash already has a value
         // which is set under lock by another thread
         QMutexLocker locker(m_tree->treeMutex());
-        playout->initializePosition(cache);
+        hash = playout->initializePosition(cache);
     }
 
     // Generate children of the node if possible
-    playout->generatePotentials();
+    playout->generatePotentials(cache, hash);
 
     // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
     // then let's just back propagate dirty
@@ -228,10 +229,14 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     Q_ASSERT(transposition);
     Q_ASSERT(transposition->position() == playout->position());
     if (SearchSettings::useTranspositions) {
-        // We can go ahead and use the transposition iff it is not this playout AND
-        // it has been fully scored OR it is this playout AND it already has a rawQValue
         QMutexLocker locker(m_tree->treeMutex());
-        if ((transposition != playout && transposition->hasQValue()) ||
+        // If we are using another transposition, then it *must* already have a qValue or it would
+        // have been cloned and made unique when this playout first got its position
+        Q_ASSERT(transposition == playout || transposition->hasQValue());
+
+        // We can go ahead and use the transposition iff it is not this playout OR if it is this
+        // playout AND it already has a rawQValue
+        if ((transposition != playout) ||
             (transposition == playout && transposition->hasRawQValue())) {
 #if defined(DEBUG_PLAYOUT)
             qDebug() << "found cached playout" << playout->toString();
