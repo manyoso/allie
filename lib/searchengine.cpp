@@ -142,7 +142,7 @@ void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, bool sync)
 
     Computation *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
     Q_ASSERT(network);
-    if (sync) {
+    if (SearchSettings::featuresOff.testFlag(SearchSettings::Threading) || sync) {
         fetchBatch(nodesToFetch, network, m_tree, m_searchId);
     } else {
         std::function<void()> fetchBatch = std::bind(&SearchWorker::fetchBatch, this,
@@ -228,7 +228,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     const Node *transposition = playout->position()->transposition();
     Q_ASSERT(transposition);
     Q_ASSERT(transposition->position() == playout->position());
-    if (SearchSettings::useTranspositions) {
+    if (!SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions)) {
         QMutexLocker locker(m_tree->treeMutex());
         // If we are using another transposition, then it *must* already have a qValue or it would
         // have been cloned and made unique when this playout first got its position
@@ -487,7 +487,7 @@ void SearchEngine::startSearch()
     SearchSettings::cpuctF = Options::globalInstance()->option("CpuctF").value().toFloat();
     SearchSettings::cpuctInit = Options::globalInstance()->option("CpuctInit").value().toFloat();
     SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();
-    SearchSettings::useTranspositions = Options::globalInstance()->option("UseTranspositions").value() == "true";
+    SearchSettings::featuresOff = SearchSettings::stringToFeatures(Options::globalInstance()->option("FeaturesOff").value());
 
     m_startedWorkers = 0;
     m_currentInfo = SearchInfo();
@@ -684,7 +684,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isTB);
 
     emit sendInfo(m_currentInfo, isPartial);
-    if (shouldEarlyExit)
+    if (!SearchSettings::featuresOff.testFlag(SearchSettings::EarlyExit) && shouldEarlyExit)
         emit requestStop();
 }
 

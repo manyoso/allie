@@ -154,7 +154,7 @@ quint64 Node::initializePosition(Cache *cache)
 
     // Get a node position from hashpositions
     quint64 childPositionHash = childPosition.positionHash();
-    if (!SearchSettings::useTranspositions)
+    if (SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions))
         childPositionHash ^= reinterpret_cast<quint64>(this);
 
     bool cloned = false;
@@ -493,7 +493,8 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     const bool shouldPropagateExact = bestIsExact && (best > 0 || miniMaxComplete) && !node->isRootNode();
 
     // Score the node based on minimax of children
-    node->scoreMiniMax(-best, shouldPropagateExact);
+    if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
+        node->scoreMiniMax(-best, shouldPropagateExact);
 
     // Record info
     ++(info->nodesSearched);

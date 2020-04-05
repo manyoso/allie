@@ -84,6 +84,17 @@ Options::Options()
     debugInfo.m_description = QLatin1String("Output additional debug info");
     insertOption(debugInfo);
 
+    UciOption featuresOff;
+    featuresOff.m_name = QLatin1Literal("FeaturesOff");
+    featuresOff.m_type = UciOption::String;
+    featuresOff.m_default = SearchSettings::featuresToString(SearchSettings::featuresOff);
+    featuresOff.m_value = featuresOff.m_default;
+    featuresOff.m_description = QLatin1String("Specify features to turn off for debugging purposes"
+                                              " as a comma delineated list without spaces in lower"
+                                              "case including 'threading,earlyexit,transpositions,"
+                                              "minimax'");
+    insertOption(featuresOff);
+
     UciOption GPUCores;
     GPUCores.m_name = QLatin1Literal("GPUCores");
     GPUCores.m_type = UciOption::Spin;
@@ -165,14 +176,6 @@ Options::Options()
     useHalfFloatingPoint.m_value = useHalfFloatingPoint.m_default;
     useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
     insertOption(useHalfFloatingPoint);
-
-    UciOption useTranspositions;
-    useTranspositions.m_name = QLatin1Literal("UseTranspositions");
-    useTranspositions.m_type = UciOption::Check;
-    useTranspositions.m_default = SearchSettings::useTranspositions ? QLatin1String("true") : QLatin1String("false");
-    useTranspositions.m_value = useTranspositions.m_default;
-    useTranspositions.m_description = QLatin1String("Whether to use transpositions");
-    insertOption(useTranspositions);
 
     UciOption weightsFile;
     weightsFile.m_name = QLatin1Literal("WeightsFile");
