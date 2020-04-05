@@ -141,7 +141,7 @@ void SearchWorker::fetchFromNN(const QVector<Node*> &nodesToFetch, bool sync)
 
     lczero::Network *network = NeuralNet::globalInstance()->acquireNetwork(); // blocks
     Q_ASSERT(network);
-    if (sync) {
+    if (SearchSettings::featuresOff.testFlag(SearchSettings::Threading) || sync) {
         fetchBatch(nodesToFetch, network, m_tree, m_searchId);
     } else {
         std::function<void()> fetchBatch = std::bind(&SearchWorker::fetchBatch, this,
@@ -518,6 +518,7 @@ void SearchEngine::startSearch(const Search &s)
     SearchSettings::cpuctF = Options::globalInstance()->option("CpuctF").value().toFloat();
     SearchSettings::cpuctInit = Options::globalInstance()->option("CpuctInit").value().toFloat();
     SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();
+    SearchSettings::featuresOff = SearchSettings::stringToFeatures(Options::globalInstance()->option("FeaturesOff").value());
 
     m_startedWorkers = 0;
     m_currentInfo = SearchInfo();
@@ -701,7 +702,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
     m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isTB);
 
     emit sendInfo(m_currentInfo, isPartial);
-    if (shouldEarlyExit)
+    if (!SearchSettings::featuresOff.testFlag(SearchSettings::EarlyExit) && shouldEarlyExit)
         emit requestStop();
 }
 

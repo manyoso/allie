@@ -42,6 +42,15 @@ struct Search {
 };
 
 struct SearchSettings {
+    enum Feature {
+        None = 0x0,
+        Threading = 0x1,
+        EarlyExit = 0x2,
+        Transpositions = 0x4,
+        Minimax = 0x8
+    };
+    Q_DECLARE_FLAGS(Features, Feature)
+
     static float cpuctF;
     static float cpuctInit;
     static float cpuctBase;
@@ -52,6 +61,10 @@ struct SearchSettings {
     static int tryPlayoutLimit;
     static int vldMax;
     static QString weightsFile;
+    static Features featuresOff;
+
+    static Features stringToFeatures(const QString&);
+    static QString featuresToString(Features f);
 };
 
 QDebug operator<<(QDebug, const Search &);

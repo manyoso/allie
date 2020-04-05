@@ -76,6 +76,17 @@ Options::Options()
     debugLog.m_description = QLatin1String("Output a debug log in binary directory");
     insertOption(debugLog);
 
+    UciOption featuresOff;
+    featuresOff.m_name = QLatin1Literal("FeaturesOff");
+    featuresOff.m_type = UciOption::String;
+    featuresOff.m_default = SearchSettings::featuresToString(SearchSettings::featuresOff);
+    featuresOff.m_value = featuresOff.m_default;
+    featuresOff.m_description = QLatin1String("Specify features to turn off for debugging purposes"
+                                              " as a comma delineated list without spaces in lower"
+                                              "case including 'threading,earlyexit,transpositions,"
+                                              "minimax'");
+    insertOption(featuresOff);
+
     UciOption GPUCores;
     GPUCores.m_name = QLatin1Literal("GPUCores");
     GPUCores.m_type = UciOption::Spin;

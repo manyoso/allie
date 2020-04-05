@@ -33,6 +33,40 @@ qint64 SearchSettings::earlyExitMinimumTime = 500;
 int SearchSettings::tryPlayoutLimit = 32;
 int SearchSettings::vldMax = 10000;
 QString SearchSettings::weightsFile = QString();
+SearchSettings::Features SearchSettings::featuresOff = SearchSettings::None;
+
+SearchSettings::Features SearchSettings::stringToFeatures(const QString &string)
+{
+    Features f;
+    QStringList list = string.split(',');
+    for (QString s : list) {
+        if (s == QLatin1String("threading"))
+            f.setFlag(SearchSettings::Threading, true);
+        if (s == QLatin1String("earlyexit"))
+            f.setFlag(SearchSettings::EarlyExit, true);
+        if (s == QLatin1String("transpositions"))
+            f.setFlag(SearchSettings::Transpositions, true);
+        if (s == QLatin1String("minimax"))
+            f.setFlag(SearchSettings::Minimax, true);
+    }
+    return f;
+}
+
+QString SearchSettings::featuresToString(SearchSettings::Features f)
+{
+    QStringList list;
+    if (f.testFlag(SearchSettings::None))
+        return QLatin1String("none");
+    if (f.testFlag(SearchSettings::Threading))
+        list.append(QLatin1String("Threading"));
+    if (f.testFlag(SearchSettings::EarlyExit))
+        list.append(QLatin1String("EarlyExit"));
+    if (f.testFlag(SearchSettings::Transpositions))
+        list.append(QLatin1String("Transpositions"));
+    if (f.testFlag(SearchSettings::Minimax))
+        list.append(QLatin1String("Minimax"));
+    return list.join(", ");
+}
 
 QDebug operator<<(QDebug debug, const Search &search)
 {

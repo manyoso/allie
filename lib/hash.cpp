@@ -125,7 +125,7 @@ void Hash::clear()
 
 bool Hash::contains(const Node *node) const
 {
-    if (!m_cache || !m_cache->maxCost())
+    if (!m_cache || !m_cache->maxCost() || SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions))
         return false;
 
     return m_cache->contains(node->game().hash());
@@ -160,7 +160,7 @@ bool fillOutNodeFromEntry(Node *node, const HashEntry &entry)
 
 bool Hash::fillOut(Node *node) const
 {
-    if (!m_cache || !m_cache->maxCost())
+    if (!m_cache || !m_cache->maxCost() || SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions))
         return false;
 
     Q_ASSERT(m_cache);
@@ -173,7 +173,7 @@ bool Hash::fillOut(Node *node) const
 
 void Hash::insert(const Node *node)
 {
-    if (!m_cache || !m_cache->maxCost())
+    if (!m_cache || !m_cache->maxCost() || SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions))
         return;
 
     if (node->potentials()->count() > MAX_POTENTIALS_COUNT)
