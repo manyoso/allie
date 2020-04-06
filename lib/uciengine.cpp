@@ -499,6 +499,10 @@ void UciEngine::sendBestMove(bool force)
     output(out);
 
     stopSearch(); // we block until the search has stopped
+
+#if defined(AVERAGES)
+    calculateRollingAverage(m_lastInfo);
+#endif
 }
 
 void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
@@ -605,10 +609,6 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     Q_ASSERT(m_clock->isActive());
     output(out);
-
-#if defined(AVERAGES)
-    calculateRollingAverage(m_lastInfo);
-#endif
 
     // Stop at specific targets if requested or if we have a dtz move
     if (targetReached)
