@@ -258,7 +258,6 @@ void IOWorker::readyReadOutput(const QString &output)
 
 UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     : QObject(parent),
-    m_instantRawNPS(0.0f),
     m_gameInitialized(false),
     m_debugFile(debugFile),
     m_searchEngine(nullptr),
@@ -537,21 +536,15 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     if (!targetReached && (isPartial && (msecs - m_timeAtLastProgress) < 2500))
         return;
 
-    m_instantInfo = SearchInfo::nodeAndBatchDiff(m_lastInfo, m_instantInfo);
-    m_instantInfo.calculateSpeeds(msecs - m_timeAtLastProgress);
     m_timeAtLastProgress = msecs;
-
-    // Calculate instant raw nps as an exponential moving average
-    static const float esf = 0.5f;
-    m_instantRawNPS = qFuzzyCompare(m_instantRawNPS, 0.0f) ? m_lastInfo.rawnps : (esf /*smoothing factor*/ * m_instantInfo.rawnps) + (1.0f - esf /*smoothing factor*/) * m_instantRawNPS;
 
     // Set the estimated number of nodes to be searched under deadline if we've been searching for
     // at least N msecs and we want to early exit according to following paper:
     // https://link.springer.com/chapter/10.1007/978-3-642-31866-5_4
     const bool hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
-    if (!hasTarget && !m_clock->isInfinite() && msecs > qMax(SearchSettings::earlyExitMinimumTime, m_clock->deadline() / 4)) {
+    if (!hasTarget && !m_clock->isInfinite() && msecs > SearchSettings::earlyExitMinimumTime) {
         const qint64 timeToRemaining = m_clock->deadline() - msecs;
-        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_instantRawNPS));
+        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_lastInfo.rawnps));
         m_searchEngine->setEstimatedNodes(e);
     }
 
@@ -799,12 +792,10 @@ void UciEngine::go(const Search& s)
     m_clock->setHalfMoveNumber(currentGame.halfMoveNumber());
     m_clock->resetExtension();
     m_clock->startDeadline(p.activeArmy());
-    m_instantRawNPS = 0.0f;
     m_timeAtLastProgress = 0;
     m_depthTargeted = s.depth;
     m_nodesTargeted = s.nodes;
     m_lastInfo = SearchInfo();
-    m_instantInfo = SearchInfo();
 
     startSearch();
 }

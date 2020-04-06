@@ -148,8 +148,6 @@ private:
 private:
     SearchInfo m_averageInfo;
     SearchInfo m_lastInfo;
-    SearchInfo m_instantInfo;
-    float m_instantRawNPS;
     bool m_gameInitialized;
     QString m_debugFile;
     QVector<UciOption> m_options;
