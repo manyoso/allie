@@ -161,6 +161,18 @@ Options::Options()
     tb.m_description = QLatin1String("Path to the syzygy tablebase");
     insertOption(tb);
 
+    UciOption tryPlayoutLimit;
+    tryPlayoutLimit.m_name = QLatin1Literal("TryPlayoutLimit");
+    tryPlayoutLimit.m_type = UciOption::Spin;
+    tryPlayoutLimit.m_default = QString::number(SearchSettings::tryPlayoutLimit);
+    tryPlayoutLimit.m_value = tryPlayoutLimit.m_default;
+    tryPlayoutLimit.m_min = QLatin1Literal("1");
+    tryPlayoutLimit.m_max = QLatin1Literal("1000");
+    tryPlayoutLimit.m_description = QLatin1String("Number of times that a playout with virtual loss"
+                                                  " should be retried to grow the batchSize before"
+                                                  " giving up.");
+    insertOption(tryPlayoutLimit);
+
     UciOption ninesixty;
     ninesixty.m_name = QLatin1Literal("UCI_Chess960");
     ninesixty.m_type = UciOption::Check;
