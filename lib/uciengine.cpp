@@ -643,6 +643,7 @@ void UciEngine::uciNewGame()
     Cache::globalInstance()->reset();
     SearchSettings::debugInfo = Options::globalInstance()->option("DebugInfo").value() == "true";
     SearchSettings::weightsFile = Options::globalInstance()->option("WeightsFile").value();
+    SearchSettings::earlyExitMinimumTime = Options::globalInstance()->option("EarlyExitMinimum").value().toInt();
     Q_ASSERT(!SearchSettings::weightsFile.isEmpty());
     NeuralNet::globalInstance()->setWeights(SearchSettings::weightsFile);
     NeuralNet::globalInstance()->reset();

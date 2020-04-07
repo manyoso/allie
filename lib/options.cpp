@@ -84,6 +84,17 @@ Options::Options()
     debugInfo.m_description = QLatin1String("Output additional debug info");
     insertOption(debugInfo);
 
+    UciOption earlyExitMinimum;
+    earlyExitMinimum.m_name = QLatin1Literal("EarlyExitMinimum");
+    earlyExitMinimum.m_type =  UciOption::Spin;
+    earlyExitMinimum.m_default = QString::number(SearchSettings::earlyExitMinimumTime);
+    earlyExitMinimum.m_value = earlyExitMinimum.m_default;
+    earlyExitMinimum.m_min = QLatin1Literal("0");
+    earlyExitMinimum.m_max = QLatin1Literal("5000");
+    earlyExitMinimum.m_description = QLatin1String("Minimum time in milliseconds before any early"
+                                                   " exit or instamove is allowed.");
+    insertOption(earlyExitMinimum);
+
     UciOption featuresOff;
     featuresOff.m_name = QLatin1Literal("FeaturesOff");
     featuresOff.m_type = UciOption::String;
