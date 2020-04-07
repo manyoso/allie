@@ -162,7 +162,7 @@ void g_uciMessageHandler(QtMsgType type, const QMessageLogContext &context, cons
     if (debugLog) {
         QString logFilePath = QCoreApplication::applicationDirPath() +
             QDir::separator() + QCoreApplication::applicationName() +
-            "_debug.log";
+            "_debug_v0.5.log";
         QFile file(logFilePath);
 
         QIODevice::OpenMode mode = QIODevice::WriteOnly | QIODevice::Text | QIODevice::Append;
