@@ -130,7 +130,7 @@ void Game::Position::processMove(Chess::Army army, Move *move)
             if (type == Rook) {
                 if (move->end().file() == m_fileOfKingsRook)
                     m_hasBlackKingCastle = false;
-                else
+                else if (move->end().file() == m_fileOfQueensRook)
                     m_hasBlackQueenCastle = false;
             }
         }
@@ -187,7 +187,7 @@ void Game::Position::processMove(Chess::Army army, Move *move)
             if (type == Rook) {
                 if (move->end().file() == m_fileOfKingsRook)
                     m_hasWhiteKingCastle = false;
-                else
+                else if (move->end().file() == m_fileOfQueensRook)
                     m_hasWhiteQueenCastle = false;
             }
         }
