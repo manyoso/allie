@@ -23,16 +23,17 @@
 #include <QMetaType>
 
 // Various constants and settings used by search
-float SearchSettings::cpuctF = 2.0f;
-float SearchSettings::cpuctInit = 3.4f;
-float SearchSettings::cpuctBase = 10000;
-float SearchSettings::fpuReduction = 1.2f;
-float SearchSettings::policySoftmaxTemp = 1 / 2.2f;
-float SearchSettings::openingTimeFactor = 1.75*1.2;
+float SearchSettings::cpuctF = 2.817f;
+float SearchSettings::cpuctInit = 1.9f;
+float SearchSettings::cpuctBase = 15000;
+float SearchSettings::fpuReduction = 0.443f;
+float SearchSettings::policySoftmaxTemp = 1 / 1.607f;
+float SearchSettings::openingTimeFactor = 2.1;
 qint64 SearchSettings::earlyExitMinimumTime = 500;
 int SearchSettings::tryPlayoutLimit = 32;
 int SearchSettings::vldMax = 10000;
 QString SearchSettings::weightsFile = QString();
+bool SearchSettings::useTranspositions = true;
 
 void SearchInfo::calculateSpeeds(qint64 t)
 {

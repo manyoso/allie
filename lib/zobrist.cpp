@@ -41,11 +41,11 @@ Zobrist::Zobrist()
     // https://en.wikipedia.org/wiki/Zobrist_hashing
     for (int i = 0; i < 64; ++i) {
         QVector<quint64> keys;
-        for (int i = 0; i < 12; ++i) {
+        for (int j = 0; j < 12; ++j) {
             quint64 a = distribution(generator);
             keys.append(a);
+            m_pieceKeys[i][j] = a;
         }
-        m_pieceKeys.append(keys);
     }
 
     // activearmy

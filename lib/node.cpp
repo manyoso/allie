@@ -40,8 +40,7 @@ float cpToScore(int cp)
 
 Node::Position::Position()
 {
-    const int reserve = Options::globalInstance()->option("ReserveBranches").value().toInt();
-    m_potentials.reserve(reserve);
+    m_transpositionNode = nullptr;
 }
 
 Node::Position::~Position()
@@ -51,10 +50,10 @@ Node::Position::~Position()
 void Node::Position::initialize(Node *node, const Game::Position &position)
 {
     m_position = position;
-    m_nodes.clear();
+    m_transpositionNode = nullptr;
     m_potentials.clear();
     if (node) {
-        m_nodes.append(node);
+        m_transpositionNode = node;
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
@@ -88,34 +87,6 @@ bool Node::Position::deinitialize(bool forcedFree)
     qDebug().noquote() << string;
 #endif
     return true;
-}
-
-void Node::Position::addNode(Node *node)
-{
-    Q_ASSERT(!hasNode(node));
-    m_nodes.append(node);
-#if defined(DEBUG_CHURN)
-    QString string;
-    QTextStream stream(&string);
-    stream << "addn p ";
-    stream << positionHash();
-    stream << " [";
-    int i = 0;
-    for (Node *node : m_nodes) {
-        if (i)
-            stream << " ";
-        stream << node->hash();
-        ++i;
-    }
-    stream << "]";
-    qDebug().noquote() << string;
-#endif
-}
-
-void Node::Position::removeNode(Node *node)
-{
-    Q_ASSERT(hasNode(node));
-    m_nodes.removeAll(node);
 }
 
 Node::Position *Node::Position::relink(quint64 positionHash, Cache *cache)
@@ -210,8 +181,8 @@ bool Node::deinitialize(bool forcedFree)
     for (int i = 0; i < m_children.count(); ++i)
         cache->unlinkNode(m_children.at(i));
 
-    if (m_position)
-        m_position->removeNode(this);
+    if (m_position && m_position->transposition() == this)
+        m_position->clearTransposition();
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -230,6 +201,14 @@ bool Node::deinitialize(bool forcedFree)
     m_children.clear();
 
     return true;
+}
+
+void Node::updateTranspositions() const
+{
+    m_position->updateTransposition(const_cast<const Node*>(this));
+
+    for (int i = 0; i < m_children.count(); ++i)
+        m_children.at(i)->updateTranspositions();
 }
 
 Node *Node::bestChild() const
@@ -278,8 +257,8 @@ void Node::backPropagateValue(float v)
     m_qValue = qBound(-1.f, (m_visited * currentQValue + v) / float(m_visited + 1), 1.f);
     incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
-    qDebug() << "bp " << toString() << " n:" << m_position->m_visited
-        << "v:" << v << "oq:" << currentQValue << "fq:" << m_position->m_qValue;
+    qDebug() << "bp " << toString() << " n:" << m_visited
+        << "v:" << v << "oq:" << currentQValue << "fq:" << m_qValue;
 #endif
 }
 
@@ -303,8 +282,8 @@ void Node::setQValueAndPropagate()
     setQValueFromRaw();
     incrementVisited();
 #if defined(DEBUG_FETCHANDBP)
-    qDebug() << "bp " << toString() << " n:" << m_position->m_visited
-        << "v:" << m_position->m_rawQValue << "oq:" << 0.0 << "fq:" << m_position->m_qValue;
+    qDebug() << "bp " << toString() << " n:" << m_visited
+        << "v:" << m_rawQValue << "oq:" << 0.0 << "fq:" << m_qValue;
 #endif
     backPropagateValueFull();
 }
@@ -566,7 +545,7 @@ start_playout:
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
             Node::Playout playout(child);
-            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff), playout.visits() + playout.virtualLoss());
+            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff));
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondPlayout = firstPlayout;
@@ -586,7 +565,7 @@ start_playout:
             // We get a non-const reference to the actual value
             Node::Potential *potential = &n->m_position->m_potentials[i];
             Node::Playout playout(potential);
-            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff), playout.visits() + playout.virtualLoss());
+            float score = Node::uctFormula(playout.qValue(parentQValueDefault), playout.uValue(uCoeff));
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondPlayout = firstPlayout;
@@ -806,12 +785,13 @@ Node *Node::generateNode(const Move &childMove, float childPValue, Node *parent,
 
     // Get a node position from hashpositions
     Node::Position *childNodePosition = nullptr;
-    const quint64 childPositionHash = childPosition.positionHash();
+    quint64 childPositionHash = childPosition.positionHash();
+    if (!SearchSettings::useTranspositions)
+        childPositionHash ^= reinterpret_cast<quint64>(child);
     if (cache->containsNodePosition(childPositionHash)) {
         childNodePosition = Node::Position::relink(childPositionHash, cache);
         Q_ASSERT(childNodePosition);
         child->initialize(parent, childGame, childNodePosition);
-        childNodePosition->addNode(child);
     } else {
         childNodePosition = cache->newNodePosition(childPositionHash);
         if (!childNodePosition) {
@@ -890,7 +870,7 @@ QString Node::printTree(int topDepth, int depth, bool printPotentials) const
         << qSetFieldWidth(4) << left << " p: " << qSetFieldWidth(5) << qSetRealNumberPrecision(2) << right << pValue() * 100 << qSetFieldWidth(1) << left << "%"
         << qSetFieldWidth(4) << left << " q: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << qValue()
         << qSetFieldWidth(4) << " u: " << qSetFieldWidth(6) << qSetRealNumberPrecision(5) << right << uValue(uCoeff)
-        << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : Node::uctFormula(qValue(), uValue(uCoeff), visits()))
+        << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : Node::uctFormula(qValue(), uValue(uCoeff)))
         << qSetFieldWidth(4) << " v: " << qSetFieldWidth(7) << qSetRealNumberPrecision(4) << right << rawQValue()
         << qSetFieldWidth(4) << " h: " << qSetFieldWidth(2) << right << qMax(1, treeDepth() - d)
         << qSetFieldWidth(4) << " cp: " << qSetFieldWidth(2) << right << scoreToCP(qValue());

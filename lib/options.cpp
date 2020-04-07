@@ -96,20 +96,6 @@ Options::Options()
     cache.m_description = QLatin1String("Maximum number of chess positions stored in memory");
     insertOption(cache);
 
-    // We reserve memory for possible branching factor to avoid allocating during search which
-    // increases base memory requirement but will make the search faster. The actual average
-    // branching factor in a game of chess is somewhere around ~35 ...
-    UciOption reserve;
-    reserve.m_name = QLatin1Literal("ReserveBranches");
-    reserve.m_type = UciOption::Spin;
-    reserve.m_default = QLatin1Literal("35");
-    reserve.m_value = reserve.m_default;
-    reserve.m_min = QLatin1Literal("0");
-    reserve.m_max = QString::number(256);
-    reserve.m_description = QLatin1String("Number of branches each position reserves up front"
-                                        "which increases speed at cost of memory");
-    insertOption(reserve);
-
     UciOption maxBatchSize;
     maxBatchSize.m_name = QLatin1Literal("MaxBatchSize");
     maxBatchSize.m_type = UciOption::Spin;
@@ -175,7 +161,7 @@ Options::Options()
     UciOption useTranspositions;
     useTranspositions.m_name = QLatin1Literal("UseTranspositions");
     useTranspositions.m_type = UciOption::Check;
-    useTranspositions.m_default = QLatin1Literal("true");
+    useTranspositions.m_default = SearchSettings::useTranspositions ? QLatin1String("true") : QLatin1String("false");
     useTranspositions.m_value = useTranspositions.m_default;
     useTranspositions.m_description = QLatin1String("Whether to use transpositions");
     insertOption(useTranspositions);

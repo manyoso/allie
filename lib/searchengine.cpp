@@ -46,7 +46,6 @@ SearchWorker::SearchWorker(int id, QObject *parent)
       m_tree(nullptr),
       m_stop(true)
 {
-    m_useTranspositions = Options::globalInstance()->option("UseTranspositions").value() == "true";
 }
 
 SearchWorker::~SearchWorker()
@@ -98,8 +97,11 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
             Q_ASSERT(node->hasPotentials() || node->isCheckMate() || node->isStaleMate());
             node->setRawQValue(-computation->qVal(index));
             if (node->hasPotentials()) {
-                computation->setPVals(index, node);
-                Node::sortByPVals(*node->m_position->potentials());
+                // Only the first transposition needs to set pvals
+                if (node->position()->transposition() == node) {
+                    computation->setPVals(index, node);
+                    Node::sortByPVals(*node->m_position->potentials());
+                }
             }
         }
 
@@ -111,18 +113,7 @@ void SearchWorker::fetchBatch(const QVector<Node*> &batch,
         QMutexLocker locker(tree->treeMutex());
         for (int index = 0; index < batch.count(); ++index) {
             Node *node = batch.at(index);
-
-            // Clone the transpositions as well
-            if (m_useTranspositions) {
-                const QVector<Node*> &transpositions = node->position()->nodes();
-                for (Node *t : transpositions) {
-                    if (t == node)
-                        continue;
-                    t->m_rawQValue = node->m_rawQValue;
-                    t->backPropagateDirty();
-                }
-            }
-
+            node->position()->updateTransposition(node);
             node->backPropagateDirty();
         }
 
@@ -228,20 +219,19 @@ bool SearchWorker::handlePlayout(Node *playout)
         return false;
     }
 
-    Node *firstTransposition = playout->position()->nodes().first();
-    if (m_useTranspositions && firstTransposition && firstTransposition != playout) {
-#if defined(DEBUG_PLAYOUT)
-        qDebug() << "adding cloned transposition playout" << playout->toString();
-#endif
+    const Node *transposition = playout->position()->transposition();
+    if (SearchSettings::useTranspositions && transposition && transposition != playout) {
         // We can go ahead and clone now only if the first transposition has been scored
         // otherwise we will clone the rest of the transpositions when it has
         QMutexLocker locker(m_tree->treeMutex());
-        if (firstTransposition->hasQValue()) {
-            playout->m_rawQValue = firstTransposition->m_rawQValue;
+        if (transposition->hasQValue() && !playout->hasRawQValue()) {
+            playout->setRawQValue(transposition->m_rawQValue);
+#if defined(DEBUG_PLAYOUT)
+            qDebug() << "found cached playout" << playout->toString();
+#endif
             playout->backPropagateDirty();
+            return false;
         }
-
-        return false;
     }
 
     return true; // Otherwise we should fetch from NN
@@ -303,7 +293,7 @@ void SearchWorker::ensureRootAndChildrenScored()
         // Fetch and minimax for root
         Node *root = m_tree->embodiedRoot();
         QVector<Node*> nodes;
-        if (!root->setScoringOrScored()) {
+        if (!root->setScoringOrScored() || !root->hasRawQValue()) {
             m_tree->treeMutex()->lock();
             root->m_virtualLoss += 1;
             m_tree->treeMutex()->unlock();
@@ -479,6 +469,7 @@ void SearchEngine::startSearch()
     SearchSettings::cpuctF = Options::globalInstance()->option("CpuctF").value().toFloat();
     SearchSettings::cpuctInit = Options::globalInstance()->option("CpuctInit").value().toFloat();
     SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();
+    SearchSettings::useTranspositions = Options::globalInstance()->option("UseTranspositions").value() == "true";
 
     m_startedWorkers = 0;
     m_currentInfo = SearchInfo();
@@ -518,7 +509,7 @@ void SearchEngine::startSearch()
             m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
         else
             m_currentInfo.ponderMove = QString();
-        onlyLegalMove = !root->hasChildren() && root->children()->count() == 1;
+        onlyLegalMove = !root->hasPotentials() && root->children()->count() == 1;
         int pvDepth = 0;
         bool isTB = false;
         m_currentInfo.pv = root->principalVariation(&pvDepth, &isTB);
@@ -665,8 +656,7 @@ void SearchEngine::receivedWorkerInfo(const WorkerInfo &info)
             m_currentInfo.bestIsMostVisited = bestIsMostVisited;
         } else {
             m_currentInfo.bestIsMostVisited = true;
-            printTree(QVector<QString>(), 1000 /*depth*/, true /*printPotentials*/, false /*lock*/);
-            Q_UNREACHABLE();
+            isPartial = true;
         }
     }
 

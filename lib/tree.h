@@ -84,6 +84,7 @@ inline void Tree::clearRoot()
                 for (Node *grandChild : grandChildren) {
                     if (grandChild->m_position->position().isSamePosition(rootGame.position()) && !grandChild->isTrueTerminal()) {
                         grandChild->setAsRootNode();
+                        grandChild->updateTranspositions();
                         cache.unlinkNode(m_root);
                         m_root = grandChild;
                         foundResume = true;

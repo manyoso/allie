@@ -273,7 +273,6 @@ void Tests::testStart(const StandaloneGame &start)
         Node::Position *childPosition = child->position();
         QVERIFY(childPosition);
         QVERIFY(Cache::globalInstance()->containsNodePosition(childPosition->positionHash()));
-        QVERIFY(childPosition->nodes().contains(child));
     }
 }
 

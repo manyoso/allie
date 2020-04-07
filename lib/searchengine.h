@@ -70,7 +70,6 @@ private:
     int m_id;
     int m_searchId;
     bool m_reachedMaxBatchSize;
-    bool m_useTranspositions;
     Tree *m_tree;
     QVector<QFuture<void>> m_futures;
     QMutex m_sleepMutex;

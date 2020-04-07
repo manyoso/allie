@@ -32,7 +32,7 @@ public:
 
 private:
     Zobrist();
-    QVector<QVector<quint64>> m_pieceKeys;
+    quint64 m_pieceKeys[64][12];
     QVector<quint64> m_otherKeys;
     friend class MyZobrist;
 };

@@ -51,6 +51,7 @@ struct SearchSettings {
     static int tryPlayoutLimit;
     static int vldMax;
     static QString weightsFile;
+    static bool useTranspositions;
 };
 
 QDebug operator<<(QDebug, const Search &);
