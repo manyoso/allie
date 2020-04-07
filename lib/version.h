@@ -22,7 +22,9 @@
 #define VERSION_H
 
 #include <QString>
+#if !defined(Q_OS_WIN)
 #include "gitversion.h"
+#endif
 
 static int s_majorVersion = 0;
 static int s_minorVersion = 6;
@@ -32,7 +34,17 @@ static QString versionString()
 {
     const QString maj = QString::number(s_majorVersion);
     const QString min = QString::number(s_minorVersion);
+
+#if defined(Q_OS_WIN)
+#if defined(GIT_SHA)
+    const QString git = QString("(%0)").arg(GIT_SHA);
+#else
+    const QString git = QString();
+#endif
+#else
     const QString git = QString("(%0)").arg(s_gitversion);
+#endif
+
     const QString dev = s_isDev ? QLatin1String("-dev") : QLatin1String("");
     return QString("v%0.%1%2 %3").arg(maj).arg(min).arg(dev).arg(git);
 }

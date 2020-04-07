@@ -8,13 +8,13 @@ win32 {
 # Need to call git with manually specified paths to repository
 BASE_GIT_COMMAND = git --git-dir $$PWD/../.git rev-parse --short HEAD
 
-versiontarget.target = $$OUT_PWD/gitversion.h
 win32 {
-  versiontarget.commands = $$DESTDIR/allieversion $(shell $$BASE_GIT_COMMAND)
+  GIT_SHA = $$system($$BASE_GIT_COMMAND 2> $$NULL_DEVICE)
+  DEFINES += GIT_SHA=\\\"$$GIT_SHA\\\"
 } else {
-  versiontarget.commands = $$DESTDIR/allieversion $(shell $$BASE_GIT_COMMAND)
+  versiontarget.target = $$OUT_PWD/gitversion.h
+  versiontarget.commands = $$DESTDIR/allieversion $(shell $$BASE_GIT_COMMAND 2> $$NULL_DEVICE)
+  versiontarget.depends = FORCE
+  PRE_TARGETDEPS += $$OUT_PWD/gitversion.h
+  QMAKE_EXTRA_TARGETS += versiontarget
 }
-versiontarget.depends = FORCE
-
-PRE_TARGETDEPS += $$OUT_PWD/gitversion.h
-QMAKE_EXTRA_TARGETS += versiontarget
