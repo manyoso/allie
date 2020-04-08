@@ -84,6 +84,18 @@ Options::Options()
     debugInfo.m_description = QLatin1String("Output additional debug info");
     insertOption(debugInfo);
 
+    UciOption earlyExitFactor;
+    earlyExitFactor.m_name = QLatin1Literal("EarlyExitFactor");
+    earlyExitFactor.m_type =  UciOption::String;
+    earlyExitFactor.m_default = QString::number(double(SearchSettings::earlyExitFactor));
+    earlyExitFactor.m_value = earlyExitFactor.m_default;
+    earlyExitFactor.m_min = QLatin1Literal("0");
+    earlyExitFactor.m_max = QLatin1Literal("1");
+    earlyExitFactor.m_description = QLatin1String("Multiplier for early exit where values less than"
+                                                  " one make instamoves more common and larger than"
+                                                  " one make instamove less common.");
+    insertOption(earlyExitFactor);
+
     UciOption earlyExitMinimum;
     earlyExitMinimum.m_name = QLatin1Literal("EarlyExitMinimum");
     earlyExitMinimum.m_type =  UciOption::Spin;
