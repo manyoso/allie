@@ -186,7 +186,8 @@ public:
     static void validateTree(const Node *);
     static void trimUnscoredFromTree(Node *);
     static float uctFormula(float qValue, float uValue);
-    static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
+    static int virtualLossDistance(float fwec, float swec, float uCoeff, float q, float p,
+        quint32 visits, quint32 virtualLoss);
 
     void initialize(Node *parent, const Game &game);
     quint64 initializePosition(Cache *cache);
@@ -524,24 +525,61 @@ inline float Node::uctFormula(float qValue, float uValue)
     return qValue + uValue;
 }
 
-inline int Node::virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits)
+inline int Node::virtualLossDistance(float best, float second, float uCoeff, float q, float p, quint32 visits, quint32 virtualLoss)
 {
     // Calculate the number of visits (or "virtual losses") necessary to drop an item below another
-    // in weighted exploration score
-    // We have...
-    //     wec = q + ((kpuct * sqrt(N)) * p / (n + 1))
-    // Solving for n...
-    //     n = (q + p * kpuct * sqrt(N) - wec) / (wec - q) where wec - q != 0
+    // in score
+    //     s = q + uCoeff * p / (n - 1)
+    //     (s - q) = uCoeff * p / (n - 1)
+    //     (s - q) / UCoeff * p = 1 / (n - 1)
+    //     uCoeff * p / (s - q) - 1 = n
 
-    float wec = swec - std::numeric_limits<float>::epsilon();
-    if (qFuzzyCompare(wec - q, 0.0f))
+    Q_ASSERT(best > second || qFuzzyCompare(best, second));
+    float s = second;
+    if (qFuzzyCompare(s - q, 0.0f))
         return 1;
-    else if (q > wec)
+    else if (q > s)
         return SearchSettings::vldMax;
-    const float nf = (q + p * uCoeff - wec) / (wec - q);
-    int n = qMax(1, qCeil(qreal(nf))) - currentVisits;
-    if (n > SearchSettings::vldMax)
+
+    const float nf = (uCoeff * p / (s - q)) - 1.0f;
+    int n = qMax(1.0f, ceilf(nf)) - (visits + virtualLoss);
+    if (n >= SearchSettings::vldMax)
         return SearchSettings::vldMax;
+
+    // Floating point math might require to round up by two
+    for (int i = 0; i < 2; ++i)
+        if (!(q + (uCoeff * p / (n + visits + virtualLoss + 1)) < second))
+            ++n;
+
+#if 0
+    // Calculate vld exactly by brute force
+    int nExact = 0;
+    int currentVisits = visits + virtualLoss;
+    bool found = false;
+    for (; nExact < int(currentVisits) + SearchSettings::vldMax; ++nExact) {
+        if (q + (uCoeff * p / (nExact + 1)) < second) {
+            found = true;
+            break;
+        }
+    }
+    Q_ASSERT(found);
+    nExact = nExact - currentVisits;
+    if (n != nExact) {
+        qDebug() << "problem with vld"
+            << "best"           << QString::number(best, 'f', 8)
+            << "second"         << QString::number(second, 'f', 8)
+            << "uCoeff"         << QString::number(uCoeff, 'f', 8)
+            << "q"              << QString::number(q, 'f', 8)
+            << "p"              << QString::number(p, 'f', 8)
+            << "visits"         << QString::number(visits, 'f', 8)
+            << "virtualLoss"    << QString::number(virtualLoss, 'f', 8)
+        ;
+    }
+    Q_ASSERT(n == nExact);
+#else
+    Q_UNUSED(best);
+#endif
+
     return n;
 }
 

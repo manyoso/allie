@@ -653,11 +653,13 @@ start_playout:
         if (!secondPlayout.isNull()) {
             const int vldNew
                 = virtualLossDistance(
+                    bestScore,
                     secondBestScore,
                     uCoeff,
                     firstPlayout.qValue(parentQValueDefault),
                     firstPlayout.pValue(),
-                    int(firstPlayout.visits() + firstPlayout.virtualLoss()));
+                    firstPlayout.visits(),
+                    firstPlayout.virtualLoss());
             if (!vld)
                 vld = vldNew;
             else

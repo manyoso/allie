@@ -120,24 +120,38 @@ void Tests::testSizes()
 void Tests::testVLDFormula()
 {
     {
-        float swec = 0.302369982f;
+        float second = 0.302369982f;
+        float best = std::nextafter(second, 1.0f);
         float uCoeff = 18834.3008f;
         float q = -0.973092973f;
         float p = 0.00887134857f;
-        int currentVisits = 130;
-        int n = Node::virtualLossDistance(swec, uCoeff, q, p, currentVisits);
-        QEXPECT_FAIL("", "FIXME: Need to fix VLD formula", Continue);
+        int visits = 1;
+        int virtualLoss = 129;
+        int n = Node::virtualLossDistance(best, second, uCoeff, q, p, visits, virtualLoss);
         QVERIFY(n >= 1);
     }
 
     {
-        float swec = 1.01385188f;
+        float second = 1.01385188f;
+        float best = std::nextafter(second, 1.0f);
         float uCoeff = 613.978821f;
         float q = -0.476382792f;
         float p = 0.019417407f;
-        int currentVisits = 7;
-        int n = Node::virtualLossDistance(swec, uCoeff, q, p, currentVisits);
-        QEXPECT_FAIL("", "FIXME: Need to fix VLD formula", Continue);
+        int visits = 1;
+        int virtualLoss = 6;
+        int n = Node::virtualLossDistance(best, second, uCoeff, q, p, visits, virtualLoss);
+        QVERIFY(n >= 1);
+    }
+
+    {
+        float second = 1.00026727f;
+        float best = 1.00945294f;
+        float uCoeff = 41.92011642f;
+        float q = 1.00000000f;
+        float p = 0.04803130f;
+        int visits = 212;
+        int virtualLoss = 0;
+        int n = Node::virtualLossDistance(best, second, uCoeff, q, p, visits, virtualLoss);
         QVERIFY(n >= 1);
     }
 }
