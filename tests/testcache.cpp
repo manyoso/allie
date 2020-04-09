@@ -294,3 +294,123 @@ void Tests::testStartingPositionBlack()
     History::globalInstance()->addGame(start);
     testStart(start);
 }
+
+void Tests::perft(int depth, Node *node, PerftResult *result)
+{
+    if (!depth) {
+        ++(*result).nodes;
+        if (node->m_game.lastMove().isCapture())
+           ++(*result).captures;
+        if (node->m_game.lastMove().isEnPassant())
+           ++(*result).ep;
+        if (node->m_game.lastMove().isCastle())
+           ++(*result).castles;
+        if (node->m_game.lastMove().promotion() != Chess::Unknown)
+           ++(*result).promotions;
+        return;
+    }
+
+    QVERIFY(node);
+    QVERIFY(node->position());
+    node->generatePotentials(nullptr, node->position()->positionHash());
+
+    QVector<Node::Potential> *potentials = node->m_position->potentials(); // not a copy
+    int nodes = potentials->count();
+    for (int i = 0; i < nodes; ++i) {
+        Node::Potential *potential = &((*potentials)[i]);
+
+        Node child;
+        child.initialize(node, node->m_game);
+        Game::Position childGamePosition = node->m_position->position(); // copy
+        const bool success = child.m_game.makeMove(potential->move(), &childGamePosition);
+        QVERIFY(success);
+        Node::Position childPosition;
+        child.setPosition(&childPosition);
+        childPosition.initialize(&child, childGamePosition);
+
+        QCOMPARE(child.parent(), node);
+        PerftResult childResult;
+        perft(depth - 1, &child, &childResult);
+        (*result).nodes += childResult.nodes;
+        (*result).captures += childResult.captures;
+        (*result).ep += childResult.ep;
+        (*result).promotions += childResult.promotions;
+        (*result).castles += childResult.castles;
+
+#if 0 // divide
+        if (node->isRootNode())
+            qDebug() << child.toString() << childResult.nodes;
+#endif
+    }
+}
+
+#if defined(RUN_PERFT)
+void Tests::testPerft()
+{
+// From https://www.chessprogramming.org/Perft_Results
+QVector<PerftResult> perftList =
+{
+// initial position
+PerftResult { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",               1, 20,          0,          0,      0,          0           },
+PerftResult { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",               2, 400,         0,          0,      0,          0           },
+PerftResult { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",               3, 8902,        34,         0,      0,          0           },
+PerftResult { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",               4, 197281,      1576,       0,      0,          0           },
+PerftResult { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",               5, 4865609,     82719,      258,    0,          0           },
+PerftResult { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",               6, 119060324,	2812008,	5248,	0,          0           },
+PerftResult { "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",               7, 3195901860,	108329926,	319617,	883453,     0           },
+
+// position 2
+PerftResult { "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",   1, 48,          8,          0,      2,          0           },
+PerftResult { "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",   2, 2039,        351,        1,      91,         0           },
+PerftResult { "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",   3, 97862,       17102,      45,     3162,       0           },
+PerftResult { "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",   4, 4085603,     757163,     1929,   128013,     15172       },
+PerftResult { "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",   5, 193690690,	35043416,	73365,	4993637,	8392        },
+PerftResult { "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1",   6, 8031647685,	1558445089,	3577504,184513607,  56627920    },
+
+// position 3
+PerftResult { "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0",                              1,	14,         1,          0,      0,          0           },
+PerftResult { "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0",                              2,	191,        14,         0,      0,          0           },
+PerftResult { "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0",                              3,	2812,       209,        2,      0,          0           },
+PerftResult { "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0",                              4,	43238,      3348,       123,	0,          0           },
+PerftResult { "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0",                              5,  674624,     52051,      1165,	0,          0           },
+PerftResult { "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0",                              6,	11030083,	940350,     33325,	0,          7552        },
+PerftResult { "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0",                              7,	178633661,	14519036,	294874,	0,          140024      },
+PerftResult { "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 0",                              8,	3009794393,	267586558,	8009239,0,          6578076     },
+
+// position 4
+PerftResult { "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",       1,	6,          0,          0,      0,          0           },
+PerftResult { "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",       2,	264,        87,         0,      6,          48          },
+PerftResult { "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",       3,	9467,       1021,       4,      0,          120         },
+PerftResult { "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",       4,	422333,     131393,     0,      7795,       60032       },
+PerftResult { "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",       5,	15833292,	2046173,    6512,	0,          329464      },
+PerftResult { "r3k2r/Pppp1ppp/1b3nbN/nP6/BBP1P3/q4N2/Pp1P2PP/R2Q1RK1 w kq - 0 1",       6,	706045033,	210369132,	212,	10882006,   81102984    }
+};
+
+//TODO: Add https://www.chessprogramming.org/Chess960_Perft_Results
+
+    for (PerftResult r : perftList) {
+        StandaloneGame start(r.fen);
+        QCOMPARE(start.stateOfGameToFen(), r.fen);
+
+        Node node;
+        Node::Position position;
+        node.initialize(nullptr, start);
+        node.setPosition(&position);
+        position.initialize(&node, start.position());
+
+        qDebug() << "Running perft"
+            << r.fen << "at depth" << r.depth << "with" << r.nodes << "positions.";
+
+        QTime t;
+        t.start();
+        PerftResult result;
+        perft(r.depth, &node, &result);
+        qDebug("Perft took: %d ms", t.elapsed());
+        QCOMPARE(result.captures, r.captures);
+        QCOMPARE(result.ep, r.ep);
+        QCOMPARE(result.castles, r.castles);
+        QCOMPARE(result.promotions, r.promotions);
+        QCOMPARE(result.nodes, r.nodes);
+    }
+}
+#endif

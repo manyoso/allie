@@ -33,6 +33,7 @@
 
 int main(int argc, char* argv[])
 {
+    qputenv("QTEST_FUNCTION_TIMEOUT", QString::number(std::numeric_limits<int>::max()).toLatin1().constData());
     QCoreApplication a(argc, argv);
     a.setApplicationName(APP_NAME);
     a.setApplicationVersion(versionString());

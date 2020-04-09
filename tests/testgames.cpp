@@ -36,6 +36,57 @@ void Tests::testCastlingAnd960()
 {
     // begin regular positions
     {
+        // Don't take away castle rights just because rook was taken
+        const QLatin1String fen = QLatin1String("r3kr2/1pqb3n/p2pp1p1/4b1P1/3NP3/2N4Q/PPP1B3/2KR1R2 b q - 1 20");
+        StandaloneGame g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        g.makeMove(Notation::stringToMove("Rxf1"));
+        QCOMPARE(g.position().activeArmy(), Chess::White);
+        QVERIFY(!g.position().isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(!g.position().isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.position().isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.position().isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(g.position().isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+
+    {
+        // Don't take away castle rights just because rook was taken on same rank as castling rook
+        const QLatin1String fen = QLatin1String("rnb1kbnr/ppp1pppp/3q4/3p4/7P/R7/PPPPPPP1/RNBQKBN1 b Qkq - 2 3");
+        StandaloneGame g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        g.makeMove(Notation::stringToMove("Qxa3"));
+        QCOMPARE(g.position().activeArmy(), Chess::White);
+        QVERIFY(!g.position().isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(g.position().isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.position().isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.position().isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    {
+        // White rook is attacked so cannot castle
+        const QLatin1String fen = QLatin1String("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q2/PPPBBPpP/1R2K2R w Kkq - 0 2");
+        StandaloneGame g(fen);
+        QCOMPARE(g.stateOfGameToFen(), fen);
+        QCOMPARE(g.position().activeArmy(), Chess::White);
+        QVERIFY(g.position().isCastleAvailable(Chess::White, Chess::KingSide));
+        QVERIFY(!g.position().isCastleAvailable(Chess::White, Chess::QueenSide));
+        QVERIFY(g.position().isCastleAvailable(Chess::Black, Chess::KingSide));
+        QVERIFY(g.position().isCastleAvailable(Chess::Black, Chess::QueenSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::White, Chess::KingSide));
+        QVERIFY(!g.position().isCastleLegal(Chess::White, Chess::QueenSide));
+        QVERIFY(g.position().isCastleLegal(Chess::Black, Chess::KingSide));
+        QVERIFY(g.position().isCastleLegal(Chess::Black, Chess::QueenSide));
+    }
+
+    {
         // Black king is in check so cannot castle
         const QLatin1String fen = QLatin1String("r3k2r/8/8/1Q6/8/8/8/4K3 b kq - 0 1");
         StandaloneGame g(fen);

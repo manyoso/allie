@@ -22,6 +22,8 @@
 
 #include "uciengine.h"
 
+//#define RUN_PERFT
+
 class UCIIOHandler : public QObject, public IOHandler
 {
     Q_OBJECT
@@ -66,6 +68,16 @@ class Tests: public QObject {
 
     // helpers go here
     static void testStart(const StandaloneGame &start);
+    struct PerftResult {
+        QString fen;
+        int depth = 0;
+        quint64 nodes = 0;
+        quint64 captures = 0;
+        quint64 ep = 0;
+        quint64 castles = 0;
+        quint64 promotions = 0;
+    };
+    static void perft(int depth, Node *parent, PerftResult *result);
     static void generateEmbodiedChild(Node *parent, bool onlyUniquePositions, Node **generatedChild);
 
 private slots:
@@ -79,6 +91,9 @@ private slots:
     void testBasicStructures();
     void testSizes();
     void testVLDFormula();
+#if defined(RUN_PERFT)
+    void testPerft();
+#endif
 
     // TestCache
     void testBasicCache();

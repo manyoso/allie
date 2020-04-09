@@ -128,9 +128,9 @@ void Game::Position::processMove(Chess::Army army, Move *move)
             Q_ASSERT(type != Unknown);
             togglePieceAt(capturedPieceIndex, Black, type, false);
             if (type == Rook) {
-                if (move->end().file() == m_fileOfKingsRook)
+                if (move->end().file() == m_fileOfKingsRook && move->end().rank() == 7)
                     m_hasBlackKingCastle = false;
-                else if (move->end().file() == m_fileOfQueensRook)
+                else if (move->end().file() == m_fileOfQueensRook && move->end().rank() == 7)
                     m_hasBlackQueenCastle = false;
             }
         }
@@ -185,9 +185,9 @@ void Game::Position::processMove(Chess::Army army, Move *move)
             Q_ASSERT(type != Unknown);
             togglePieceAt(capturedPieceIndex, White, type, false);
             if (type == Rook) {
-                if (move->end().file() == m_fileOfKingsRook)
+                if (move->end().file() == m_fileOfKingsRook && move->end().rank() == 0)
                     m_hasWhiteKingCastle = false;
-                else if (move->end().file() == m_fileOfQueensRook)
+                else if (move->end().file() == m_fileOfQueensRook && move->end().rank() == 0)
                     m_hasWhiteQueenCastle = false;
             }
         }
@@ -994,12 +994,12 @@ bool Game::Position::isCastleLegal(Chess::Army army, Chess::Castle castle) const
     const BitBoard friends = attackArmy == White ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard enemies = attackArmy == Black ? m_whitePositionBoard : m_blackPositionBoard;
 
-    const BitBoard atb = kingAttackBoard(gen, friends, enemies) |
-        queenAttackBoard(gen, friends, enemies) |
-        rookAttackBoard(gen, friends, enemies) |
-        bishopAttackBoard(gen, friends, enemies) |
-        knightAttackBoard(gen, friends, enemies) |
-        pawnAttackBoard(attackArmy, gen, friends, enemies);
+    const BitBoard atb = kingAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
+        queenAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
+        rookAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
+        bishopAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
+        knightAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
+        pawnAttackBoard(attackArmy, gen, friends, (enemies | kingMovesThrough));
 
     // 4) The king is not currently in check.
     // 5) The king does not pass through a square that is attacked by an enemy piece.

@@ -754,7 +754,8 @@ void Node::generatePotentials(Cache *cache, quint64 hash)
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
         setRawQValue(0.0f);
         m_isExact = true;
-        cache->nodePositionClone(hash); // This can never be a transposition
+        if (cache)
+            cache->nodePositionClone(hash); // This can never be a transposition
         return;
     } else if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
         setRawQValue(0.0f);
@@ -763,7 +764,8 @@ void Node::generatePotentials(Cache *cache, quint64 hash)
     } else if (Q_UNLIKELY(isThreeFold())) {
         setRawQValue(0.0f);
         m_isExact = true;
-        cache->nodePositionClone(hash); // This can never be a transposition
+        if (cache)
+            cache->nodePositionClone(hash); // This can never be a transposition
         return;
     }
 
