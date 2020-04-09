@@ -379,6 +379,15 @@ void Tests::testSearchForMateInOne()
     const QLatin1String mateInOne = QLatin1String("8/8/5K2/3P3k/2P5/8/6Q1/8 w - - 12 68");
     StandaloneGame g(mateInOne);
     QCOMPARE(g.stateOfGameToFen(), mateInOne);
+    bool success = g.makeMove(Notation::stringToMove("Qxg5"));
+    QVERIFY(success);
+    Node node;
+    Node::Position position;
+    node.initialize(nullptr, g);
+    node.setPosition(&position);
+    position.initialize(&node, g.position());
+    node.generatePotentials(nullptr, node.position()->positionHash());
+    QVERIFY(node.m_game.lastMove().isCheckMate());
 
     const QLatin1String mateInOneMoves = QLatin1String("position startpos moves d2d4 g8f6 c2c4 c7c5 d4d5 e7e6 b1c3 f8d6 g1f3 e8g8 e2e4 e6d5 e4d5 b8a6 f1e2 f8e8 e1g1 b7b6 c1g5 h7h6 g5h4 d6f4 e2d3 a6b4 d3f5 c8a6 b2b3 a6c8 g2g3 f4e5 f3e5 e8e5 g3g4 d7d6 f5c8 a8c8 a2a3 b4a6 a1a2 c8c7 d1c1 e5e8 f2f3 g7g5 h4g3 f6h7 c3e4 c7d7 h2h4 g5h4 g3e1 h7g5 a2e2 e8e5 e1c3 f7f6 c3e5 f6e5 g1h2 d7f7 f3f4 g5e4 e2e4 d8f6 c1e1 a6b8 h2g1 b8d7 f4e5 f6f1 e1f1 f7f1 g1f1 d7e5 f1g2 g8f8 g2h3 e5g6 e4e3 f8f7 e3f3 f7g7 f3f1 g6h8 h3h4 h8f7 h4h5 f7g5 f1e1 g7f8 h5h6 g5f7 h6g6 f7e5 e1e5 d6e5 g6f5 e5e4 f5e4 a7a6 a3a4 b6b5 a4b5 a6b5 c4b5 f8e7 e4e5 c5c4 b3c4 e7e8 e5e6 e8d8 e6d6 d8e8 b5b6 e8f7 b6b7 f7f6 b7b8q f6g5 d6e5 g5g4 b8b3 g4g5 b3g3 g5h5 e5f5 h5h6 g3g2 h6h7 f5e5 h7h6 e5f6 h6h5");
     UciEngine engine(this, QString());

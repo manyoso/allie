@@ -82,7 +82,7 @@ public:
         BitBoard board(Chess::Army army) const;
         BitBoard board(Chess::PieceType piece) const;
         BitBoard kingAttackBoard(const Movegen *gen,
-            const BitBoard &friends, const BitBoard &enemies) const;
+            const BitBoard &friends) const;
         BitBoard queenAttackBoard(const Movegen *gen,
             const BitBoard &friends, const BitBoard &enemies) const;
         BitBoard rookAttackBoard(const Movegen *gen,
@@ -90,9 +90,9 @@ public:
         BitBoard bishopAttackBoard(const Movegen *gen,
             const BitBoard &friends, const BitBoard &enemies) const;
         BitBoard knightAttackBoard(const Movegen *gen,
-            const BitBoard &friends, const BitBoard &enemies) const;
+            const BitBoard &friends) const;
         BitBoard pawnAttackBoard(Chess::Army army, const Movegen *gen,
-            const BitBoard &friends, const BitBoard &enemies) const;
+            const BitBoard &friends) const;
 
         void pseudoLegalMoves(Node *parent) const;
         void generateCastle(Chess::Army army, Chess::Castle castleSide, Node *parent) const;

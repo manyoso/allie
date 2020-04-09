@@ -612,14 +612,14 @@ QStringList Game::Position::stateOfPositionToFen() const
 }
 
 BitBoard Game::Position::kingAttackBoard(const Movegen *gen,
-    const BitBoard &friends, const BitBoard &enemies) const
+    const BitBoard &friends) const
 {
     BitBoard bits;
     const BitBoard pieces(friends & board(King));
     BitBoard::Iterator sq = pieces.begin();
     for (int i = 0; sq != pieces.end(); ++sq, ++i) {
         Q_ASSERT(i < 1);
-        bits = bits | gen->kingMoves(*sq, friends, enemies);
+        bits = bits | gen->kingMoves(*sq, friends);
     }
     return bits;
 }
@@ -658,27 +658,24 @@ BitBoard Game::Position::bishopAttackBoard(const Movegen *gen,
 }
 
 BitBoard Game::Position::knightAttackBoard(const Movegen *gen,
-    const BitBoard &friends, const BitBoard &enemies) const
+    const BitBoard &friends) const
 {
     BitBoard bits;
     const BitBoard pieces(friends & board(Knight));
     BitBoard::Iterator sq = pieces.begin();
     for (; sq != pieces.end(); ++sq)
-        bits = bits | gen->knightMoves(*sq, friends, enemies);
+        bits = bits | gen->knightMoves(*sq, friends);
     return bits;
 }
 
 BitBoard Game::Position::pawnAttackBoard(Chess::Army army, const Movegen *gen,
-    const BitBoard &friends, const BitBoard &enemies) const
+    const BitBoard &friends) const
 {
     BitBoard bits;
     const BitBoard pieces(friends & board(Pawn));
     BitBoard::Iterator sq = pieces.begin();
-    BitBoard enemiesPlusEnpassant = enemies;
-    if (m_enPassantTarget.isValid())
-        enemiesPlusEnpassant.setSquare(m_enPassantTarget);
     for (; sq != pieces.end(); ++sq)
-        bits = bits | gen->pawnAttacks(army, *sq, friends, enemiesPlusEnpassant);
+        bits = bits | gen->pawnAttacks(army, *sq);
     return bits;
 }
 
@@ -704,7 +701,7 @@ void Game::Position::pseudoLegalMoves(Node *parent) const
         BitBoard::Iterator sq = pieces.begin();
         for (int i = 0; sq != pieces.end(); ++sq, ++i) {
             Q_ASSERT(i < 1);
-            const BitBoard moves = gen->kingMoves(*sq, friends, enemies);
+            const BitBoard moves = gen->kingMoves(*sq, friends);
             totalMoves += moves.count();
             kingMoves.append(qMakePair(*sq, moves));
         }
@@ -748,7 +745,7 @@ void Game::Position::pseudoLegalMoves(Node *parent) const
         knightMoves.reserve(pieces.count());
         BitBoard::Iterator sq = pieces.begin();
         for (; sq != pieces.end(); ++sq) {
-            const BitBoard moves = gen->knightMoves(*sq, friends, enemies);
+            const BitBoard moves = gen->knightMoves(*sq, friends);
             totalMoves += moves.count();
             knightMoves.append(qMakePair(*sq, moves));
         }
@@ -769,7 +766,7 @@ void Game::Position::pseudoLegalMoves(Node *parent) const
                 pawnMoves.append(qMakePair(*sq, moves));
             }
             {
-                const BitBoard moves = gen->pawnAttacks(army, *sq, friends, enemiesPlusEnpassant);
+                BitBoard moves = gen->pawnAttacks(army, *sq) & enemiesPlusEnpassant & ~friends;
                 totalMoves += moves.count();
                 pawnAttacks.append(qMakePair(*sq, moves));
             }
@@ -907,18 +904,18 @@ bool Game::Position::isChecked(Chess::Army army) const
             return true;
     }
     {
-        const BitBoard b(kingBoard & knightAttackBoard(gen, friendsBoard, enemiesBoard));
+        const BitBoard b(kingBoard & knightAttackBoard(gen, friendsBoard));
         if (!b.isClear())
             return true;
     }
     {
         // Checks for illegality...
-        const BitBoard b(kingBoard & kingAttackBoard(gen, friendsBoard, enemiesBoard));
+        const BitBoard b(kingBoard & kingAttackBoard(gen, friendsBoard));
         if (!b.isClear())
             return true;
     }
     {
-        const BitBoard b(kingBoard & pawnAttackBoard(enemies, gen, friendsBoard, enemiesBoard));
+        const BitBoard b(kingBoard & pawnAttackBoard(enemies, gen, friendsBoard));
         if (!b.isClear())
             return true;
     }
@@ -994,12 +991,12 @@ bool Game::Position::isCastleLegal(Chess::Army army, Chess::Castle castle) const
     const BitBoard friends = attackArmy == White ? m_whitePositionBoard : m_blackPositionBoard;
     const BitBoard enemies = attackArmy == Black ? m_whitePositionBoard : m_blackPositionBoard;
 
-    const BitBoard atb = kingAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
+    const BitBoard atb = kingAttackBoard(gen, friends) |
         queenAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
         rookAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
         bishopAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
-        knightAttackBoard(gen, friends, (enemies | kingMovesThrough)) |
-        pawnAttackBoard(attackArmy, gen, friends, (enemies | kingMovesThrough));
+        knightAttackBoard(gen, friends) |
+        pawnAttackBoard(attackArmy, gen, friends);
 
     // 4) The king is not currently in check.
     // 5) The king does not pass through a square that is attacked by an enemy piece.

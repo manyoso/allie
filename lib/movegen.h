@@ -41,13 +41,13 @@ class Movegen {
 public:
     static Movegen *globalInstance();
 
-    inline BitBoard kingMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
+    inline BitBoard kingMoves(const Square &sq, const BitBoard &friends) const;
     inline BitBoard queenMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
     inline BitBoard rookMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
     inline BitBoard bishopMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
-    inline BitBoard knightMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
+    inline BitBoard knightMoves(const Square &sq, const BitBoard &friends) const;
     inline BitBoard pawnMoves(Chess::Army army, const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
-    inline BitBoard pawnAttacks(Chess::Army army, const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
+    inline BitBoard pawnAttacks(Chess::Army army, const Square &sq) const;
 
 private:
     Movegen();
@@ -86,14 +86,13 @@ inline BitBoard Movegen::pawnMoves(Chess::Army army, const Square &sq, const Bit
     return m_pawnMoves[army][sq.data()] & BitBoard(~enemies.data()) & BitBoard(~friends.data());
 }
 
-inline BitBoard Movegen::pawnAttacks(Chess::Army army, const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
+inline BitBoard Movegen::pawnAttacks(Chess::Army army, const Square &sq) const
 {
-    return (m_pawnAttacks[army][sq.data()] & enemies) & BitBoard(~friends.data());
+    return (m_pawnAttacks[army][sq.data()]);
 }
 
-inline BitBoard Movegen::knightMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
+inline BitBoard Movegen::knightMoves(const Square &sq, const BitBoard &friends) const
 {
-    Q_UNUSED(enemies);
     return m_knightMoves[sq.data()] & BitBoard(~friends.data());
 }
 
@@ -116,9 +115,8 @@ inline BitBoard Movegen::queenMoves(const Square &sq, const BitBoard &friends, c
     return bishopMoves(sq, friends, enemies) | rookMoves(sq, friends, enemies);
 }
 
-inline BitBoard Movegen::kingMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
+inline BitBoard Movegen::kingMoves(const Square &sq, const BitBoard &friends) const
 {
-    Q_UNUSED(enemies);
     return m_kingMoves[sq.data()] & BitBoard(~friends.data());
 }
 
