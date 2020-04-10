@@ -90,6 +90,7 @@ private slots:
     // TestBasics
     void testBasicStructures();
     void testSizes();
+    void testCPFormula();
     void testVLDFormula();
 #if defined(RUN_PERFT)
     void testPerft();

@@ -408,7 +408,7 @@ void Tests::testSearchForMateInOne()
         || handler.lastBestMove() == QLatin1String("g2g5"), QString("Result is %1")
         .arg(handler.lastBestMove()).toLatin1().constData());
     QVERIFY(handler.lastInfo().score == QLatin1String("mate 1")
-        || handler.lastInfo().score == QLatin1String("cp 12800"));
+        || handler.lastInfo().score == QLatin1String("cp 25600"));
 }
 
 void Tests::testInstaMove()

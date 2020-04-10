@@ -28,14 +28,21 @@
 
 int scoreToCP(float score)
 {
-    // Same formula as lc0
-    return qRound(290.680623072 * qTan(1.548090806 * double(score)));
+    // Updated formula caps the centipawn at 25600 by using trig equation up to +1000 and then
+    // just using a linear function after that
+    if (qAbs(score) > 0.8392234846)
+        return qRound(153007 * score + (score > 0 ? -127407 : 127407));
+    else
+        return qRound(111.f * qTan(1.74f * score));
 }
 
 float cpToScore(int cp)
 {
     // Inverse of the above
-    return float(qAtan(double(cp) / 290.680623072) / 1.548090806);
+    if (qAbs(cp) > 1000)
+        return (cp + (cp > 0 ? 127407 : -127407)) / 153007.f;
+    else
+        return qAtan(cp / 111.f) / 1.74f;
 }
 
 Node::Position::Position()

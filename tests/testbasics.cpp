@@ -117,6 +117,45 @@ void Tests::testSizes()
     QCOMPARE(sizeof(Node::Position),  ulong(96));
 }
 
+void Tests::testCPFormula()
+{
+    // A draw is a draw
+    QCOMPARE(scoreToCP(0.0f), 0);
+    QCOMPARE(scoreToCP(0.0f), 0);
+    QCOMPARE(cpToScore(0), 0.0f);
+    QCOMPARE(cpToScore(0), 0.0f);
+
+    // We go to +1 at ~%42 winrate
+    QCOMPARE(scoreToCP(0.42144403114f), 100);
+    QCOMPARE(scoreToCP(-.42144403114f), -100);
+    QCOMPARE(cpToScore(100), 0.42144403114f);
+    QCOMPARE(cpToScore(-100), -0.42144403114f);
+
+    // We go to +4 at ~%75 winrate
+    QCOMPARE(scoreToCP(0.747188146311f), 400);
+    QCOMPARE(scoreToCP(-0.747188146311), -400);
+    QCOMPARE(cpToScore(400), 0.747188146311f);
+    QCOMPARE(cpToScore(-400), -0.747188146311f);
+
+    // We go to +10 at ~84% winrate
+    QCOMPARE(scoreToCP(0.8392234846f), 1000);
+    QCOMPARE(scoreToCP(-0.8392234846f), -1000);
+    QCOMPARE(cpToScore(1000), 0.8392234846f);
+    QCOMPARE(cpToScore(-1000), -0.8392234846f);
+
+    // We go to +100 at ~90% winrate
+    QCOMPARE(scoreToCP(0.898044f), 10000);
+    QCOMPARE(scoreToCP(0.898044f), 10000);
+    QCOMPARE(cpToScore(10000), 0.898044f);
+    QCOMPARE(cpToScore(-10000), -0.898044f);
+
+    // We are capped at +256
+    QCOMPARE(scoreToCP(1.0f), 25600);
+    QCOMPARE(scoreToCP(-1.0f), -25600);
+    QCOMPARE(cpToScore(25600), 1.0f);
+    QCOMPARE(cpToScore(-25600), -1.0f);
+}
+
 void Tests::testVLDFormula()
 {
     {
