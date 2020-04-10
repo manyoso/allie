@@ -464,7 +464,7 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     // Search the children
     float best = -2.0f;
     bool bestIsExact = false;
-    bool everythingScored = false;
+    bool everythingScored = true;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
         Q_ASSERT(child);
