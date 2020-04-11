@@ -250,7 +250,7 @@ void Tests::testStart(const StandaloneGame &start)
     QVERIFY(root);
     QCOMPARE(nullptr, root->parent());
     QCOMPARE(start.position().positionHash(), root->position()->positionHash());
-    root->generatePotentials(Cache::globalInstance(), root->position()->positionHash());
+    root->generatePotentials();
 
     QVector<Node::Potential> *potentials = root->m_position->potentials(); // not a copy
     QCOMPARE(potentials->count(), 20);
@@ -311,7 +311,8 @@ void Tests::perft(int depth, Node *node, PerftResult *result)
 
     QVERIFY(node);
     QVERIFY(node->position());
-    node->generatePotentials(nullptr, node->position()->positionHash());
+    if (!node->checkMoveClockOrThreefold())
+        node->generatePotentials();
 
     QVector<Node::Potential> *potentials = node->m_position->potentials(); // not a copy
     int nodes = potentials->count();

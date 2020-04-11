@@ -226,7 +226,8 @@ public:
     };
 
     bool checkAndGenerateDTZ(int *dtz);
-    void generatePotentials(Cache *cache, quint64 hash);
+    bool checkMoveClockOrThreefold();
+    void generatePotentials();
     void reservePotentials(int totalSize);
     Node::Potential *generatePotential(const Move &move);
     Node *generateNextChild(Cache *cache, NodeGenerationError *error);

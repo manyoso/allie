@@ -756,26 +756,30 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     return true;
 }
 
-void Node::generatePotentials(Cache *cache, quint64 hash)
+bool Node::checkMoveClockOrThreefold()
 {
     Q_ASSERT(m_children.isEmpty());
-
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
         setRawQValue(0.0f);
         m_isExact = true;
-        if (cache)
-            cache->nodePositionClone(hash); // This can never be a transposition
-        return;
-    } else if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
-        setRawQValue(0.0f);
-        m_isExact = true;
-        return;
+        return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
         setRawQValue(0.0f);
         m_isExact = true;
-        if (cache)
-            cache->nodePositionClone(hash); // This can never be a transposition
+        return true;
+    }
+    return false;
+}
+
+void Node::generatePotentials()
+{
+    Q_ASSERT(m_children.isEmpty());
+
+    // Check if this is drawn by rules
+    if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
+        setRawQValue(0.0f);
+        m_isExact = true;
         return;
     }
 
@@ -801,28 +805,11 @@ void Node::generatePotentials(Cache *cache, quint64 hash)
         return;
     }
 
-    // Otherwise try and generate potential moves if we own this position and we don't have any
-    // potentials already...
-#ifndef NDEBUG
-    bool shouldBeCheckMate = false;
-    bool shouldBeStaleMate = false;
-#endif
-
     Q_ASSERT(m_position);
-    if (m_position->potentials()->isEmpty()) {
-        if (m_position->transposition() == this)
-            m_position->position().pseudoLegalMoves(this);
-#ifndef NDEBUG
-        else {
-            // If this node is not the registered transposition, then this is either a checkmate or
-            // a stalemate. Let's verify by looking at raw score
-            Q_ASSERT(m_position->hasRawQValue());
-            shouldBeCheckMate = qFuzzyCompare(1.0f, m_position->rawQValue() || m_position->rawQValue() > 1.f);
-            shouldBeStaleMate = qFuzzyCompare(0.0f, m_position->rawQValue());
-            Q_ASSERT(shouldBeCheckMate != shouldBeStaleMate);
-        }
-#endif
-    }
+    Q_ASSERT(m_position->potentials()->isEmpty());
+    Q_ASSERT(m_position->transposition() == this);
+
+    m_position->position().pseudoLegalMoves(this);
 
     // Override the NN in case of checkmates or stalemates
     if (!hasPotentials()) {
@@ -840,11 +827,6 @@ void Node::generatePotentials(Cache *cache, quint64 hash)
             m_isExact = true;
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
-#ifndef NDEBUG
-        // Do the check mentioned in the comment above
-        Q_ASSERT(m_position->transposition() == this || shouldBeCheckMate == isCheckMate());
-        Q_ASSERT(m_position->transposition() == this || shouldBeStaleMate == isStaleMate());
-#endif
     }
 }
 

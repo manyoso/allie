@@ -301,19 +301,16 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     // If we don't have a position, we must initialize it
     quint64 hash = playout->initializePosition(cache);
 
-    // Generate children of the node if possible
-    playout->generatePotentials(cache, hash);
-
-    // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
-    // then let's just back propagate dirty
-    if (playout->isExact()) {
-#if defined(DEBUG_PLAYOUT)
-        qDebug() << "adding exact playout 2" << playout->toString();
-#endif
+    // Check if we have found a draw by move clock or threefold
+    if (playout->checkMoveClockOrThreefold()) {
+        // This can never be a transposition as it depends upon information not found in the
+        // generic position, but rather depend upon game specific context
+        cache->nodePositionClone(hash);
         playout->backPropagateDirty();
         return false;
     }
 
+    // Check if we can find a transposition now
     const Node *transposition = playout->position()->transposition();
     Q_ASSERT(transposition);
     Q_ASSERT(transposition->position() == playout->position());
@@ -329,9 +326,26 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 #if defined(DEBUG_PLAYOUT)
             qDebug() << "found cached playout" << playout->toString();
 #endif
+            // It is possible this is a transposition of a terminal node, but we only know that if
+            // the transposition has no potentials, but we don't mark whether this is a checkmate
+            // or a stalemate or TB drawn or deadPosition or what
+            playout->m_isExact = !playout->hasPotentials();
             playout->backPropagateDirty();
             return false;
         }
+    }
+
+    // Generate children of the node if possible
+    playout->generatePotentials();
+
+    // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
+    // then let's just back propagate dirty
+    if (playout->isExact()) {
+#if defined(DEBUG_PLAYOUT)
+        qDebug() << "adding exact playout 2" << playout->toString();
+#endif
+        playout->backPropagateDirty();
+        return false;
     }
 
     return true; // Otherwise we should fetch from NN
