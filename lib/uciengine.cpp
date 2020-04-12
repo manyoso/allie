@@ -644,6 +644,7 @@ void UciEngine::uciNewGame()
     SearchSettings::debugInfo = Options::globalInstance()->option("DebugInfo").value() == "true";
     SearchSettings::weightsFile = Options::globalInstance()->option("WeightsFile").value();
     SearchSettings::earlyExitFactor = Options::globalInstance()->option("EarlyExitFactor").value().toDouble();
+    SearchSettings::earlyExitScalar = Options::globalInstance()->option("earlyExitScalar").value().toDouble();
     SearchSettings::earlyExitMinimumTime = Options::globalInstance()->option("EarlyExitMinimum").value().toInt();
     Q_ASSERT(!SearchSettings::weightsFile.isEmpty());
     NeuralNet::globalInstance()->setWeights(SearchSettings::weightsFile);
