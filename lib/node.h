@@ -116,10 +116,8 @@ public:
 
         inline float qValue(float parentQValueDefault) const
         {
-            if (m_isPotential || !m_node->m_visited)
+            if (m_isPotential)
                 return parentQValueDefault;
-            // This method already checks for visited or using parent default so this is faster
-            // than using node overload
             return m_node->m_qValue;
         }
 
@@ -277,9 +275,9 @@ public:
 
     Node::Position *position() const;
 
-    bool hasQValue() const;
     float qValueDefault() const;
     float qValue() const;
+    void setQValue(float qValue);
     void setQValueFromRaw();
 
     bool hasRawQValue() const;
@@ -459,16 +457,14 @@ inline float Node::qValueDefault() const
 #endif
 }
 
-inline bool Node::hasQValue() const
-{
-    return !qFuzzyCompare(m_qValue, -2.0f);
-}
-
 inline float Node::qValue() const
 {
-    if (m_visited > 0)
-        return m_qValue;
-    return parent()->qValueDefault();
+    return m_qValue;
+}
+
+inline void Node::setQValue(float qValue)
+{
+    m_qValue = qValue;
 }
 
 inline void Node::setQValueFromRaw()
@@ -563,7 +559,7 @@ inline bool isPinned(Node *node)
 inline bool shouldClone(const Node::Position &position)
 {
     Q_ASSERT(position.transposition() || position.hasRawQValue());
-    return position.transposition() && (!position.transposition()->hasQValue());
+    return position.transposition() && (!position.transposition()->visits());
 }
 
 QDebug operator<<(QDebug debug, const Node &node);

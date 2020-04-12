@@ -295,7 +295,6 @@ void Node::incrementVisited()
 
 void Node::backPropagateValue(float v)
 {
-    Q_ASSERT(hasQValue());
     Q_ASSERT(m_visited);
     Q_ASSERT(!m_isExact);
     const float currentQValue = m_qValue;
@@ -517,7 +516,7 @@ void Node::validateTree(const Node *node)
     Q_ASSERT(node);
     Q_ASSERT(node->hasRawQValue());
     Q_ASSERT(!node->m_isDirty);
-    Q_ASSERT(node->hasQValue());
+    Q_ASSERT(node->visits());
     quint32 childVisits = 0;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
@@ -894,6 +893,7 @@ Node *Node::generateNode(const Move &childMove, float childPValue, Node *parent,
     childGame.storeMove(childMove);
     child->initialize(parent, childGame);
     child->setPValue(childPValue);
+    child->setQValue(parent->qValueDefault());
     parent->m_children.append(child);
     return child;
 }

@@ -69,7 +69,7 @@ inline void Tree::validateTree(Node *node, int *total)
 {
     if (total)
        ++(*total);
-    Q_ASSERT(node->hasQValue());
+    Q_ASSERT(node->visits());
     Q_ASSERT(node->isRootNode() || node->hasPValue());
     Q_ASSERT(node->position());
     Q_ASSERT(node->position()->transposition());

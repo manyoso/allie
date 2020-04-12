@@ -320,7 +320,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     if (!SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions)) {
         // If we are using another transposition, then it *must* already have a qValue or it would
         // have been cloned and made unique when this playout first got its position
-        Q_ASSERT(transposition == playout || transposition->hasQValue());
+        Q_ASSERT(transposition == playout || transposition->visits());
 
         // We can go ahead and use the transposition iff it is not this playout OR if it is this
         // playout AND it already has a rawQValue
@@ -507,7 +507,7 @@ void SearchWorker::processWorkerInfo(const WorkerInfo &info)
         m_currentInfo.ponderMove = QString();
 
     // Record a pv and score
-    float score = best->hasQValue() ? best->qValue() : -root->qValue();
+    float score = best->qValue();
 
     int pvDepth = 0;
     bool isTB = false;
@@ -676,7 +676,7 @@ void SearchEngine::startSearch()
         int pvDepth = 0;
         bool isTB = false;
         info.pv = root->principalVariation(&pvDepth, &isTB);
-        float score = best->hasQValue() ? best->qValue() : -best->parent()->qValue();
+        float score = best->qValue();
         info.score = mateDistanceOrScore(score, pvDepth, isTB);
         emit sendInfo(info, !onlyLegalMove /*isPartial*/);
     }
