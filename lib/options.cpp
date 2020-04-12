@@ -84,7 +84,7 @@ Options::Options()
     debugInfo.m_description = QLatin1String("Output additional debug info");
     insertOption(debugInfo);
   
-    ciOption earlyExitScalar;
+    UciOption earlyExitScalar;
     earlyExitScalar.m_name = QLatin1Literal("earlyExitScalar");
     earlyExitScalar.m_type =  UciOption::String;
     earlyExitScalar.m_default = QString::number(double(SearchSettings::earlyExitScalar));
