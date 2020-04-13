@@ -24,6 +24,7 @@
 #include <QObject>
 #include <QDebug>
 #include <QFuture>
+#include <QSemaphore>
 #include <QThread>
 #include <QMutex>
 #include <QWaitCondition>
@@ -34,53 +35,92 @@ class Cache;
 class Computation;
 class Node;
 class Tree;
+
+typedef QVector<Node*> Batch;
+typedef QVector<Batch*> BatchQueue;
+
+class GuardedBatchQueue {
+public:
+    Batch *acquireIn();
+    void releaseIn(Batch *batch);
+
+    Batch *acquireOut();
+    void releaseOut(Batch *batch);
+    void stop();
+
+private:
+    bool m_stop = false;
+    int m_processing = 0;
+    BatchQueue m_inQueue;
+    BatchQueue m_outQueue;
+    QMutex m_mutex;
+    QWaitCondition m_condition;
+};
+
+class GPUWorker : public QThread {
+    Q_OBJECT
+public:
+    GPUWorker(GuardedBatchQueue *queue,
+        QObject *parent = nullptr);
+    ~GPUWorker();
+
+    void run() override;
+
+private:
+    GuardedBatchQueue *m_queue;
+};
+
 class SearchWorker : public QObject {
     Q_OBJECT
 public:
-    SearchWorker(int id, QObject *parent = nullptr);
+    SearchWorker(QObject *parent = nullptr);
     ~SearchWorker();
 
-    // This is thread safe
+    // These are thread safe
     void stopSearch();
+    void setEstimatedNodes(quint32 nodes) { m_estimatedNodes = nodes; }
+
 
 public Q_SLOTS:
     void startSearch(Tree *tree, int searchId);
 
 Q_SIGNALS:
-    void sendInfo(const WorkerInfo &info);
+    void sendInfo(const SearchInfo &info, bool isPartial);
     void searchWorkerStopped();
-    void reachedMaxBatchSize();
     void requestStop();
 
 private Q_SLOTS:
     void search();
 
 private:
-    void fetchBatch(const QVector<Node*> &batch,
-        Computation *computation, Tree *tree, int searchId);
-    void fetchFromNN(const QVector<Node*> &fetch, bool sync);
-    void fetchAndMinimax(QVector<Node*> nodes, bool sync);
-    bool fillOutTree(bool *hardExit);
+    void minimaxBatch(Batch *batch, Tree *tree);
+    void waitForFetched();
+    void fetchFromNN(Batch *batch, bool sync);
+    void fetchAndMinimax(Batch *batch, bool sync);
+    bool fillOutTree();
 
     // Playout methods
     bool handlePlayout(Node *playout, Cache *cache);
-    QVector<Node*> playoutNodes(int size, bool *didWork, bool *hardExit);
+    bool playoutNodes(Batch *batch, bool *hardExit);
     void ensureRootAndChildrenScored();
 
-    int m_id;
+    // Reporting info
+    void processWorkerInfo(const WorkerInfo &info);
+
     int m_searchId;
-    bool m_reachedMaxBatchSize;
+    std::atomic<quint32> m_estimatedNodes;
+    SearchInfo m_currentInfo;
     Tree *m_tree;
-    QVector<QFuture<void>> m_futures;
-    QMutex m_sleepMutex;
-    QWaitCondition m_sleepCondition;
+    QVector<GPUWorker*> m_gpuWorkers;
+    GuardedBatchQueue m_queue;
+    BatchQueue m_batchPool;
     std::atomic<bool> m_stop;
 };
 
 class WorkerThread : public QObject {
     Q_OBJECT
 public:
-    WorkerThread(int id);
+    WorkerThread();
     ~WorkerThread();
     SearchWorker *worker;
     QThread thread;
@@ -96,13 +136,8 @@ public:
     SearchEngine(QObject *parent = nullptr);
     ~SearchEngine() override;
 
-    SearchInfo currentInfo() const { return m_currentInfo; }
-
-    quint32 estimatedNodes() const { return m_estimatedNodes; }
-    void setEstimatedNodes(quint32 nodes) { m_estimatedNodes = nodes; }
-
+    void setEstimatedNodes(quint32 nodes);
     bool isStopped() const { return m_stop; }
-
     Tree *tree() const { return m_tree; }
 
 public Q_SLOTS:
@@ -110,9 +145,8 @@ public Q_SLOTS:
     void startSearch();
     void stopSearch();
     void searchWorkerStopped();
-    void printTree(const QVector<QString> &node, int depth, bool printPotentials, bool lock = true) const;
-    void receivedWorkerInfo(const WorkerInfo &info);
-    void workerReachedMaxBatchSize();
+    void receivedSearchInfo(const SearchInfo &info, bool isPartial);
+    void printTree(const QVector<QString> &node, int depth, bool printPotentials) const;
     void startPonder() {}
     void stopPonder() {}
 
@@ -126,10 +160,8 @@ private:
 
     Tree *m_tree;
     int m_searchId;
-    int m_startedWorkers;
-    quint32 m_estimatedNodes;
-    SearchInfo m_currentInfo;
-    QVector<WorkerThread*> m_workers;
+    bool m_startedWorker;
+    WorkerThread* m_worker;
     QMutex m_mutex;
     QWaitCondition m_condition;
     std::atomic<bool> m_stop;

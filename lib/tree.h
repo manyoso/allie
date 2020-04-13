@@ -36,7 +36,6 @@ public:
     ~Tree();
 
     Node *embodiedRoot();
-    QMutex *treeMutex();
     void reset();
     void clearRoot();
     static void validateTree(Node *node, int *total);
@@ -152,11 +151,6 @@ inline Node *Tree::embodiedRoot()
     rootPosition->initialize(m_root, rootGame.position());
 
     return m_root;
-}
-
-inline QMutex *Tree::treeMutex()
-{
-    return &m_treeMutex;
 }
 
 #endif // TREE_H

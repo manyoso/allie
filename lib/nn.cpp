@@ -176,8 +176,11 @@ void NeuralNet::reset()
     m_usingFP16 = useFP16;
     qDeleteAll(m_availableNetworks);
     m_availableNetworks.clear();
-    for (int i = 0; i < numberOfGPUCores; ++i)
-        m_availableNetworks.append(new Computation(createNewGPUNetwork(i, m_usingFP16)));
+    for (int i = 0; i < numberOfGPUCores; ++i) {
+        QSharedPointer<lczero::Network> network(createNewGPUNetwork(i, m_usingFP16));
+        m_availableNetworks.append(new Computation(network));
+        m_availableNetworks.append(new Computation(network));
+    }
 }
 
 void NeuralNet::setWeights(const QString &pathToWeights)
@@ -206,7 +209,7 @@ void NeuralNet::releaseNetwork(Computation *network)
     m_condition.wakeAll();
 }
 
-Computation::Computation(lczero::Network *network)
+Computation::Computation(QSharedPointer<lczero::Network> network)
     : m_positions(0),
     m_network(network),
     m_computation(nullptr)
@@ -217,7 +220,6 @@ Computation::Computation(lczero::Network *network)
 Computation::~Computation()
 {
     clear();
-    delete m_network;
 }
 
 void Computation::reset()

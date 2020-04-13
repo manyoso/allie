@@ -31,7 +31,7 @@
 
 class Computation {
 public:
-    Computation(lczero::Network *network);
+    Computation(QSharedPointer<lczero::Network> network);
     ~Computation();
 
     void reset();
@@ -45,7 +45,7 @@ public:
 
 private:
     int m_positions;
-    lczero::Network *m_network;
+    QSharedPointer<lczero::Network> m_network;
     lczero::NetworkComputation *m_computation;
     std::vector<lczero::InputPlane> m_inputPlanes;
 };
