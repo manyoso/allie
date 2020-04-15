@@ -118,7 +118,7 @@ public Q_SLOTS:
     void sendId();
     void sendUciOk();
     void sendReadyOk();
-    void sendBestMove(bool force = false);
+    void sendBestMove();
     void sendInfo(const SearchInfo &info, bool isPartial);
     void sendAverages();
     void sendOptions();
@@ -149,6 +149,7 @@ private:
     SearchInfo m_averageInfo;
     SearchInfo m_lastInfo;
     bool m_gameInitialized;
+    bool m_pendingBestMove;
     QString m_debugFile;
     QVector<UciOption> m_options;
     SearchEngine *m_searchEngine;

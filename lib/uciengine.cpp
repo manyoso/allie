@@ -259,6 +259,7 @@ void IOWorker::readyReadOutput(const QString &output)
 UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     : QObject(parent),
     m_gameInitialized(false),
+    m_pendingBestMove(false),
     m_debugFile(debugFile),
     m_searchEngine(nullptr),
     m_timeAtLastProgress(0),
@@ -270,7 +271,7 @@ UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     m_searchEngine = new SearchEngine(this);
     connect(m_searchEngine, &SearchEngine::sendInfo, this, &UciEngine::sendInfo);
     connect(m_searchEngine, &SearchEngine::requestStop, this, &UciEngine::stop);
-    connect(m_clock, &Clock::timeout, this, [&](){ sendBestMove(false /*force*/); });
+    connect(m_clock, &Clock::timeout, this, &UciEngine::sendBestMove);
 }
 
 UciEngine::~UciEngine()
@@ -448,14 +449,12 @@ void UciEngine::calculateRollingAverage(const SearchInfo &info)
     avgW.nodesCacheHits    = rollingAverage(avgW.nodesCacheHits, newW.nodesCacheHits, n);
 }
 
-void UciEngine::sendBestMove(bool force)
+void UciEngine::sendBestMove()
 {
     // We don't have a best move yet!
     if (m_lastInfo.bestMove.isEmpty()) {
-        QString o = QString("No more time and no bestmove forced=%1!\n").arg(force ? "t" : "f");
-        output(o);
-        if (!force)
-            return;
+        m_pendingBestMove = true;
+        return;
     }
 
     Q_ASSERT(!m_searchEngine->isStopped());
@@ -498,6 +497,9 @@ void UciEngine::sendBestMove(bool force)
     output(out);
 
     stopSearch(); // we block until the search has stopped
+
+    m_pendingBestMove = false;
+
     if (SearchSettings::debugInfo)
         calculateRollingAverage(m_lastInfo);
 }
@@ -512,13 +514,19 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     // Check if we are in extended mode and best has become most visited
     if (m_clock->isExtended() && m_lastInfo.bestIsMostVisited) {
-        sendBestMove(true /*force*/);
+        sendBestMove();
         return;
     }
 
     // Check if we've already exceeded time
     if (m_clock->hasExpired()) {
-        sendBestMove(true /*force*/);
+        sendBestMove();
+        return;
+    }
+
+    // Check if we are pending best move that has now been met
+    if (m_pendingBestMove && !m_lastInfo.bestMove.isEmpty()) {
+        sendBestMove();
         return;
     }
 
@@ -598,7 +606,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     // Stop at specific targets if requested or if we have a dtz move
     if (targetReached)
-        sendBestMove(true /*force*/);
+        sendBestMove();
 }
 
 void UciEngine::sendAverages()
@@ -664,7 +672,7 @@ void UciEngine::stop()
 {
     //qDebug() << "stop";
     if (m_clock->isActive() && !m_searchEngine->isStopped())
-        sendBestMove(true /*force*/);
+        sendBestMove();
 }
 
 void UciEngine::quit()
