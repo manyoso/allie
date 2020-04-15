@@ -727,7 +727,7 @@ void SearchEngine::receivedSearchInfo(const SearchInfo &info, bool isPartial)
 
 void SearchEngine::printTree(const QVector<QString> &node, int depth, bool printPotentials) const
 {
-    if (m_stop) {
+    if (!m_stop) {
         qWarning() << "We can only print the tree when the search is stopped!";
         return;
     }
