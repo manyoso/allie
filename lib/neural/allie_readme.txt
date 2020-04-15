@@ -7,5 +7,9 @@ and updated to commit SHA:
 
   b890d3b0f52983d8fb54b0c4bc020d6d87f2509d
 
+and manually cherry-picked patch of SHA:
+
+  761517767b7737508228e110e8e29feb6123e789
+
 They are minimally modified to compile and work with the Allie chess
 engine.
