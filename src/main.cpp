@@ -23,7 +23,9 @@
 #include <QDebug>
 #include <QDir>
 #include <stdio.h>
+#include <iostream>
 
+#include "benchmarkengine.h"
 #include "cache.h"
 #include "movegen.h"
 #include "nn.h"
@@ -44,32 +46,131 @@ int main(int argc, char *argv[])
     a.setApplicationVersion(versionString());
     a.setOrganizationName("Allie Chess Authors");
 
+    enum Mode {
+        UNKNOWN,
+        UCI,
+        BENCHMARK,
+        DEBUGFILE
+    };
+
     QCommandLineParser parser;
     parser.setApplicationDescription("A uci compliant chess engine.");
-    parser.addHelpOption();
     parser.addVersionOption();
-    parser.addPositionalArgument("file", "An optional debug file to open.");
+    parser.setOptionsAfterPositionalArgumentsMode(QCommandLineParser::ParseAsPositionalArguments);
 
-    QVector<UciOption> options = Options::globalInstance()->options();
-    for (UciOption o : options)
-        parser.addOption(o.commandLine());
+    QCommandLineOption customHelp(QStringList{"h", "help"}, "Displays this help.");
+    parser.addOption(customHelp);
+    parser.addPositionalArgument("", "");
+    parser.addPositionalArgument("mode", "uci\t\tRegular uci chess engine (default)\n\t"
+                                         "benchmark\tBenchmarking mode\n\t"
+                                         "debugfile\tReplay a debug log file\n");
 
-    parser.process(a);
+    QCommandLineParser modeParser;
+    modeParser.setApplicationDescription("mode");
+    QCommandLineOption customModeHelp(QStringList{"h", "help"}, "Displays mode help.");
+    customModeHelp.setFlags(QCommandLineOption::HiddenFromHelp);
+    modeParser.addOption(customModeHelp);
 
-    const QStringList args = parser.positionalArguments();
-    if (args.count() > 1)
-        parser.showHelp();
+    // Provide own parse of first parser
+    QStringList args = a.arguments();
 
-    QString debugFile;
-    if (!args.isEmpty())
-        debugFile = args.first();
+    // First value is always the app name
+    args.pop_front();
 
-    for (UciOption o : options) {
-        QString option = UciOption::toCamelCase(o.optionName());
-        if (parser.isSet(option))
-            Options::globalInstance()->setOption(o.optionName(), parser.value(option));
+    // Parse the help
+    bool help = false;
+    if (!args.isEmpty() && (args.first() == "--help" || args.first() == "--h")) {
+        help = true;
+        args.pop_front();
     }
 
+    // Check the mode
+    Mode mode = UCI;
+    bool modeIsEmpty = args.isEmpty();
+    QString modeString = modeIsEmpty ? QString() : args.first();
+    if (modeString == QLatin1String("uci")) {
+        mode = UCI;
+    } else if (modeString == QLatin1String("benchmark")) {
+        mode = BENCHMARK;
+    } else if (modeString == QLatin1String("debugfile")) {
+        mode = DEBUGFILE;
+    } else {
+        // Assume uci as that is default way of interpreting mode
+        mode = UCI;
+        modeIsEmpty = true;
+        modeString = QLatin1String("uci");
+    }
+
+    // Add options depending upon mode
+    switch (mode) {
+    case BENCHMARK:
+        Options::globalInstance()->addBenchmarkOptions();
+        [[fallthrough]];
+    case UCI:
+        {
+            Options::globalInstance()->addRegularOptions();
+            QVector<UciOption> options = Options::globalInstance()->options();
+            for (UciOption o : options)
+                modeParser.addOption(o.commandLine());
+            break;
+        }
+    case DEBUGFILE:
+        modeParser.addPositionalArgument("filepath", "\t<filepath>\tThe filepath of the debug file to load");
+        break;
+    case UNKNOWN:
+        break;
+    default:
+        Q_UNREACHABLE();
+    }
+
+    // Fixup the mode help
+    QString modeHelp = modeParser.helpText();
+    modeHelp.remove(0, modeHelp.indexOf("mode\n\n") + 6);
+    modeHelp.prepend("Mode ");
+
+    QString fullHelp = QString("%0%1").arg(parser.helpText()).arg(modeHelp);
+
+    // If we've requested --help as first arg display it now
+    if (help) {
+        std::cerr << fullHelp.toLatin1().constData();
+        return -1;
+    }
+
+    // If we had a mode, then pop it so we can parse the rest of the options
+    if (!modeIsEmpty)
+        args.pop_front();
+
+    // Need at least one positional argument which usually is the process name
+    args.prepend("mode");
+
+    // Process the mode args
+    modeParser.process(args);
+
+    // Check if we've invoked mode help
+    if (modeParser.isSet("help")) {
+        std::cerr << fullHelp.toLatin1().constData();
+        return -1;
+    }
+
+    // Is this debug mode?
+    QString debugFile;
+    QStringList modePositionalArgs = modeParser.positionalArguments();
+    if (mode == DEBUGFILE && modePositionalArgs.count() == 1) {
+            debugFile = modePositionalArgs.first();
+    } else if (mode == DEBUGFILE || !modePositionalArgs.isEmpty()) {
+        std::cerr << fullHelp.toLatin1().constData();
+        return -1;
+    }
+
+    // If not, then process the rest of our arguments
+    QVector<UciOption> options = Options::globalInstance()->options();
+    for (UciOption o : options) {
+        QString option = UciOption::toCamelCase(o.optionName());
+        if (modeParser.isSet(option))
+            Options::globalInstance()->setOption(o.optionName(), modeParser.value(option));
+    }
+
+    // Display our logo
     QString ascii = QLatin1String("       _ _ _       \n"
                                   "  __ _| | (_) ___  \n"
                                   " / _` | | | |/ _ \\\n"
@@ -83,8 +184,14 @@ int main(int argc, char *argv[])
     Zobrist::globalInstance();
     Movegen::globalInstance();
 
-    UciEngine engine(&a, debugFile);
-    engine.run();
-
-    return a.exec();
+    // Is this benchmark mode?
+    if (mode == BENCHMARK) {
+        BenchmarkEngine engine(&a);
+        engine.run();
+        return a.exec();
+    } else {
+        UciEngine engine(&a, debugFile);
+        engine.run();
+        return a.exec();
+    }
 }

@@ -33,11 +33,14 @@ public:
     UciOption option(const QString &name) const;
     void setOption(const QString &name, const QString &value);
     QVector<UciOption> options() const;
+    void addRegularOptions();
+    void addBenchmarkOptions();
 
 private:
     Options();
     ~Options();
     void insertOption(const UciOption &option);
+    QVector<UciOption> m_optionsInOrder;
     QMap<QString, UciOption> m_options;
     friend class MyOptions;
 };

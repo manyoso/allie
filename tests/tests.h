@@ -32,7 +32,7 @@ public:
         : QObject(parent) {}
     virtual ~UCIIOHandler() override {}
 
-    void handleInfo(const SearchInfo &info) override
+    void handleInfo(const SearchInfo &info, bool) override
     {
         m_lastInfo = info;
         emit receivedInfo();

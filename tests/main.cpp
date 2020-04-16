@@ -38,6 +38,8 @@ int main(int argc, char* argv[])
     a.setApplicationName(APP_NAME);
     a.setApplicationVersion(versionString());
 
+    Options::globalInstance()->addRegularOptions();
+
     int rc = 0;
     Tests tests;
     rc = QTest::qExec(&tests, argc, argv) == 0 ? rc : -1;

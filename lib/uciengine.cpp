@@ -54,7 +54,8 @@ UciOption::UciOption()
       m_min(QString()),
       m_max(QString()),
       m_var(QVector<QString>()),
-      m_value(QString())
+      m_value(QString()),
+      m_valueType(QString())
 {
 }
 
@@ -110,12 +111,12 @@ QCommandLineOption UciOption::commandLine() const
 {
     QString desc;
     if (!m_min.isEmpty() && !m_max.isEmpty())
-        desc = QString("%0 (min:%1, max:%2, default:%3)").arg(m_description).arg(m_min).arg(m_max).arg(m_default);
+        desc = QString("%0\n [MIN:%1, MAX:%2, DEFAULT:%3]\n").arg(m_description).arg(m_min).arg(m_max).arg(m_default);
     else if (!m_var.isEmpty())
-        desc = QString("%0 (%1, default:%2)").arg(m_description).arg(m_var.toList().join(", ")).arg(m_default);
+        desc = QString("%0\n [%1, DEFAULT:%2]\n").arg(m_description).arg(m_var.toList().join(", ")).arg(m_default);
     else
-        desc = QString("%0 (default:%1)").arg(m_description).arg(m_default);
-    return QCommandLineOption(toCamelCase(m_name), desc, "value", m_default);
+        desc = QString("%0\n [DEFAULT:%1]\n").arg(m_description).arg(m_default);
+    return QCommandLineOption(toCamelCase(m_name), desc, m_valueType, m_default);
 }
 
 void UciOption::setFromCommandLine(const QCommandLineOption &line)
@@ -258,6 +259,7 @@ void IOWorker::readyReadOutput(const QString &output)
 
 UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     : QObject(parent),
+    m_averageInfoN(0),
     m_gameInitialized(false),
     m_pendingBestMove(false),
     m_debugFile(debugFile),
@@ -430,8 +432,8 @@ void UciEngine::stopSearch()
 
 void UciEngine::calculateRollingAverage()
 {
-    static int n = 0;
-    ++n;
+    ++m_averageInfoN;
+    int n = m_averageInfoN;
 
     Q_ASSERT(m_lastInfo.rawnps > 0);
     // Don't average the first sample
@@ -509,6 +511,8 @@ void UciEngine::sendBestMove()
     m_pendingBestMove = false;
 
     calculateRollingAverage();
+    if (Q_UNLIKELY(m_ioHandler))
+        m_ioHandler->handleAverages(m_averageInfo);
 }
 
 void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
@@ -568,7 +572,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
         m_lastInfo.batchSize = m_lastInfo.workerInfo.nodesEvaluated / m_lastInfo.workerInfo.numberOfBatches;
 
     if (Q_UNLIKELY(m_ioHandler))
-        m_ioHandler->handleInfo(m_lastInfo);
+        m_ioHandler->handleInfo(m_lastInfo, isPartial);
 
     QString out;
     QTextStream stream(&out);
@@ -653,6 +657,7 @@ void UciEngine::uciNewGame()
 {
     //qDebug() << "uciNewGame";
     m_gameInitialized = true;
+    m_pendingBestMove = false;
 
     m_clock->setExtraBudgetedTime(0.f);
     m_searchEngine->reset();
@@ -860,6 +865,7 @@ void UciEngine::output(const QString &out)
     emit sendOutput(out);
 }
 
-void IOHandler::handleInfo(const SearchInfo &) {}
+void IOHandler::handleInfo(const SearchInfo &, bool) {}
 void IOHandler::handleBestMove(const QString &) {}
+void IOHandler::handleAverages(const SearchInfo &) {}
 
