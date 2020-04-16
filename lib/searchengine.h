@@ -101,6 +101,9 @@ public:
     quint32 estimatedNodes() const { return m_estimatedNodes; }
     void setEstimatedNodes(quint32 nodes) { m_estimatedNodes = nodes; }
 
+    quint32 rolloverNodes() const { return m_rolloverNodes; }
+    void setRolloverNodes(quint32 nodes) { m_rolloverNodes = nodes; }
+
     bool isStopped() const { return m_stop; }
 
     Tree *tree() const { return m_tree; }
@@ -128,6 +131,7 @@ private:
     int m_searchId;
     int m_startedWorkers;
     quint32 m_estimatedNodes;
+    quint32 m_rolloverNodes;
     SearchInfo m_currentInfo;
     QVector<WorkerThread*> m_workers;
     QMutex m_mutex;
