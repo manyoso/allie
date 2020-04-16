@@ -87,7 +87,7 @@ public Q_SLOTS:
 Q_SIGNALS:
     void sendInfo(const SearchInfo &info, bool isPartial);
     void searchWorkerStopped();
-    void requestStop();
+    void requestStop(int searchId);
 
 private Q_SLOTS:
     void search();
@@ -146,6 +146,7 @@ public Q_SLOTS:
     void stopSearch();
     void searchWorkerStopped();
     void receivedSearchInfo(const SearchInfo &info, bool isPartial);
+    void receivedRequestStop(int searchId);
     void printTree(const QVector<QString> &node, int depth, bool printPotentials) const;
     void startPonder() {}
     void stopPonder() {}

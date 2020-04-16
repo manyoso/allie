@@ -437,7 +437,7 @@ void SearchWorker::search()
         // Fill out the tree
         bool hardExit = fillOutTree();
         if (hardExit)
-            emit requestStop();
+            emit requestStop(m_searchId);
     }
 
     // Notify stop
@@ -544,7 +544,7 @@ void SearchWorker::processWorkerInfo(const WorkerInfo &info)
 
     emit sendInfo(m_currentInfo, isPartial);
     if (!SearchSettings::featuresOff.testFlag(SearchSettings::EarlyExit) && shouldEarlyExit)
-        emit requestStop();
+        emit requestStop(m_searchId);
 }
 
 WorkerThread::WorkerThread()
@@ -617,7 +617,7 @@ void SearchEngine::reset()
     connect(m_worker->worker, &SearchWorker::sendInfo,
             this, &SearchEngine::receivedSearchInfo);
     connect(m_worker->worker, &SearchWorker::requestStop,
-            this, &SearchEngine::requestStop);
+            this, &SearchEngine::receivedRequestStop);
 }
 
 void SearchEngine::startSearch()
@@ -725,6 +725,15 @@ void SearchEngine::receivedSearchInfo(const SearchInfo &info, bool isPartial)
     emit sendInfo(info, isPartial);
 }
 
+void SearchEngine::receivedRequestStop(int searchId)
+{
+    // It is possible this could have been queued before we were asked to stop
+    // so ignore if so
+    if (m_stop || searchId != m_searchId)
+        return;
+
+    emit requestStop();
+}
 void SearchEngine::printTree(const QVector<QString> &node, int depth, bool printPotentials) const
 {
     if (!m_stop) {
