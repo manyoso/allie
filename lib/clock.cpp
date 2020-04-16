@@ -93,6 +93,11 @@ void Clock::setInfinite(bool infinite)
     m_infinite = infinite;
 }
 
+bool Clock::isMoveTime() const
+{
+    return m_moveTime != -1;
+}
+
 void Clock::setMoveTime(qint64 time)
 {
     m_moveTime = time;

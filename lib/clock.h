@@ -41,6 +41,7 @@ public:
     qint64 increment(Chess::Army army) const;
     void setIncrement(Chess::Army army, qint64 inc);
 
+    bool isMoveTime() const;
     void setMoveTime(qint64 time);
     bool isInfinite() const;
     void setInfinite(bool infinite);

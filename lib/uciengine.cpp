@@ -550,7 +550,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     // at least N msecs and we want to early exit according to following paper:
     // https://link.springer.com/chapter/10.1007/978-3-642-31866-5_4
     const bool hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
-    if (!hasTarget && !m_clock->isInfinite() && msecs > SearchSettings::earlyExitMinimumTime) {
+    if (!hasTarget && !m_clock->isInfinite() && !m_clock->isMoveTime() && msecs > SearchSettings::earlyExitMinimumTime) {
         const qint64 timeToRemaining = m_clock->deadline() - msecs;
         const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_lastInfo.rawnps));
         m_searchEngine->setEstimatedNodes(e);
