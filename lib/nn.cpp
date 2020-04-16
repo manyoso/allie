@@ -167,7 +167,7 @@ Network *NeuralNet::createNewGPUNetwork(int id, bool useFP16) const
 void NeuralNet::reset()
 {
     Q_ASSERT(m_weightsValid);
-    const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt();
+    const int numberOfGPUCores = Options::globalInstance()->option("NumberOfGPUCards").value().toInt();
     const bool useFP16 = Options::globalInstance()->option("UseFP16").value() == "true";
     if (numberOfGPUCores == m_availableNetworks.count()
         && useFP16 == m_usingFP16)

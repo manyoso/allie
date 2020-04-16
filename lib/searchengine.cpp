@@ -200,7 +200,7 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
         // Start as many gpu worker threads as we have available networks and create a batch pool
         // to satisfy those workers
         const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
-        const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt() * 2;
+        const int numberOfGPUCores = Options::globalInstance()->option("NumberOfGPUCards").value().toInt() * 2;
         for (int i = 0; i < numberOfGPUCores; ++i) {
             GPUWorker *worker = new GPUWorker(&m_queue);
             worker->setObjectName(QString("gpuworker %0").arg(i));

@@ -70,6 +70,7 @@ private:
     QString m_max;
     QVector<QString> m_var;
     QString m_value;
+    QString m_valueType;
     friend class Options;
 };
 
@@ -100,8 +101,9 @@ private:
 class IOHandler {
 public:
     virtual ~IOHandler() {}
-    virtual void handleInfo(const SearchInfo &info);
+    virtual void handleInfo(const SearchInfo &info, bool isPartial);
     virtual void handleBestMove(const QString &bestMove);
+    virtual void handleAverages(const SearchInfo &info);
 };
 
 class UciEngine : public QObject {
@@ -128,6 +130,7 @@ public Q_SLOTS:
     void quit();
     void readyRead(const QString &line);
     void installIOHandler(IOHandler *io) { m_ioHandler = io; }
+    void resetRollingAverage() { m_averageInfo = SearchInfo(); m_averageInfoN = 0; }
 
 Q_SIGNALS:
     void sendOutput(const QString &output);
@@ -146,6 +149,7 @@ private:
     void output(const QString &out);
 
 private:
+    int m_averageInfoN;
     SearchInfo m_averageInfo;
     SearchInfo m_lastInfo;
     bool m_gameInitialized;

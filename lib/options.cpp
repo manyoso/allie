@@ -35,6 +35,14 @@ Options* Options::globalInstance()
 
 Options::Options()
 {
+}
+
+Options::~Options()
+{
+}
+
+void Options::addRegularOptions()
+{
     // Set the weights file default
     SearchSettings::weightsFile = QString::fromStdString(lczero::DiscoverWeightsFile());
 
@@ -43,6 +51,7 @@ Options::Options()
     cpuctBase.m_type = UciOption::String;
     cpuctBase.m_default = QString::number(double(SearchSettings::cpuctBase));
     cpuctBase.m_value = cpuctBase.m_default;
+    cpuctBase.m_valueType = QLatin1String("float");
     cpuctBase.m_min = QLatin1Literal("0");
     cpuctBase.m_max = QLatin1Literal("100000");
     cpuctBase.m_description = QLatin1String("Cpuct base");
@@ -53,6 +62,7 @@ Options::Options()
     cpuctF.m_type = UciOption::String;
     cpuctF.m_default = QString::number(double(SearchSettings::cpuctF));
     cpuctF.m_value = cpuctF.m_default;
+    cpuctF.m_valueType = QLatin1String("float");
     cpuctF.m_min = QLatin1Literal("1");
     cpuctF.m_max = QLatin1Literal("256");
     cpuctF.m_description = QLatin1String("Cpuct growth factor");
@@ -63,6 +73,7 @@ Options::Options()
     cpuctInit.m_type = UciOption::String;
     cpuctInit.m_default = QString::number(double(SearchSettings::cpuctInit));
     cpuctInit.m_value = cpuctInit.m_default;
+    cpuctInit.m_valueType = QLatin1String("float");
     cpuctInit.m_min = QLatin1Literal("1");
     cpuctInit.m_max = QLatin1Literal("256");
     cpuctInit.m_description = QLatin1String("Cpuct initial value");
@@ -73,6 +84,7 @@ Options::Options()
     debugLog.m_type = UciOption::Check;
     debugLog.m_default = QLatin1Literal("false");
     debugLog.m_value = debugLog.m_default;
+    debugLog.m_valueType = QLatin1String("boolean");
     debugLog.m_description = QLatin1String("Output a debug log in binary directory");
     insertOption(debugLog);
 
@@ -81,6 +93,7 @@ Options::Options()
     debugInfo.m_type = UciOption::Check;
     debugInfo.m_default = QLatin1Literal("false");
     debugInfo.m_value = debugInfo.m_default;
+    debugInfo.m_valueType = QLatin1String("boolean");
     debugInfo.m_description = QLatin1String("Output additional debug info");
     insertOption(debugInfo);
 
@@ -89,6 +102,7 @@ Options::Options()
     earlyExitFactor.m_type =  UciOption::String;
     earlyExitFactor.m_default = QString::number(double(SearchSettings::earlyExitFactor));
     earlyExitFactor.m_value = earlyExitFactor.m_default;
+    earlyExitFactor.m_valueType = QLatin1String("float");
     earlyExitFactor.m_min = QLatin1Literal("0");
     earlyExitFactor.m_max = QLatin1Literal("1");
     earlyExitFactor.m_description = QLatin1String("Multiplier for early exit where values less than"
@@ -101,6 +115,7 @@ Options::Options()
     earlyExitMinimum.m_type =  UciOption::Spin;
     earlyExitMinimum.m_default = QString::number(SearchSettings::earlyExitMinimumTime);
     earlyExitMinimum.m_value = earlyExitMinimum.m_default;
+    earlyExitMinimum.m_valueType = QLatin1String("integer");
     earlyExitMinimum.m_min = QLatin1Literal("0");
     earlyExitMinimum.m_max = QLatin1Literal("5000");
     earlyExitMinimum.m_description = QLatin1String("Minimum time in milliseconds before any early"
@@ -112,27 +127,19 @@ Options::Options()
     featuresOff.m_type = UciOption::String;
     featuresOff.m_default = SearchSettings::featuresToString(SearchSettings::featuresOff);
     featuresOff.m_value = featuresOff.m_default;
+    featuresOff.m_valueType = QLatin1String("stringlist");
     featuresOff.m_description = QLatin1String("Specify features to turn off for debugging purposes"
                                               " as a comma delineated list without spaces in lower"
                                               "case including 'threading,earlyexit,transpositions,"
                                               "minimax'");
     insertOption(featuresOff);
 
-    UciOption GPUCores;
-    GPUCores.m_name = QLatin1Literal("GPUCores");
-    GPUCores.m_type = UciOption::Spin;
-    GPUCores.m_default = QLatin1Literal("1");
-    GPUCores.m_value = GPUCores.m_default;
-    GPUCores.m_min = QLatin1Literal("0");
-    GPUCores.m_max = QLatin1Literal("256");
-    GPUCores.m_description = QLatin1String("Number of GPU cores to use");
-    insertOption(GPUCores);
-
     UciOption cache;
     cache.m_name = QLatin1Literal("Cache");
     cache.m_type = UciOption::Spin;
     cache.m_default = QLatin1Literal("5000000");
     cache.m_value = cache.m_default;
+    cache.m_valueType = QLatin1String("integer");
     cache.m_min = QLatin1Literal("100000");
     cache.m_max = QString::number(999999999);
     cache.m_description = QLatin1String("Maximum number of chess positions stored in memory");
@@ -142,6 +149,7 @@ Options::Options()
     maxBatchSize.m_name = QLatin1Literal("MaxBatchSize");
     maxBatchSize.m_type = UciOption::Spin;
     maxBatchSize.m_default = QLatin1Literal("256");
+    maxBatchSize.m_valueType = QLatin1String("integer");
     maxBatchSize.m_value = maxBatchSize.m_default;
     maxBatchSize.m_min = QLatin1Literal("0");
     maxBatchSize.m_max = QLatin1Literal("65536");
@@ -153,16 +161,29 @@ Options::Options()
     moveOverhead.m_type = UciOption::Spin;
     moveOverhead.m_default = QLatin1Literal("300");
     moveOverhead.m_value = moveOverhead.m_default;
+    moveOverhead.m_valueType = QLatin1String("integer");
     moveOverhead.m_min = QLatin1Literal("0");
     moveOverhead.m_max = QLatin1Literal("5000");
     moveOverhead.m_description = QLatin1String("Overhead to avoid timing out");
     insertOption(moveOverhead);
+
+    UciOption GPUCores;
+    GPUCores.m_name = QLatin1Literal("NumberOfGPUCards");
+    GPUCores.m_type = UciOption::Spin;
+    GPUCores.m_default = QLatin1Literal("1");
+    GPUCores.m_value = GPUCores.m_default;
+    GPUCores.m_valueType = QLatin1String("integer");
+    GPUCores.m_min = QLatin1Literal("0");
+    GPUCores.m_max = QLatin1Literal("256");
+    GPUCores.m_description = QLatin1String("Number of GPU cards to use");
+    insertOption(GPUCores);
 
     UciOption openingTimeFactor;
     openingTimeFactor.m_name = QLatin1Literal("OpeningTimeFactor");
     openingTimeFactor.m_type =  UciOption::String;
     openingTimeFactor.m_default = QString::number(double(SearchSettings::openingTimeFactor));
     openingTimeFactor.m_value = openingTimeFactor.m_default;
+    openingTimeFactor.m_valueType = QLatin1String("float");
     openingTimeFactor.m_min = QLatin1Literal("1");
     openingTimeFactor.m_max = QLatin1Literal("3");
     openingTimeFactor.m_description = QLatin1String("Time factor for extra time in opening");
@@ -173,6 +194,7 @@ Options::Options()
     ponder.m_type = UciOption::Check;
     ponder.m_default = QLatin1Literal("false");
     ponder.m_value = ponder.m_default;
+    ponder.m_valueType = QLatin1String("boolean");
     ponder.m_description = QLatin1String("Whether to ponder");
     insertOption(ponder);
 
@@ -181,6 +203,7 @@ Options::Options()
     tb.m_type = UciOption::String;
     tb.m_default = QLatin1Literal("");
     tb.m_value = tb.m_default;
+    tb.m_valueType = QLatin1String("filepath");
     tb.m_description = QLatin1String("Path to the syzygy tablebase");
     insertOption(tb);
 
@@ -189,6 +212,7 @@ Options::Options()
     tryPlayoutLimit.m_type = UciOption::Spin;
     tryPlayoutLimit.m_default = QString::number(SearchSettings::tryPlayoutLimit);
     tryPlayoutLimit.m_value = tryPlayoutLimit.m_default;
+    tryPlayoutLimit.m_valueType = QLatin1String("integer");
     tryPlayoutLimit.m_min = QLatin1Literal("1");
     tryPlayoutLimit.m_max = QLatin1Literal("1000");
     tryPlayoutLimit.m_description = QLatin1String("Number of times that a playout with virtual loss"
@@ -201,6 +225,7 @@ Options::Options()
     ninesixty.m_type = UciOption::Check;
     ninesixty.m_default = QLatin1Literal("false");
     ninesixty.m_value = ninesixty.m_default;
+    ninesixty.m_valueType = QLatin1String("boolean");
     ninesixty.m_description = QLatin1String("Play Chess960");
     insertOption(ninesixty);
 
@@ -209,6 +234,7 @@ Options::Options()
     useHalfFloatingPoint.m_type = UciOption::Check;
     useHalfFloatingPoint.m_default = QLatin1Literal("false");
     useHalfFloatingPoint.m_value = useHalfFloatingPoint.m_default;
+    useHalfFloatingPoint.m_valueType = QLatin1String("boolean");
     useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
     insertOption(useHalfFloatingPoint);
 
@@ -217,12 +243,39 @@ Options::Options()
     weightsFile.m_type = UciOption::String;
     weightsFile.m_default = SearchSettings::weightsFile;
     weightsFile.m_value = weightsFile.m_default;
+    weightsFile.m_valueType = QLatin1String("filepath");
     weightsFile.m_description = QLatin1String("Provides a weights file to use");
     insertOption(weightsFile);
 }
 
-Options::~Options()
+void Options::addBenchmarkOptions()
 {
+    UciOption fen;
+    fen.m_name = QLatin1Literal("BenchmarkFen");
+    fen.m_type = UciOption::String;
+    fen.m_default = QLatin1String("");
+    fen.m_value = fen.m_default;
+    fen.m_valueType = QLatin1String("string");
+    fen.m_description = QLatin1String("Benchmark search for a specific fen");
+    insertOption(fen);
+
+    UciOption movetime;
+    movetime.m_name = QLatin1Literal("BenchmarkMovetime");
+    movetime.m_type = UciOption::Spin;
+    movetime.m_default = QLatin1String("10000");
+    movetime.m_value = movetime.m_default;
+    movetime.m_valueType = QLatin1String("integer");
+    movetime.m_description = QLatin1String("Benchmark search for a specific amount of time");
+    insertOption(movetime);
+
+    UciOption nodes;
+    nodes.m_name = QLatin1Literal("BenchmarkNodes");
+    nodes.m_type = UciOption::Spin;
+    nodes.m_default = QLatin1String("0");
+    nodes.m_value = nodes.m_default;
+    nodes.m_valueType = QLatin1String("integer");
+    nodes.m_description = QLatin1String("Benchmark search for a specific amount of nodes");
+    insertOption(nodes);
 }
 
 bool Options::contains(const QString &name) const
@@ -247,10 +300,11 @@ void Options::setOption(const QString &name, const QString &value)
 
 void Options::insertOption(const UciOption &option)
 {
+    m_optionsInOrder.append(option);
     m_options.insert(option.optionName(), option);
 }
 
 QVector<UciOption> Options::options() const
 {
-    return m_options.values().toVector();
+    return m_optionsInOrder;
 }

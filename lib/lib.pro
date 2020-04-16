@@ -32,6 +32,7 @@ CONFIG(release, debug|release) {
 }
 
 HEADERS += \
+    $$PWD/benchmarkengine.h \
     $$PWD/bitboard.h \
     $$PWD/cache.h \
     $$PWD/chess.h \
@@ -68,6 +69,7 @@ HEADERS += \
     $$PWD/fathom/tbprobe.h
 
 SOURCES += \
+    $$PWD/benchmarkengine.cpp \
     $$PWD/bitboard.cpp \
     $$PWD/cache.cpp \
     $$PWD/clock.cpp \
