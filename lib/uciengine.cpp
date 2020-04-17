@@ -270,7 +270,7 @@ UciEngine::UciEngine(QObject *parent, const QString &debugFile)
 {
     m_searchEngine = new SearchEngine(this);
     connect(m_searchEngine, &SearchEngine::sendInfo, this, &UciEngine::sendInfo);
-    connect(m_searchEngine, &SearchEngine::requestStop, this, &UciEngine::stop);
+    connect(m_searchEngine, &SearchEngine::requestStop, this, &UciEngine::stopRequested);
     connect(m_clock, &Clock::timeout, this, &UciEngine::sendBestMove);
 }
 
@@ -470,15 +470,15 @@ void UciEngine::sendBestMove()
 
     stopTheClock();
 
+    const qint64 extraBudgetedTime = qMax(qint64(0), m_clock->timeToDeadline());
+    m_clock->setExtraBudgetedTime(extraBudgetedTime / float(m_clock->deadline()) / float(SearchSettings::openingTimeFactor));
 #if defined(DEBUG_TIME)
-    qint64 t = m_clock->timeToDeadline();
-    if (t < 0) {
+    {
         QString out;
         QTextStream stream(&out);
         stream << "info"
-            << " deadline " << m_clock->deadline()
-            << " timeBudgetExceeded " << qAbs(t)
-            << endl;
+               << " extraBudgetedTime " << extraBudgetedTime << " as percent" << m_clock->extraBudgetedTime()
+               << endl;
         output(out);
     }
 #endif
@@ -654,6 +654,7 @@ void UciEngine::uciNewGame()
     //qDebug() << "uciNewGame";
     m_gameInitialized = true;
 
+    m_clock->setExtraBudgetedTime(0.f);
     m_searchEngine->reset();
     Cache::globalInstance()->reset();
     SearchSettings::debugInfo = Options::globalInstance()->option("DebugInfo").value() == "true";
@@ -680,6 +681,26 @@ void UciEngine::stop()
     //qDebug() << "stop";
     if (m_clock->isActive() && !m_searchEngine->isStopped())
         sendBestMove();
+}
+
+void UciEngine::stopRequested(bool earlyExit)
+{
+#if defined(DEBUG_TIME)
+    if (earlyExit) {
+        QString out;
+        QTextStream stream(&out);
+        stream << "info"
+               << " stopRequested estimatedNodes" << m_searchEngine->estimatedNodes()
+               << " rawnps " << m_averageInfo.rawnps
+               << endl;
+        output(out);
+    }
+#else
+    Q_UNUSED(earlyExit);
+#endif
+
+    //qDebug() << "stop";
+    stop();
 }
 
 void UciEngine::quit()
@@ -808,12 +829,21 @@ void UciEngine::go(const Search& s)
     m_clock->setMaterialScore(p.materialScore(Chess::White) + p.materialScore(Chess::Black));
     m_clock->setHalfMoveNumber(currentGame.halfMoveNumber());
     m_clock->resetExtension();
-    m_clock->startDeadline(p.activeArmy());
     m_timeAtLastProgress = 0;
     m_depthTargeted = s.depth;
     m_nodesTargeted = s.nodes;
     m_lastInfo = SearchInfo();
 
+    // Actually start the clock
+    m_clock->startDeadline(p.activeArmy());
+#if defined(DEBUG_TIME)
+    QString out;
+    QTextStream stream(&out);
+    stream << "info"
+           << " clock deadline " << m_clock->deadline() << " extra time " << m_clock->extraBudgetedTime()
+           << endl;
+    output(out);
+#endif
     startSearch();
 }
 
