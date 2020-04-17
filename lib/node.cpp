@@ -263,7 +263,7 @@ Node *Node::bestChild() const
     if (!hasChildren())
         return nullptr;
     QVector<Node*> children = m_children;
-    sortByScore(children, true /*partialSortFirstOnly*/);
+    sortByVisits(children, true /*partialSortFirstOnly*/);
     return children.first();
 }
 
@@ -559,8 +559,11 @@ void Node::trimUnscoredFromTree(Node *node)
     node->m_isDirty = false;
 }
 
-Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache)
+Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache,
+    quint32 estimatedNodes)
 {
+    const quint32 bestVisits = root->bestChild()->visits();
+
 start_playout:
     int vld = *vldMax;
     Node *n = root;
@@ -578,6 +581,9 @@ start_playout:
         // First look at the actual children
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
+            if (n->isRootNode() && estimatedNodes < (bestVisits - child->visits()))
+                continue;
+
             float score = Node::uctFormula(child->qValue(), child->uValue(uCoeff));
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
@@ -953,7 +959,7 @@ QString Node::printTree(int topDepth, int depth, bool printPotentials) const
     if (d < depth) {
         QVector<Node*> children = *this->children();
         if (!children.isEmpty()) {
-            Node::sortByScore(children, false /*partialSortFirstOnly*/);
+            Node::sortByVisits(children, false /*partialSortFirstOnly*/);
             for (const Node *child : children)
                 stream << child->printTree(topDepth, depth, printPotentials);
         }

@@ -156,7 +156,7 @@ void Clock::stop()
 void Clock::maybeTimeout()
 {
     // If best is most visited just timeout as usual
-    if (m_info.bestIsMostVisited) {
+    if (m_info.bestHasBestScore) {
         emit timeout();
         return;
     }

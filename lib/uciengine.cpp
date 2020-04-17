@@ -43,7 +43,7 @@
 
 static bool s_firstLog = true;
 
-//#define DEBUG_TIME
+#define DEBUG_TIME
 
 using namespace Chess;
 
@@ -495,10 +495,10 @@ void UciEngine::sendBestMove()
 
 #if defined(DEBUG_TIME)
     // This should only happen when we are completely out of time
-    if (!m_lastInfo.bestIsMostVisited) {
+    if (!m_lastInfo.bestHasBestScore) {
         QString out;
         QTextStream stream(&out);
-        stream << "info bestIsMostVisited " << (m_lastInfo.bestIsMostVisited ? "true" : "false") << endl;
+        stream << "info bestHasBestScore " << (m_lastInfo.bestHasBestScore ? "true" : "false") << endl;
         output(out);
     }
 #endif
@@ -533,7 +533,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     m_lastInfo.calculateSpeeds(msecs);
 
     // Check if we are in extended mode and best has become most visited
-    if (m_clock->isExtended() && m_lastInfo.bestIsMostVisited) {
+    if (m_clock->isExtended() && m_lastInfo.bestHasBestScore) {
         sendBestMove();
         return;
     }
@@ -562,7 +562,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     if (!hasTarget && !m_clock->isInfinite() && !m_clock->isMoveTime() && m_averageInfo.nodes > 0 && m_averageInfo.rawnps > 0) {
         const qint64 timeToRemaining = m_clock->deadline() - msecs;
-        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_averageInfo.rawnps));
+        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_averageInfo.rawnps)) * SearchSettings::earlyExitFactor;
         m_searchEngine->setEstimatedNodes(e);
     }
 

@@ -402,7 +402,8 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
                 break;
         }
 
-        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash);
+        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit,
+            hash, m_estimatedNodes);
         Q_ASSERT(!playout || playout->m_virtualLoss == 1);
         if (!playout)
             break;
@@ -547,11 +548,11 @@ void SearchWorker::processWorkerInfo()
     const bool onlyOneLegalMove = (!root->hasPotentials() && root->children()->count() == 1);
     if (onlyOneLegalMove) {
         shouldEarlyExit = true;
-        m_currentInfo.bestIsMostVisited = true;
+        m_currentInfo.bestHasBestScore = true;
     } else {
         QVector<Node*> children = *root->children();
         if (children.count() > 1) {
-            // Sort top two by score
+            // Sort top two by visits
             std::partial_sort(children.begin(), children.begin() + 2, children.end(),
                 [](const Node *a, const Node *b) {
                 return Node::greaterThan(a, b);
@@ -559,11 +560,12 @@ void SearchWorker::processWorkerInfo()
             const Node *firstChild = children.at(0);
             const Node *secondChild = children.at(1);
             const qint64 diff = qint64(firstChild->m_visited) - qint64(secondChild->m_visited);
-            const bool bestIsMostVisited = diff >= 0 || qFuzzyCompare(firstChild->qValue(), secondChild->qValue());
-            shouldEarlyExit = bestIsMostVisited && diff >= m_estimatedNodes * SearchSettings::earlyExitFactor;
-            m_currentInfo.bestIsMostVisited = bestIsMostVisited;
+            const bool bestHasBestScore = firstChild->qValue() > secondChild->qValue()
+                || qFuzzyCompare(firstChild->qValue(), secondChild->qValue());
+            shouldEarlyExit = bestHasBestScore && diff >= m_estimatedNodes;
+            m_currentInfo.bestHasBestScore = bestHasBestScore;
         } else {
-            m_currentInfo.bestIsMostVisited = true;
+            m_currentInfo.bestHasBestScore = true;
             isPartial = true;
         }
     }

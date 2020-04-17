@@ -190,7 +190,8 @@ public:
     Node();
     ~Node();
 
-    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
+    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash,
+        quint32 estimatedNodes);
     static float minimax(Node *, quint32 depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
     static void trimUnscoredFromTree(Node *);
@@ -277,7 +278,7 @@ public:
     bool isNoisy() const;
 
     static bool greaterThan(const Node *a, const Node *b);
-    static void sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnlyy);
+    static void sortByVisits(QVector<Node*> &nodes, bool partialSortFirstOnlyy);
     static void sortByPVals(QVector<Node::Potential> &potentials);
 
     Node::Position *position() const;
@@ -324,7 +325,7 @@ inline int Node::treeDepth() const
     const Node *n = this;
     while (n && n->hasChildren()) {
         QVector<Node*> children = n->m_children;
-        sortByScore(children, true /*partialSortFirstOnly*/);
+        sortByVisits(children, true /*partialSortFirstOnly*/);
         n = children.first();
         ++d;
     }
@@ -429,10 +430,10 @@ inline bool Node::greaterThan(const Node *a, const Node *b)
     if (!a->m_visited)
         return a->pValue() > b->pValue();
     else
-        return a->qValue() > b->qValue();
+        return a->visits() > b->visits();
 }
 
-inline void Node::sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnly)
+inline void Node::sortByVisits(QVector<Node*> &nodes, bool partialSortFirstOnly)
 {
     if (Q_LIKELY(partialSortFirstOnly)) {
         std::partial_sort(nodes.begin(), nodes.begin() + 1, nodes.end(),

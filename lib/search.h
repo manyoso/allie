@@ -100,7 +100,7 @@ struct SearchInfo {
     QString ponderMove;
     bool isResume = false;
     bool isDTZ = false;
-    bool bestIsMostVisited = true;
+    bool bestHasBestScore = true;
     WorkerInfo workerInfo;
     quint32 games = 0;
 
