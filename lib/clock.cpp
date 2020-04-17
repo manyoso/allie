@@ -34,7 +34,7 @@ Clock::Clock(QObject *parent)
       m_whiteIncrement(-1),
       m_blackTime(-1),
       m_blackIncrement(-1),
-      m_moveTime(false),
+      m_moveTime(-1),
       m_infinite(false),
       m_isExtended(false),
       m_deadline(0),

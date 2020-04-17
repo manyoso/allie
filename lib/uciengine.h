@@ -136,7 +136,7 @@ private:
     void stopTheClock();
     void startSearch();
     void stopSearch();
-    void calculateRollingAverage(const SearchInfo &info);
+    void calculateRollingAverage();
     void setPosition(const QString &position, const QVector<QString> &moves);
     void parseGo(const QString &move);
     void parseOption(const QString &option);
