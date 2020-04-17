@@ -57,7 +57,6 @@ struct SearchSettings {
     static float policySoftmaxTemp;
     static float openingTimeFactor;
     static float earlyExitFactor;
-    static qint64 earlyExitMinimumTime;
     static int tryPlayoutLimit;
     static int vldMax;
     static QString weightsFile;

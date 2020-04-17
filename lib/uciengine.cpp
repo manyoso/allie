@@ -428,20 +428,28 @@ void UciEngine::stopSearch()
         m_searchEngine->stopSearch();
 }
 
-void UciEngine::calculateRollingAverage(const SearchInfo &info)
+void UciEngine::calculateRollingAverage()
 {
     static int n = 0;
     ++n;
-    m_averageInfo.depth             = rollingAverage(m_averageInfo.depth, info.depth, n);
-    m_averageInfo.seldepth          = rollingAverage(m_averageInfo.seldepth, info.seldepth, n);
-    m_averageInfo.nodes             = rollingAverage(m_averageInfo.nodes, info.nodes, n);
-    m_averageInfo.nps               = rollingAverage(m_averageInfo.nps, info.nps, n);
-    m_averageInfo.batchSize         = rollingAverage(m_averageInfo.batchSize, info.batchSize, n);
-    m_averageInfo.rawnps            = rollingAverage(m_averageInfo.rawnps, info.rawnps, n);
-    m_averageInfo.nnnps             = rollingAverage(m_averageInfo.nnnps, info.nnnps, n);
+
+    Q_ASSERT(m_lastInfo.nps > 0);
+    // Don't average the first sample
+    if (n < 2) {
+        m_averageInfo = m_lastInfo;
+        return;
+    }
+
+    m_averageInfo.depth             = rollingAverage(m_averageInfo.depth, m_lastInfo.depth, n);
+    m_averageInfo.seldepth          = rollingAverage(m_averageInfo.seldepth, m_lastInfo.seldepth, n);
+    m_averageInfo.nodes             = rollingAverage(m_averageInfo.nodes, m_lastInfo.nodes, n);
+    m_averageInfo.nps               = rollingAverage(m_averageInfo.nps, m_lastInfo.nps, n);
+    m_averageInfo.batchSize         = rollingAverage(m_averageInfo.batchSize, m_lastInfo.batchSize, n);
+    m_averageInfo.rawnps            = rollingAverage(m_averageInfo.rawnps, m_lastInfo.rawnps, n);
+    m_averageInfo.nnnps             = rollingAverage(m_averageInfo.nnnps, m_lastInfo.nnnps, n);
 
     WorkerInfo &avgW = m_averageInfo.workerInfo;
-    const WorkerInfo &newW = info.workerInfo;
+    const WorkerInfo &newW = m_lastInfo.workerInfo;
     avgW.nodesSearched     = rollingAverage(avgW.nodesSearched, newW.nodesSearched, n);
     avgW.nodesEvaluated    = rollingAverage(avgW.nodesEvaluated, newW.nodesEvaluated, n);
     avgW.nodesVisited      = rollingAverage(avgW.nodesVisited, newW.nodesVisited, n);
@@ -463,8 +471,31 @@ void UciEngine::sendBestMove()
     stopTheClock();
 
     qint64 t = m_clock->timeToDeadline();
-    if (t > 0)
+
+#if defined(DEBUG_TIME)
+    if (t < 0) {
+        QString out;
+        QTextStream stream(&out);
+        stream << "info"
+            << " deadline " << m_clock->deadline()
+            << " timeBudgetExceeded " << qAbs(t)
+            << endl;
+        output(out);
+    }
+#endif
+
+    if (t > 0) {
         m_clock->addExtraBudgetedTime(t);
+#if defined(DEBUG_TIME)
+        QString out;
+        QTextStream stream(&out);
+        stream << "info"
+            << " deadline " << m_clock->deadline()
+            << " timeBudgetSaved " << qAbs(t)
+            << endl;
+        output(out);
+#endif
+    }
 
     if (Q_UNLIKELY(m_ioHandler))
         m_ioHandler->handleBestMove(m_lastInfo.bestMove);
@@ -491,8 +522,7 @@ void UciEngine::sendBestMove()
 
     m_pendingBestMove = false;
 
-    if (SearchSettings::debugInfo)
-        calculateRollingAverage(m_lastInfo);
+    calculateRollingAverage();
 }
 
 void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
@@ -541,9 +571,9 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     // at least N msecs and we want to early exit according to following paper:
     // https://link.springer.com/chapter/10.1007/978-3-642-31866-5_4
     const bool hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
-    if (!hasTarget && !m_clock->isInfinite() && !m_clock->isMoveTime() && msecs > SearchSettings::earlyExitMinimumTime) {
+    if (!hasTarget && !m_clock->isInfinite() && !m_clock->isMoveTime() && m_averageInfo.nodes > 0) {
         const qint64 timeToRemaining = m_clock->deadline() - msecs;
-        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_lastInfo.rawnps));
+        const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_averageInfo.rawnps));
         m_searchEngine->setEstimatedNodes(e);
     }
 
@@ -643,7 +673,6 @@ void UciEngine::uciNewGame()
     SearchSettings::debugInfo = Options::globalInstance()->option("DebugInfo").value() == "true";
     SearchSettings::weightsFile = Options::globalInstance()->option("WeightsFile").value();
     SearchSettings::earlyExitFactor = Options::globalInstance()->option("EarlyExitFactor").value().toDouble();
-    SearchSettings::earlyExitMinimumTime = Options::globalInstance()->option("EarlyExitMinimum").value().toInt();
     Q_ASSERT(!SearchSettings::weightsFile.isEmpty());
     NeuralNet::globalInstance()->setWeights(SearchSettings::weightsFile);
     NeuralNet::globalInstance()->reset();
