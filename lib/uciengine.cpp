@@ -583,6 +583,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     if (SearchSettings::debugInfo) {
         stream << "info"
                << " isResume " << (m_lastInfo.isResume ? "true" : "false")
+               << " batchSize " << m_lastInfo.batchSize
                << " rawnps " << m_lastInfo.rawnps
                << " nnnps " << m_lastInfo.nnnps
                << " efficiency " << m_lastInfo.workerInfo.nodesVisited / float(m_lastInfo.workerInfo.nodesEvaluated)
@@ -600,7 +601,6 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
            << " seldepth " << m_lastInfo.seldepth
            << " nodes " << m_lastInfo.nodes
            << " nps " << m_lastInfo.nps
-           << " batchSize " << m_lastInfo.batchSize
            << " score " << m_lastInfo.score
            << " time " << m_lastInfo.time
            << " hashfull " << qRound(Cache::globalInstance()->percentFull(g.halfMoveNumber()) * 1000.0f)
