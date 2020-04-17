@@ -125,6 +125,7 @@ public Q_SLOTS:
     void uciNewGame();
     void ponderHit();
     void stop();
+    void stopRequested(bool);
     void quit();
     void readyRead(const QString &line);
     void installIOHandler(IOHandler *io) { m_ioHandler = io; }

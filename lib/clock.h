@@ -54,6 +54,9 @@ public:
     qint64 deadline() const { return m_deadline; }
     qint64 timeToDeadline() const;
 
+    float extraBudgetedTime() const { return m_extraBudgetedTime; }
+    void setExtraBudgetedTime(float t) { m_extraBudgetedTime = t; }
+
     void setMaterialScore(int score) { m_materialScore = score; }
     void setHalfMoveNumber(int half) { m_halfMoveNumber = half; }
 
@@ -85,6 +88,7 @@ private:
     qint64 m_blackIncrement;
 
     qint64 m_moveTime;
+    float m_extraBudgetedTime;
     bool m_infinite;
     bool m_isExtended;
 

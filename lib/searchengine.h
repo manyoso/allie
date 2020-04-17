@@ -78,6 +78,7 @@ public:
 
     // These are thread safe
     void stopSearch();
+    quint32 estimatedNodes() const { return m_estimatedNodes; }
     void setEstimatedNodes(quint32 nodes) { m_estimatedNodes = nodes; }
 
 
@@ -87,7 +88,7 @@ public Q_SLOTS:
 Q_SIGNALS:
     void sendInfo(const SearchInfo &info, bool isPartial);
     void searchWorkerStopped();
-    void requestStop(int searchId);
+    void requestStop(int searchId, bool);
 
 private Q_SLOTS:
     void search();
@@ -136,6 +137,7 @@ public:
     SearchEngine(QObject *parent = nullptr);
     ~SearchEngine() override;
 
+    quint32 estimatedNodes() const;
     void setEstimatedNodes(quint32 nodes);
     bool isStopped() const { return m_stop; }
     Tree *tree() const { return m_tree; }
@@ -146,14 +148,14 @@ public Q_SLOTS:
     void stopSearch();
     void searchWorkerStopped();
     void receivedSearchInfo(const SearchInfo &info, bool isPartial);
-    void receivedRequestStop(int searchId);
+    void receivedRequestStop(int searchId, bool);
     void printTree(const QVector<QString> &node, int depth, bool printPotentials) const;
     void startPonder() {}
     void stopPonder() {}
 
 Q_SIGNALS:
     void sendInfo(const SearchInfo &info, bool isPartial);
-    void requestStop();
+    void requestStop(bool);
 
 private:
     void resetSearch(const Search &search);
