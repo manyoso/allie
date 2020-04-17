@@ -559,7 +559,8 @@ void Node::trimUnscoredFromTree(Node *node)
     node->m_isDirty = false;
 }
 
-Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache)
+Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache,
+    quint32 estimatedNodes)
 {
 start_playout:
     int vld = *vldMax;
@@ -574,10 +575,14 @@ start_playout:
         float secondBestScore = -std::numeric_limits<float>::max();
         float uCoeff = n->uCoeff();
         float parentQValueDefault = n->qValueDefault();
+        quint32 estimatedNodesToGo = n->isRootNode() ? estimatedNodes : 0;
 
         // First look at the actual children
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
+            if (child->visits() < estimatedNodesToGo)
+                continue;
+
             float score = Node::uctFormula(child->qValue(), child->uValue(uCoeff));
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {

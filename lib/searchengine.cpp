@@ -385,6 +385,8 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
     int vldMax = SearchSettings::vldMax;
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
     Cache *hash = Cache::globalInstance();
+    const quint32 best = m_tree->embodiedRoot()->bestChild()->visits();
+    const quint32 estimatedNodes = m_estimatedNodes < best ? best - m_estimatedNodes : 0;
     while (batch->count() < m_currentBatchSize) {
         // Check if the we are out of nodes
         if (hash->used() == hash->size()) {
@@ -402,7 +404,8 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
                 break;
         }
 
-        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash);
+        Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit,
+            hash, estimatedNodes);
         Q_ASSERT(!playout || playout->m_virtualLoss == 1);
         if (!playout)
             break;

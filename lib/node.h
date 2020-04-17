@@ -190,7 +190,8 @@ public:
     Node();
     ~Node();
 
-    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
+    static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash,
+        quint32 estimatedNodes);
     static float minimax(Node *, quint32 depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
     static void trimUnscoredFromTree(Node *);
