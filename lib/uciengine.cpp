@@ -462,18 +462,9 @@ void UciEngine::sendBestMove()
 
     stopTheClock();
 
-#if defined(DEBUG_TIME)
     qint64 t = m_clock->timeToDeadline();
-    if (t < 0) {
-        QString out;
-        QTextStream stream(&out);
-        stream << "info"
-            << " deadline " << m_clock->deadline()
-            << " timeBudgetExceeded " << qAbs(t)
-            << endl;
-        output(out);
-    }
-#endif
+    if (t > 0)
+        m_clock->addExtraBudgetedTime(t);
 
     if (Q_UNLIKELY(m_ioHandler))
         m_ioHandler->handleBestMove(m_lastInfo.bestMove);

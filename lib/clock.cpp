@@ -34,7 +34,8 @@ Clock::Clock(QObject *parent)
       m_whiteIncrement(-1),
       m_blackTime(-1),
       m_blackIncrement(-1),
-      m_moveTime(false),
+      m_moveTime(-1),
+      m_extraBudgetedTime(0),
       m_infinite(false),
       m_isExtended(false),
       m_deadline(0),
@@ -205,7 +206,9 @@ void Clock::calculateDeadline(bool isPartial)
     const qint64 t = time(m_onTheClock);
     const qint64 inc = increment(m_onTheClock);
     const qint64 maximum = t - overhead;
-    const qint64 ideal = qRound((t / expectedHalfMovesTillEOG() + inc) * SearchSettings::openingTimeFactor);
+    const qint64 ideal = qRound((t / expectedHalfMovesTillEOG() + inc) * SearchSettings::openingTimeFactor)
+        + m_extraBudgetedTime;
+    m_extraBudgetedTime = 0;
 
     // Calculate the actual deadline
     qint64 deadline = 5000;
