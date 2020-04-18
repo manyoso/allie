@@ -433,7 +433,7 @@ void UciEngine::calculateRollingAverage()
     static int n = 0;
     ++n;
 
-    Q_ASSERT(m_lastInfo.nps > 0);
+    Q_ASSERT(m_lastInfo.rawnps > 0);
     // Don't average the first sample
     if (n < 2) {
         m_averageInfo = m_lastInfo;
@@ -519,6 +519,10 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
 
     m_lastInfo = info;
 
+    // Otherwise begin updating info
+    qint64 msecs = m_clock->elapsed();
+    m_lastInfo.calculateSpeeds(msecs);
+
     // Check if we are in extended mode and best has become most visited
     if (m_clock->isExtended() && m_lastInfo.bestIsMostVisited) {
         sendBestMove();
@@ -538,10 +542,6 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     }
 
     Q_ASSERT(!m_searchEngine->isStopped());
-
-    // Otherwise begin updating info
-    qint64 msecs = m_clock->elapsed();
-    m_lastInfo.calculateSpeeds(msecs);
     m_clock->updateDeadline(m_lastInfo, isPartial);
 
     const bool targetReached = (m_depthTargeted != -1 && m_lastInfo.depth >= m_depthTargeted)
