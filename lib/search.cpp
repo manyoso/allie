@@ -24,13 +24,13 @@
 
 // Various constants and settings used by search
 float SearchSettings::cpuctF = 2.817f;
-float SearchSettings::cpuctInit = 1.9f;
+float SearchSettings::cpuctInit = 2.1f;
 float SearchSettings::cpuctBase = 15000;
 float SearchSettings::fpuReduction = 0.443f;
 float SearchSettings::policySoftmaxTemp = 1 / 1.607f;
-float SearchSettings::openingTimeFactor = 1.75;
-float SearchSettings::earlyExitFactor = 1.0f;
-int SearchSettings::tryPlayoutLimit = 32;
+float SearchSettings::openingTimeFactor = 2.1f;
+float SearchSettings::earlyExitFactor = 0.72f;
+int SearchSettings::tryPlayoutLimit = 136;
 int SearchSettings::vldMax = 10000;
 QString SearchSettings::weightsFile = QString();
 bool SearchSettings::debugInfo = true;

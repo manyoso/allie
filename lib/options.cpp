@@ -130,7 +130,7 @@ Options::Options()
     UciOption maxBatchSize;
     maxBatchSize.m_name = QLatin1Literal("MaxBatchSize");
     maxBatchSize.m_type = UciOption::Spin;
-    maxBatchSize.m_default = QLatin1Literal("256");
+    maxBatchSize.m_default = QLatin1Literal("272");
     maxBatchSize.m_value = maxBatchSize.m_default;
     maxBatchSize.m_min = QLatin1Literal("0");
     maxBatchSize.m_max = QLatin1Literal("65536");
