@@ -271,6 +271,7 @@ void Node::scoreMiniMax(float score, bool isExact)
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
     Q_ASSERT(!m_isExact || isExact);
     m_isExact = isExact;
+    setRawQValue(score);
     if (m_isExact)
         m_qValue = score;
     else
@@ -432,7 +433,7 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
         Q_ASSERT(node->m_isDirty);
         *isExact = nodeIsExact;
         node->setQValueAndPropagate();
-        return node->m_qValue;
+        return node->rawQValue();
     }
 
     // Next look if it is a dirty terminal
@@ -449,19 +450,19 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
         // recently leafs have been made to we must trim the tree of any leafs
         trimUnscoredFromTree(node);
         node->setQValueAndPropagate();
-        return node->m_qValue;
+        return node->rawQValue();
     }
 
     // If we are an exact node, then we are terminal so just return the score
     if (nodeIsExact) {
         *isExact = nodeIsExact;
-        return node->m_qValue;
+        return node->rawQValue();
     }
 
     // However, if the subtree is not dirty, then we can just return our score
     if (!node->m_isDirty) {
         *isExact = nodeIsExact;
-        return node->m_qValue;
+        return node->rawQValue();
     }
 
     // At this point we should have children
@@ -506,7 +507,7 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     ++(info->nodesSearched);
 
     *isExact = node->isExact();
-    return node->m_qValue;
+    return node->rawQValue();
 }
 
 void Node::validateTree(const Node *node)
