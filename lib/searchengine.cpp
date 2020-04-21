@@ -355,16 +355,11 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
             break;
         }
         Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash);
-        const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
+        Q_ASSERT(!playout || playout->m_virtualLoss < 2);
         if (!playout)
             break;
 
         didWork = true;
-
-        if (isExistingPlayout) {
-            ++exactOrCached;
-            continue;
-        }
 
         bool shouldFetchFromNN = handlePlayout(playout, hash);
         if (!shouldFetchFromNN) {
