@@ -71,14 +71,8 @@ void actualFetchFromNN(Batch *batch)
     NeuralNet::globalInstance()->releaseNetwork(computation);
 }
 
-WorkerInfo actualMinimaxBatch(Batch *batch, Tree *tree, int searchId)
+WorkerInfo actualMinimaxTree(Tree *tree, int searchId, int evaluatedCount)
 {
-    for (int index = 0; index < batch->count(); ++index) {
-        Node *node = batch->at(index);
-        Node::sortByPVals(*node->position()->potentials());
-        node->backPropagateDirty();
-    }
-
     // Gather minimax scores;
     WorkerInfo info;
     bool isExact = false;
@@ -87,12 +81,23 @@ WorkerInfo actualMinimaxBatch(Batch *batch, Tree *tree, int searchId)
     Node::validateTree(tree->embodiedRoot());
 #endif
 
-    info.nodesCacheHits = info.nodesVisited - batch->count();
-    info.nodesEvaluated += batch->count();
-    info.numberOfBatches += 1;
+    info.nodesCacheHits = info.nodesVisited - evaluatedCount;
+    info.nodesEvaluated += evaluatedCount;
+    info.numberOfBatches += evaluatedCount ? 1 : 0;
     info.searchId = searchId;
     info.threadId = QThread::currentThread()->objectName();
     return info;
+}
+
+WorkerInfo actualMinimaxBatch(Batch *batch, Tree *tree, int searchId)
+{
+    for (int index = 0; index < batch->count(); ++index) {
+        Node *node = batch->at(index);
+        Node::sortByPVals(*node->position()->potentials());
+        node->backPropagateDirty();
+    }
+
+    return actualMinimaxTree(tree, searchId, batch->count());
 }
 
 Batch *GuardedBatchQueue::acquireIn()
@@ -267,16 +272,7 @@ void SearchWorker::fetchAndMinimax(Batch *batch, bool sync)
     if (!batch->isEmpty()) {
         fetchFromNN(batch, sync);
     } else {
-        // Gather minimax scores;
-        WorkerInfo info;
-        bool isExact = false;
-        Node::minimax(m_tree->embodiedRoot(), 0 /*depth*/, &isExact, &info);
-#if defined(DEBUG_VALIDATE_TREE)
-            Node::validateTree(m_tree->embodiedRoot());
-#endif
-        info.nodesCacheHits = info.nodesVisited;
-        info.searchId = m_searchId;
-        info.threadId = QThread::currentThread()->objectName();
+        WorkerInfo info = actualMinimaxTree(m_tree, m_searchId, 0 /*evaluatedCount*/);
         processWorkerInfo(info);
     }
 }
