@@ -34,6 +34,7 @@ int SearchSettings::tryPlayoutLimit = 136;
 int SearchSettings::vldMax = 10000;
 QString SearchSettings::weightsFile = QString();
 bool SearchSettings::debugInfo = true;
+bool SearchSettings::chess960 = false;
 SearchSettings::Features SearchSettings::featuresOff = SearchSettings::None;
 
 SearchSettings::Features SearchSettings::stringToFeatures(const QString &string)

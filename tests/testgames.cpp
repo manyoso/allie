@@ -154,6 +154,7 @@ void Tests::testCastlingAnd960()
     // begin 960 positions
 
     Options::globalInstance()->setOption("UCI_Chess960", QLatin1Literal("true"));
+    SearchSettings::chess960 = true;
 
     // check fen
     {

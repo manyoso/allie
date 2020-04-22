@@ -61,6 +61,7 @@ struct SearchSettings {
     static int vldMax;
     static QString weightsFile;
     static bool debugInfo;
+    static bool chess960;
     static Features featuresOff;
 
     static Features stringToFeatures(const QString&);

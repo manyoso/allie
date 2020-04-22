@@ -280,7 +280,7 @@ bool Game::Position::fillOutMove(Chess::Army army, Move *move) const
                 move->setCastle(true);
                 move->setCastleSide(QueenSide);
             } else if (!BitBoard(board(army) & board(Rook) & move->end()).isClear()
-                && Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true")) {
+                && SearchSettings::chess960) {
                 if (fileEnd == fileOfKingsRook()) {
                     move->setCastleSide(KingSide);
                     move->setCastle(true);
@@ -323,7 +323,6 @@ bool Game::Position::fillOutStart(Chess::Army army, Move *move) const
 QPair<Chess::Castle, Square> castlingFromFen(const QChar c, const Square &king,
     const QVector<Square> &rooks)
 {
-    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true");
     QPair<Chess::Castle, Square> result;
 
     // Support ill-formed or fabricated fen
@@ -341,7 +340,7 @@ QPair<Chess::Castle, Square> castlingFromFen(const QChar c, const Square &king,
         result.second = rooks.first();
         Q_ASSERT(result.second.file() < king.file());
     } else {
-        Q_ASSERT(isChess960);
+        Q_ASSERT(SearchSettings::chess960);
         for (Square sq : rooks) {
             if (Notation::fileToChar(sq.file()) == c) {
                 result.second = sq;
@@ -378,13 +377,12 @@ QChar fenFromCastling(Chess::Castle castle, const Square &king, const QVector<Sq
             Q_UNREACHABLE();
     }
 
-    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value() == QLatin1String("true");
     if (castle == KingSide) {
         Q_ASSERT(!rooksToTheRight.isEmpty());
         if (rooksToTheRight.last().file() == fileOfCastlingRook)
             return QChar('k');
         else {
-            Q_ASSERT(isChess960);
+            Q_ASSERT(SearchSettings::chess960);
             for (Square sq : rooksToTheRight) {
                 if (sq.file() == fileOfCastlingRook)
                     return Notation::fileToChar(fileOfCastlingRook);
@@ -396,7 +394,7 @@ QChar fenFromCastling(Chess::Castle castle, const Square &king, const QVector<Sq
         if (rooksToTheLeft.first().file() == fileOfCastlingRook)
             return QChar('q');
         else {
-            Q_ASSERT(isChess960);
+            Q_ASSERT(SearchSettings::chess960);
             for (Square sq : rooksToTheLeft) {
                 if (sq.file() == fileOfCastlingRook)
                     return Notation::fileToChar(fileOfCastlingRook);

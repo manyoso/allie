@@ -144,10 +144,6 @@ Move Notation::stringToMove(const QString &string, Chess::NotationType notation,
 QString Notation::moveToString(const Move &move, Chess::NotationType notation)
 {
     QString str;
-
-    const bool isChess960 = Options::globalInstance()->option("UCI_Chess960").value()
-        == QLatin1String("true");
-
     switch (notation) {
     case Standard:
         {
@@ -197,7 +193,7 @@ QString Notation::moveToString(const Move &move, Chess::NotationType notation)
             int e = move.end().file();
             // All castles are encoded as king captures rook internally which is correct for 960,
             // but not for normal
-            if (move.isCastle() && !isChess960)
+            if (move.isCastle() && !SearchSettings::chess960)
                 e = e == 7 ? 6 : 2;
 
             QString end = squareToString(Square(e, move.end().rank()), notation);
@@ -217,7 +213,7 @@ QString Notation::moveToString(const Move &move, Chess::NotationType notation)
             int e = move.end().file();
             // All castles are encoded as king captures rook internally which is correct for 960,
             // but not for normal
-            if (move.isCastle() && !isChess960)
+            if (move.isCastle() && !SearchSettings::chess960)
                 e = e == 7 ? 6 : 2;
 
             QString end = squareToString(Square(e, move.end().rank()), notation);
