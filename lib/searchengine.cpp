@@ -511,7 +511,9 @@ void SearchWorker::processWorkerInfo(const WorkerInfo &info)
 
     int pvDepth = 0;
     bool isTB = false;
-    m_currentInfo.pv = root->principalVariation(&pvDepth, &isTB);
+    m_currentInfo.pv = QString();
+    QTextStream stream(&m_currentInfo.pv);
+    root->principalVariation(&pvDepth, &isTB, &stream);
 
     // Check for an early exit
     bool shouldEarlyExit = false;
@@ -683,7 +685,9 @@ void SearchEngine::startSearch()
         onlyLegalMove = !root->hasPotentials() && root->children()->count() == 1;
         int pvDepth = 0;
         bool isTB = false;
-        info.pv = root->principalVariation(&pvDepth, &isTB);
+        info.pv = QString();
+        QTextStream stream(&info.pv);
+        root->principalVariation(&pvDepth, &isTB, &stream);
         float score = best->qValue();
         info.score = mateDistanceOrScore(score, pvDepth, isTB);
         emit sendInfo(info, !onlyLegalMove /*isPartial*/);

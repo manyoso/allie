@@ -26,6 +26,7 @@
 
 #include <QVector>
 #include <QDebug>
+#include <QStringBuilder>
 
 using namespace Chess;
 
@@ -253,24 +254,12 @@ Square Notation::stringToSquare(const QString &string, Chess::NotationType notat
     return Square(file, rank);
 }
 
-QString Notation::squareToString(const Square &square, Chess::NotationType notation)
+QString Notation::squareToString(const Square &square, Chess::NotationType)
 {
     if (!square.isValid())
         return QString();
 
-    QString str;
-
-    switch (notation) {
-    case Standard:
-    case Long:
-    case Computer:
-        {
-            str = QString("%1%2").arg(fileToChar(square.file())).arg(rankToChar(square.rank()));
-            break;
-        }
-    }
-
-    return str;
+    return QString(fileToChar(square.file()) % rankToChar(square.rank()));
 }
 
 Chess::PieceType Notation::charToPiece(const QChar &ch, Chess::NotationType notation, bool *ok, QString *err)

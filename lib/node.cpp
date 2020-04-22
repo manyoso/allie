@@ -362,11 +362,11 @@ QVector<Game> Node::previousMoves(bool fullHistory) const
     return result;
 }
 
-QString Node::principalVariation(int *depth, bool *isTB) const
+void Node::principalVariation(int *depth, bool *isTB, QTextStream *stream) const
 {
     if (!isRootNode() && !hasPValue()) {
         *isTB = m_isTB;
-        return QString();
+        return;
     }
 
     *depth += 1;
@@ -374,14 +374,15 @@ QString Node::principalVariation(int *depth, bool *isTB) const
     const Node *bestChild = this->bestChild();
     if (!bestChild) {
         *isTB = m_isTB;
-        return Notation::moveToString(m_game.lastMove(), Chess::Computer);
+        *stream << Notation::moveToString(m_game.lastMove(), Chess::Computer);
+        return;
     }
 
-    if (isRootNode())
-        return bestChild->principalVariation(depth, isTB);
-    else
-        return Notation::moveToString(m_game.lastMove(), Chess::Computer)
-            + " " + bestChild->principalVariation(depth, isTB);
+    if (!isRootNode()) {
+        *stream << Notation::moveToString(m_game.lastMove(), Chess::Computer) << QStringLiteral(" ");
+    }
+
+    bestChild->principalVariation(depth, isTB, stream);
 }
 
 int Node::repetitions() const

@@ -258,7 +258,7 @@ public:
 
     Node *parent() const;
 
-    QString principalVariation(int *depth, bool *isTB) const; // recursive
+    void principalVariation(int *depth, bool *isTB, QTextStream *stream) const; // recursive
 
     QString toString(Chess::NotationType = Chess::Computer) const;
     QString printTree(int topDepth, int depth, bool printPotentials) const; // recursive
