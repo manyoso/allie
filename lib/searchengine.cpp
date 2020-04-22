@@ -348,23 +348,25 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
     int vldMax = SearchSettings::vldMax;
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
     Cache *hash = Cache::globalInstance();
-    while (batch->count() < batch->capacity() && exactOrCached < batch->capacity()) {
+    while (batch->count() < batch->capacity()) {
         // Check if the we are out of nodes
         if (hash->used() == hash->size()) {
             *hardExit = true;
             break;
         }
+
+        if (exactOrCached > batch->capacity()) {
+            actualMinimaxTree(m_tree, 0 /*evaluatedCount*/, &m_currentInfo.workerInfo);
+            processWorkerInfo();
+            exactOrCached = 0;
+        }
+
         Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash);
-        const bool isExistingPlayout = playout && playout->m_virtualLoss > 1;
+        Q_ASSERT(!playout || playout->m_virtualLoss == 1);
         if (!playout)
             break;
 
         didWork = true;
-
-        if (isExistingPlayout) {
-            ++exactOrCached;
-            continue;
-        }
 
         bool shouldFetchFromNN = handlePlayout(playout, hash);
         if (!shouldFetchFromNN) {
@@ -372,7 +374,6 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
             continue;
         }
 
-        exactOrCached = 0;
         Q_ASSERT(!batch->contains(playout));
         batch->append(playout);
     }

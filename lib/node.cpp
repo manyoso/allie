@@ -569,7 +569,7 @@ start_playout:
     Node *n = root;
     forever {
         // If we've never been scored or this is an exact node, then this is our playout node
-        if (!n->setScoringOrScored() || n->isExact()) {
+        if (!n->setScoringOrScored() || (n->isExact() && !n->virtualLoss())) {
             ++n->m_virtualLoss;
             break;
         }
