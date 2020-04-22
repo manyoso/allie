@@ -660,6 +660,7 @@ void SearchEngine::startSearch()
         info.seldepth = depth;
         info.nodes = depth;
         info.workerInfo.nodesSearched += 1;
+        info.workerInfo.nodesVisited += 1;
         info.workerInfo.nodesTBHits += 1;
         info.workerInfo.sumDepths = depth;
         info.workerInfo.maxDepth = depth;

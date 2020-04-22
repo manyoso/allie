@@ -450,7 +450,6 @@ inline Node::Position *Node::position() const
 inline float Node::qValueDefault() const
 {
 #if defined(USE_PARENT_QVALUE)
-    Q_ASSERT(m_visited > 0);
     return -m_qValue - SearchSettings::fpuReduction * float(qSqrt(qreal(m_policySum)));
 #else
     return -1.0f;
