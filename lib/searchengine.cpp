@@ -393,7 +393,7 @@ void SearchWorker::ensureRootAndChildrenScored()
         // Fetch and minimax for root
         Node *root = m_tree->embodiedRoot();
         Batch nodes;
-        if (!root->setScoringOrScored()) {
+        if (!root->m_visited) {
             root->m_virtualLoss += 1;
             bool shouldFetchFromNN = handlePlayout(root, hash);
             if (shouldFetchFromNN)
@@ -412,7 +412,6 @@ void SearchWorker::ensureRootAndChildrenScored()
             Node *child = root->generateNextChild(Cache::globalInstance(), &error);
             Q_ASSERT(child);
             child->m_virtualLoss += 1;
-            child->setScoringOrScored();
             children.append(child);
             didWork = true;
         }

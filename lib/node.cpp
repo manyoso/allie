@@ -146,7 +146,6 @@ void Node::initialize(Node *parent, const Game &game)
     m_isExact = false;
     m_isTB = false;
     m_isDirty = false;
-    m_scoringOrScored.clear();
 }
 
 quint64 Node::initializePosition(Cache *cache)
@@ -568,48 +567,6 @@ start_playout:
     int vld = *vldMax;
     Node *n = root;
     forever {
-        // If we've never been scored or this is an exact node, then this is our playout node
-        if (!n->setScoringOrScored() || (n->isExact() && !n->virtualLoss())) {
-            ++n->m_virtualLoss;
-            break;
-        }
-
-        // Otherwise, increase virtual loss
-        const bool alreadyPlayingOut = n->isAlreadyPlayingOut();
-        const qint64 increment = alreadyPlayingOut ? vld : 1;
-        if (alreadyPlayingOut) {
-            if (increment > 1) {
-                Node *parent = n->parent();
-                while (parent) {
-                    parent->m_virtualLoss += increment - 1;
-                    parent = parent->parent();
-                }
-            }
-        } else {
-            n->m_virtualLoss += increment;
-        }
-
-        // If we've already calculated virtualLossDistance or we are not extendable,
-        // then decrement the try and vld limits and check if we should exit
-        if (alreadyPlayingOut || n->isExact()) {
-            --(*tryPlayoutLimit);
-#if defined(DEBUG_PLAYOUT)
-            qDebug() << "decreasing try for" << n->toString() << *tryPlayoutLimit;
-#endif
-            if (*tryPlayoutLimit <= 0)
-                return nullptr;
-
-            *vldMax -= increment;
-#if defined(DEBUG_PLAYOUT)
-            qDebug() << "decreasing vldMax for" << n->toString() << *vldMax;
-#endif
-            if (*vldMax <= 0)
-                return nullptr;
-
-            goto start_playout;
-        }
-
-        // Otherwise calculate the virtualLossDistance to advance past this node
         Q_ASSERT(n->hasChildren() || n->hasPotentials());
         Q_ASSERT(!n->isExact());
 
@@ -673,12 +630,58 @@ start_playout:
 
         // Retrieve the actual first node
         NodeGenerationError error = NoError;
-        n = firstPlayout.isPotential() ? n->generateNextChild(cache, &error) : firstPlayout.node();
-
-        if (!n) {
-            if (error == OutOfMemory)
+        if (firstPlayout.isPotential()) {
+            // Expand the potential node, then this is our playout node
+            n = n->generateNextChild(cache, &error);
+            if (n) {
+                ++n->m_virtualLoss;
+            } else if (error == OutOfMemory) {
                 *hardExit = true;
+            }
             break;
+        } else {
+            n = firstPlayout.node();
+        }
+
+        // If this is an exact node with no virtualloss, then this is our playout node
+        if (n->isExact() && !n->virtualLoss()) {
+            ++n->m_virtualLoss;
+            break;
+        }
+
+        // Otherwise, increase virtual loss
+        const bool alreadyPlayingOut = n->isAlreadyPlayingOut();
+        const qint64 increment = alreadyPlayingOut ? vld : 1;
+        if (alreadyPlayingOut) {
+            if (increment > 1) {
+                Node *parent = n->parent();
+                while (parent) {
+                    parent->m_virtualLoss += increment - 1;
+                    parent = parent->parent();
+                }
+            }
+        } else {
+            n->m_virtualLoss += increment;
+        }
+
+        // If we've already calculated virtualLossDistance or we are not extendable,
+        // then decrement the try and vld limits and check if we should exit
+        if (alreadyPlayingOut || n->isExact()) {
+            --(*tryPlayoutLimit);
+#if defined(DEBUG_PLAYOUT)
+            qDebug() << "decreasing try for" << n->toString() << *tryPlayoutLimit;
+#endif
+            if (*tryPlayoutLimit <= 0)
+                return nullptr;
+
+            *vldMax -= increment;
+#if defined(DEBUG_PLAYOUT)
+            qDebug() << "decreasing vldMax for" << n->toString() << *vldMax;
+#endif
+            if (*vldMax <= 0)
+                return nullptr;
+
+            goto start_playout;
         }
     }
 

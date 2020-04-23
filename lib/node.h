@@ -217,12 +217,6 @@ public:
 
     void incrementVisited();
 
-    // flag saying we are in midst of scoring
-    bool setScoringOrScored()
-    {
-        return m_scoringOrScored.test_and_set(); // atomic
-    }
-
     // child generation
     enum NodeGenerationError {
         NoError,
@@ -305,7 +299,6 @@ private:
     bool m_isExact: 1;                  // 1
     bool m_isTB: 1;                     // 1
     bool m_isDirty: 1;                  // 1
-    std::atomic_flag m_scoringOrScored; // 1
     friend class SearchWorker;
     friend class SearchEngine;
     friend class Tests;
