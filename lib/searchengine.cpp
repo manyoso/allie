@@ -61,7 +61,7 @@ void actualFetchFromNN(Batch *batch)
 
     for (int index = 0; index < batch->count(); ++index) {
         Node *node = batch->at(index);
-        Q_ASSERT(node->hasPotentials() || node->isCheckMate() || node->isStaleMate());
+        Q_ASSERT(node->hasPotentials());
         node->setRawQValue(-computation->qVal(index));
         if (node->hasPotentials()) {
             Q_ASSERT(node->position()->transposition() == node);
@@ -88,13 +88,17 @@ void actualMinimaxTree(Tree *tree, int evaluatedCount, WorkerInfo *info)
 
 void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
 {
+    int countNonExact = 0;
     for (int index = 0; index < batch->count(); ++index) {
         Node *node = batch->at(index);
-        Node::sortByPVals(*node->position()->potentials());
+        if (!node->isExact()) {
+            Node::sortByPVals(*node->position()->potentials());
+            ++countNonExact;
+        }
         node->backPropagateDirty();
     }
 
-    actualMinimaxTree(tree, batch->count(), info);
+    actualMinimaxTree(tree, countNonExact, info);
 }
 
 Batch *GuardedBatchQueue::acquireIn()
@@ -141,11 +145,12 @@ void GuardedBatchQueue::stop()
     m_condition.wakeAll();
 }
 
-GPUWorker::GPUWorker(GuardedBatchQueue *queue,
+GPUWorker::GPUWorker(GuardedBatchQueue *queue, int maximumBatchSize,
     QObject *parent)
     : QThread(parent),
     m_queue(queue)
 {
+    m_batchForEvaluating.reserve(maximumBatchSize);
 }
 
 GPUWorker::~GPUWorker()
@@ -158,7 +163,19 @@ void GPUWorker::run()
         Batch *batch = m_queue->acquireIn(); // will block until a batch is ready
         if (!batch)
             return;
-        actualFetchFromNN(batch);
+
+        // Clear our internal queue
+        m_batchForEvaluating.clear();
+
+        // Generate potentials
+        for (int index = 0; index < batch->count(); ++index) {
+            Node *node = batch->at(index);
+            node->generatePotentials();
+            if (!node->isExact())
+                m_batchForEvaluating.append(node);
+        }
+
+        actualFetchFromNN(&m_batchForEvaluating);
         m_queue->releaseOut(batch);
     }
 }
@@ -211,7 +228,7 @@ void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, q
         const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
         const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt() * 2;
         for (int i = 0; i < numberOfGPUCores; ++i) {
-            GPUWorker *worker = new GPUWorker(&m_queue);
+            GPUWorker *worker = new GPUWorker(&m_queue, maximumBatchSize);
             worker->setObjectName(QString("gpuworker %0").arg(i));
             worker->start();
             m_gpuWorkers.append(worker);
@@ -235,7 +252,7 @@ void SearchWorker::waitForFetched()
 {
     Q_ASSERT(m_batchPool.count() != m_gpuWorkers.count());
     Batch *batch = m_queue.acquireOut(); // blocks
-    if (batch->isEmpty())
+    if (!batch)
         qFatal("search main thread is waiting for a batch that is never coming!");
     minimaxBatch(batch, m_tree);
     m_batchPool.append(batch);
@@ -335,19 +352,6 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
         }
     }
 
-    // Generate children of the node if possible
-    playout->generatePotentials();
-
-    // If we *newly* discovered a playout that can override the NN (checkmate/stalemate/drawish...),
-    // then let's just back propagate dirty
-    if (playout->isExact()) {
-#if defined(DEBUG_PLAYOUT)
-        qDebug() << "adding exact playout 2" << playout->toString();
-#endif
-        playout->backPropagateDirty();
-        return false;
-    }
-
     return true; // Otherwise we should fetch from NN
 }
 
@@ -410,8 +414,13 @@ void SearchWorker::ensureRootAndChildrenScored()
         if (!root->m_visited) {
             root->m_virtualLoss += 1;
             bool shouldFetchFromNN = handlePlayout(root, hash);
-            if (shouldFetchFromNN)
-                nodes.append(root);
+            if (shouldFetchFromNN) {
+                root->generatePotentials();
+                if (!root->isExact())
+                    nodes.append(root);
+                else
+                    root->backPropagateDirty();
+            }
         }
         fetchAndMinimax(&nodes, true /*sync*/);
     }
@@ -433,8 +442,13 @@ void SearchWorker::ensureRootAndChildrenScored()
         Batch nodes;
         for (Node *child : children) {
             bool shouldFetchFromNN = handlePlayout(child, hash);
-            if (shouldFetchFromNN)
-                nodes.append(child);
+            if (shouldFetchFromNN) {
+                child->generatePotentials();
+                if (!child->isExact())
+                    nodes.append(child);
+                else
+                    child->backPropagateDirty();
+            }
         }
 
         if (didWork)

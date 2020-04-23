@@ -61,13 +61,14 @@ private:
 class GPUWorker : public QThread {
     Q_OBJECT
 public:
-    GPUWorker(GuardedBatchQueue *queue,
+    GPUWorker(GuardedBatchQueue *queue, int maximumBatchSize,
         QObject *parent = nullptr);
     ~GPUWorker();
 
     void run() override;
 
 private:
+    Batch m_batchForEvaluating;
     GuardedBatchQueue *m_queue;
 };
 
