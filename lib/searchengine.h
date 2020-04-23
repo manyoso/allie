@@ -23,6 +23,7 @@
 
 #include <QObject>
 #include <QDebug>
+#include <QElapsedTimer>
 #include <QFuture>
 #include <QSemaphore>
 #include <QThread>
@@ -83,7 +84,7 @@ public:
 
 
 public Q_SLOTS:
-    void startSearch(Tree *tree, int searchId);
+    void startSearch(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted);
 
 Q_SIGNALS:
     void sendInfo(const SearchInfo &info, bool isPartial);
@@ -106,8 +107,12 @@ private:
     void ensureRootAndChildrenScored();
 
     // Reporting info
-    void processWorkerInfo(const WorkerInfo &info);
+    void processWorkerInfo();
 
+    qint64 m_depthTargeted;
+    qint64 m_nodesTargeted;
+    const Node *m_moveNode;
+    QElapsedTimer m_timer;
     int m_searchId;
     std::atomic<quint32> m_estimatedNodes;
     SearchInfo m_currentInfo;
@@ -127,7 +132,7 @@ public:
     QThread thread;
 
 Q_SIGNALS:
-    void startWorker(Tree *tree, int searchId);
+    void startWorker(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted);
 };
 
 class SearchEngine : public QObject
@@ -139,12 +144,13 @@ public:
 
     quint32 estimatedNodes() const;
     void setEstimatedNodes(quint32 nodes);
+
     bool isStopped() const { return m_stop; }
     Tree *tree() const { return m_tree; }
 
 public Q_SLOTS:
     void reset();
-    void startSearch();
+    void startSearch(qint64 depthTargeted, qint64 nodesTargeted);
     void stopSearch();
     void searchWorkerStopped();
     void receivedSearchInfo(const SearchInfo &info, bool isPartial);

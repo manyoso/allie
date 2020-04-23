@@ -264,9 +264,6 @@ UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     m_pendingBestMove(false),
     m_debugFile(debugFile),
     m_searchEngine(nullptr),
-    m_timeAtLastProgress(0),
-    m_depthTargeted(-1),
-    m_nodesTargeted(-1),
     m_clock(new Clock(this)),
     m_ioHandler(nullptr)
 {
@@ -416,11 +413,11 @@ void UciEngine::stopTheClock()
     m_clock->stop();
 }
 
-void UciEngine::startSearch()
+void UciEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
 {
     Q_ASSERT(m_searchEngine && m_gameInitialized);
     if (m_searchEngine)
-        m_searchEngine->startSearch();
+        m_searchEngine->startSearch(depthTargeted, nodesTargeted);
 }
 
 void UciEngine::stopSearch()
@@ -548,19 +545,13 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     Q_ASSERT(!m_searchEngine->isStopped());
     m_clock->updateDeadline(m_lastInfo, isPartial);
 
-    const bool targetReached = (m_depthTargeted != -1 && m_lastInfo.depth >= m_depthTargeted)
-        || (m_nodesTargeted != -1 && m_lastInfo.nodes >= m_nodesTargeted)
-        || info.isDTZ;
-
-    if (!targetReached && (isPartial && (msecs - m_timeAtLastProgress) < 2500))
-        return;
-
-    m_timeAtLastProgress = msecs;
+    const bool targetReached = m_lastInfo.isDTZ || (m_lastInfo.workerInfo.hasTarget && m_lastInfo.workerInfo.targetReached);
 
     // Set the estimated number of nodes to be searched under deadline if we've been searching for
     // at least N msecs and we want to early exit according to following paper:
     // https://link.springer.com/chapter/10.1007/978-3-642-31866-5_4
-    const bool hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
+    const bool hasTarget = m_lastInfo.workerInfo.hasTarget;
+
     if (!hasTarget && !m_clock->isInfinite() && !m_clock->isMoveTime() && m_averageInfo.nodes > 0) {
         const qint64 timeToRemaining = m_clock->deadline() - msecs;
         const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_averageInfo.rawnps));
@@ -835,9 +826,6 @@ void UciEngine::go(const Search& s)
     m_clock->setMaterialScore(p.materialScore(Chess::White) + p.materialScore(Chess::Black));
     m_clock->setHalfMoveNumber(currentGame.halfMoveNumber());
     m_clock->resetExtension();
-    m_timeAtLastProgress = 0;
-    m_depthTargeted = s.depth;
-    m_nodesTargeted = s.nodes;
     m_lastInfo = SearchInfo();
 
     // Actually start the clock
@@ -850,7 +838,7 @@ void UciEngine::go(const Search& s)
            << endl;
     output(out);
 #endif
-    startSearch();
+    startSearch(s.depth, s.nodes);
 }
 
 void UciEngine::input(const QString &in)

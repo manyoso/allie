@@ -80,6 +80,8 @@ struct WorkerInfo {
     int nodesCacheHits = 0;
     int nodesTBHits = 0;
     int searchId = 0;
+    bool hasTarget = false;
+    bool targetReached = false;
     QString threadId;
 };
 

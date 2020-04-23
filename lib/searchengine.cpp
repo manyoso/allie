@@ -71,25 +71,22 @@ void actualFetchFromNN(Batch *batch)
     NeuralNet::globalInstance()->releaseNetwork(computation);
 }
 
-WorkerInfo actualMinimaxTree(Tree *tree, int searchId, int evaluatedCount)
+void actualMinimaxTree(Tree *tree, int evaluatedCount, WorkerInfo *info)
 {
     // Gather minimax scores;
-    WorkerInfo info;
     bool isExact = false;
-    Node::minimax(tree->embodiedRoot(), 0 /*depth*/, &isExact, &info);
+    int currentVisited = info->nodesVisited;
+    Node::minimax(tree->embodiedRoot(), 0 /*depth*/, &isExact, info);
 #if defined(DEBUG_VALIDATE_TREE)
     Node::validateTree(tree->embodiedRoot());
 #endif
 
-    info.nodesCacheHits = info.nodesVisited - evaluatedCount;
-    info.nodesEvaluated += evaluatedCount;
-    info.numberOfBatches += evaluatedCount ? 1 : 0;
-    info.searchId = searchId;
-    info.threadId = QThread::currentThread()->objectName();
-    return info;
+    info->nodesCacheHits += currentVisited - evaluatedCount;
+    info->nodesEvaluated += evaluatedCount;
+    info->numberOfBatches += evaluatedCount ? 1 : 0;
 }
 
-WorkerInfo actualMinimaxBatch(Batch *batch, Tree *tree, int searchId)
+void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
 {
     for (int index = 0; index < batch->count(); ++index) {
         Node *node = batch->at(index);
@@ -97,7 +94,7 @@ WorkerInfo actualMinimaxBatch(Batch *batch, Tree *tree, int searchId)
         node->backPropagateDirty();
     }
 
-    return actualMinimaxTree(tree, searchId, batch->count());
+    actualMinimaxTree(tree, batch->count(), info);
 }
 
 Batch *GuardedBatchQueue::acquireIn()
@@ -168,6 +165,9 @@ void GPUWorker::run()
 
 SearchWorker::SearchWorker(QObject *parent)
     : QObject(parent),
+      m_depthTargeted(-1),
+      m_nodesTargeted(-1),
+      m_moveNode(nullptr),
       m_searchId(0),
       m_estimatedNodes(std::numeric_limits<quint32>::max()),
       m_tree(nullptr),
@@ -191,9 +191,13 @@ void SearchWorker::stopSearch()
     m_stop = true;
 }
 
-void SearchWorker::startSearch(Tree *tree, int searchId)
+void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted)
 {
     // Reset state
+    m_depthTargeted = depthTargeted;
+    m_nodesTargeted = nodesTargeted;
+    m_moveNode = nullptr;
+    m_timer.restart();
     m_searchId = searchId;
     m_currentInfo = SearchInfo();
     m_currentInfo.workerInfo.searchId = searchId;
@@ -223,8 +227,8 @@ void SearchWorker::startSearch(Tree *tree, int searchId)
 
 void SearchWorker::minimaxBatch(Batch *batch, Tree *tree)
 {
-    WorkerInfo info = actualMinimaxBatch(batch, tree, m_searchId);
-    processWorkerInfo(info);
+    actualMinimaxBatch(batch, tree, &m_currentInfo.workerInfo);
+    processWorkerInfo();
 }
 
 void SearchWorker::waitForFetched()
@@ -272,8 +276,8 @@ void SearchWorker::fetchAndMinimax(Batch *batch, bool sync)
     if (!batch->isEmpty()) {
         fetchFromNN(batch, sync);
     } else {
-        WorkerInfo info = actualMinimaxTree(m_tree, m_searchId, 0 /*evaluatedCount*/);
-        processWorkerInfo(info);
+        actualMinimaxTree(m_tree, 0 /*evaluatedCount*/, &m_currentInfo.workerInfo);
+        processWorkerInfo();
     }
 }
 
@@ -458,18 +462,8 @@ QString mateDistanceOrScore(float score, int pvDepth, bool isTB) {
     return s;
 }
 
-void SearchWorker::processWorkerInfo(const WorkerInfo &info)
+void SearchWorker::processWorkerInfo()
 {
-    // Sum the worker infos
-    m_currentInfo.workerInfo.sumDepths += info.sumDepths;
-    m_currentInfo.workerInfo.maxDepth = qMax(m_currentInfo.workerInfo.maxDepth, info.maxDepth);
-    m_currentInfo.workerInfo.nodesSearched += info.nodesSearched;
-    m_currentInfo.workerInfo.nodesEvaluated += info.nodesEvaluated;
-    m_currentInfo.workerInfo.nodesVisited += info.nodesVisited;
-    m_currentInfo.workerInfo.numberOfBatches += info.numberOfBatches;
-    m_currentInfo.workerInfo.nodesTBHits += info.nodesTBHits;
-    m_currentInfo.workerInfo.nodesCacheHits += info.nodesCacheHits;
-
     // Update our depth info
     const int newDepth = m_currentInfo.workerInfo.sumDepths / qMax(1, m_currentInfo.workerInfo.nodesVisited);
     bool isPartial = newDepth <= m_currentInfo.depth;
@@ -492,24 +486,13 @@ void SearchWorker::processWorkerInfo(const WorkerInfo &info)
     // If so, record our new bestmove
     Q_ASSERT(best);
     Q_ASSERT(best->parent());
-    const QString newBestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
-    isPartial = newBestMove != m_currentInfo.bestMove ? false : isPartial;
-    m_currentInfo.bestMove = newBestMove;
+    const bool hasNewMove = best != m_moveNode;
+    isPartial = hasNewMove ? false : isPartial;
 
-    // Record a ponder move
-    if (const Node *ponder = best->bestChild())
-        m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
-    else
-        m_currentInfo.ponderMove = QString();
-
-    // Record a pv and score
-    float score = best->qValue();
-
-    int pvDepth = 0;
-    bool isTB = false;
-    m_currentInfo.pv = QString();
-    QTextStream stream(&m_currentInfo.pv);
-    root->principalVariation(&pvDepth, &isTB, &stream);
+    m_currentInfo.workerInfo.hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
+    m_currentInfo.workerInfo.targetReached = (m_depthTargeted != -1 && m_currentInfo.depth >= m_depthTargeted)
+        || (m_nodesTargeted != -1 && m_currentInfo.nodes >= m_nodesTargeted);
+    isPartial = m_currentInfo.workerInfo.targetReached ? false : isPartial;
 
     // Check for an early exit
     bool shouldEarlyExit = false;
@@ -538,9 +521,32 @@ void SearchWorker::processWorkerInfo(const WorkerInfo &info)
         }
     }
 
-    m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isTB);
+    const quint64 msecs = m_timer.nsecsElapsed() / 1000000;
+    if (!isPartial || msecs >= 2500) {
+        if (hasNewMove) {
+            // Record a new best move
+            m_moveNode = best;
+            m_currentInfo.bestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
 
-    emit sendInfo(m_currentInfo, isPartial);
+            // Record a ponder move
+            if (const Node *ponder = best->bestChild())
+                m_currentInfo.ponderMove = Notation::moveToString(ponder->m_game.lastMove(), Chess::Computer);
+            else
+                m_currentInfo.ponderMove = QString();
+        }
+
+        // Record a pv and score
+        float score = best->qValue();
+        int pvDepth = 0;
+        bool isTB = false;
+        m_currentInfo.pv = QString();
+        QTextStream stream(&m_currentInfo.pv);
+        root->principalVariation(&pvDepth, &isTB, &stream);
+        m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isTB);
+        m_timer.restart();
+        emit sendInfo(m_currentInfo, isPartial);
+    }
+
     if (!SearchSettings::featuresOff.testFlag(SearchSettings::EarlyExit) && shouldEarlyExit)
         emit requestStop(m_searchId, true /*isEarlyExit*/);
 }
@@ -625,7 +631,7 @@ void SearchEngine::reset()
             this, &SearchEngine::receivedRequestStop);
 }
 
-void SearchEngine::startSearch()
+void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
 {
     QMutexLocker locker(&m_mutex);
 
@@ -693,7 +699,7 @@ void SearchEngine::startSearch()
         requestStop(true /*isEarlyExit*/);
     } else {
         Q_ASSERT(m_worker);
-        m_worker->startWorker(m_tree, m_searchId);
+        m_worker->startWorker(m_tree, m_searchId, depthTargeted, nodesTargeted);
         m_startedWorker = true;
     }
 }

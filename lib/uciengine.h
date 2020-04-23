@@ -138,7 +138,7 @@ Q_SIGNALS:
 
 private:
     void stopTheClock();
-    void startSearch();
+    void startSearch(qint64 depthTargeted, qint64 nodesTargeted);
     void stopSearch();
     void calculateRollingAverage();
     void setPosition(const QString &position, const QVector<QString> &moves);
@@ -159,9 +159,6 @@ private:
     QVector<UciOption> m_options;
     SearchEngine *m_searchEngine;
     QThread m_inputThread;
-    qint64 m_timeAtLastProgress;
-    qint64 m_depthTargeted;
-    qint64 m_nodesTargeted;
     Clock *m_clock;
     IOHandler *m_ioHandler;
 };
