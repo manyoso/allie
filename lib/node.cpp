@@ -635,7 +635,8 @@ start_playout:
             n = n->generateNextChild(cache, &error);
             if (n) {
                 ++n->m_virtualLoss;
-            } else if (error == OutOfMemory) {
+            } else {
+                Q_ASSERT(error == OutOfMemory);
                 *hardExit = true;
             }
             break;
