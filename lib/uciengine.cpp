@@ -432,7 +432,6 @@ void UciEngine::calculateRollingAverage()
     ++m_averageInfoN;
     int n = m_averageInfoN;
 
-    Q_ASSERT(m_lastInfo.rawnps > 0);
     // Don't average the first sample
     if (n < 2) {
         m_averageInfo = m_lastInfo;
@@ -442,10 +441,16 @@ void UciEngine::calculateRollingAverage()
     m_averageInfo.depth             = rollingAverage(m_averageInfo.depth, m_lastInfo.depth, n);
     m_averageInfo.seldepth          = rollingAverage(m_averageInfo.seldepth, m_lastInfo.seldepth, n);
     m_averageInfo.nodes             = rollingAverage(m_averageInfo.nodes, m_lastInfo.nodes, n);
-    m_averageInfo.nps               = rollingAverage(m_averageInfo.nps, m_lastInfo.nps, n);
     m_averageInfo.batchSize         = rollingAverage(m_averageInfo.batchSize, m_lastInfo.batchSize, n);
-    m_averageInfo.rawnps            = rollingAverage(m_averageInfo.rawnps, m_lastInfo.rawnps, n);
-    m_averageInfo.nnnps             = rollingAverage(m_averageInfo.nnnps, m_lastInfo.nnnps, n);
+
+    // Don't average the nps unless we have at least ten batches in this search to avoid averaging
+    // in very low nps due to early exit
+    if (m_lastInfo.workerInfo.numberOfBatches >= 10) {
+        Q_ASSERT(m_lastInfo.rawnps > 0);
+        m_averageInfo.nps               = rollingAverage(m_averageInfo.nps, m_lastInfo.nps, n);
+        m_averageInfo.rawnps            = rollingAverage(m_averageInfo.rawnps, m_lastInfo.rawnps, n);
+        m_averageInfo.nnnps             = rollingAverage(m_averageInfo.nnnps, m_lastInfo.nnnps, n);
+    }
 
     WorkerInfo &avgW = m_averageInfo.workerInfo;
     const WorkerInfo &newW = m_lastInfo.workerInfo;
