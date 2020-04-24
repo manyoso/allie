@@ -557,7 +557,7 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
     // https://link.springer.com/chapter/10.1007/978-3-642-31866-5_4
     const bool hasTarget = m_lastInfo.workerInfo.hasTarget;
 
-    if (!hasTarget && !m_clock->isInfinite() && !m_clock->isMoveTime() && m_averageInfo.nodes > 0) {
+    if (!hasTarget && !m_clock->isInfinite() && !m_clock->isMoveTime() && m_averageInfo.nodes > 0 && m_averageInfo.rawnps > 0) {
         const qint64 timeToRemaining = m_clock->deadline() - msecs;
         const quint32 e = qMax(quint32(1), quint32(timeToRemaining / 1000.0f * m_averageInfo.rawnps));
         m_searchEngine->setEstimatedNodes(e);
