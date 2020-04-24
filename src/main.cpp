@@ -106,6 +106,9 @@ int main(int argc, char *argv[])
     case BENCHMARK:
         Options::globalInstance()->addBenchmarkOptions();
         [[fallthrough]];
+    case DEBUGFILE:
+        modeParser.addPositionalArgument("filepath", "\t<filepath>\tThe filepath of the debug file to load");
+        [[fallthrough]];
     case UCI:
         {
             Options::globalInstance()->addRegularOptions();
@@ -114,9 +117,6 @@ int main(int argc, char *argv[])
                 modeParser.addOption(o.commandLine());
             break;
         }
-    case DEBUGFILE:
-        modeParser.addPositionalArgument("filepath", "\t<filepath>\tThe filepath of the debug file to load");
-        break;
     case UNKNOWN:
         break;
     default:
@@ -152,6 +152,14 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    // Process the rest of our arguments
+    QVector<UciOption> options = Options::globalInstance()->options();
+    for (UciOption o : options) {
+        QString option = UciOption::toCamelCase(o.optionName());
+        if (modeParser.isSet(option))
+            Options::globalInstance()->setOption(o.optionName(), modeParser.value(option));
+    }
+
     // Is this debug mode?
     QString debugFile;
     QStringList modePositionalArgs = modeParser.positionalArguments();
@@ -160,14 +168,6 @@ int main(int argc, char *argv[])
     } else if (mode == DEBUGFILE || !modePositionalArgs.isEmpty()) {
         std::cerr << fullHelp.toLatin1().constData();
         return -1;
-    }
-
-    // If not, then process the rest of our arguments
-    QVector<UciOption> options = Options::globalInstance()->options();
-    for (UciOption o : options) {
-        QString option = UciOption::toCamelCase(o.optionName());
-        if (modeParser.isSet(option))
-            Options::globalInstance()->setOption(o.optionName(), modeParser.value(option));
     }
 
     // Display our logo
