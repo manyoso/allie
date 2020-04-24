@@ -263,7 +263,7 @@ void Tests::testStart(const StandaloneGame &start)
         QCOMPARE(child->parent(), root);
         QVERIFY(!child->hasChildren());
         QCOMPARE(quint32(0), child->visits());
-        QCOMPARE(quint32(0), child->virtualLoss());
+        QCOMPARE(quint16(0), child->virtualLoss());
         QVERIFY(qFuzzyCompare(-2.f, child->rawQValue()));
         QVERIFY(qFuzzyCompare(-2.f, child->m_pValue));
         QVERIFY(!child->isExact());
