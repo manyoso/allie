@@ -128,7 +128,7 @@ public:
             return node()->visits();
         }
 
-        inline quint32 virtualLoss() const
+        inline quint16 virtualLoss() const
         {
             if (m_isPotential)
                 return 0;
@@ -200,7 +200,7 @@ public:
     float uCoeff() const;
 
     quint32 visits() const;
-    quint32 virtualLoss() const;
+    quint16 virtualLoss() const;
 
     // parents and children
     Node *bestChild() const;
@@ -357,7 +357,7 @@ inline quint32 Node::visits() const
     return m_visited;
 }
 
-inline quint32 Node::virtualLoss() const
+inline quint16 Node::virtualLoss() const
 {
     return m_virtualLoss;
 }
