@@ -272,8 +272,8 @@ void Node::scoreMiniMax(float score, bool isExact)
     m_isExact = isExact;
     if (m_isExact)
         m_qValue = score;
-    else
-        m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
+//    else
+//        m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
 }
 
 void Node::incrementVisited()
@@ -412,6 +412,30 @@ bool Node::isThreeFold() const
     return repetitions() >= 2;
 }
 
+//#define DEBUG_POLICY_FOR_MINIMAX
+
+void calculatePolicyForMinimax(int count, float policyRange, quint32 policyWeight, float *policyToAdd,
+    float *policyToSubtract)
+{
+    const int base = qMax(20000, count);
+    const float policyChit = policyRange / base;
+    const float add = policyChit * policyWeight;
+    const float sub = add / (count - 1);
+
+#if defined(DEBUG_POLICY_FOR_MINIMAX)
+    qDebug() << "calculatePolicyForMinimax count" << count
+        << "policyRange" << policyRange
+        << "policyWeight" << policyWeight
+        << "policyChit" << policyChit
+        << "add" << add
+        << "sub" << sub;
+#endif
+
+    *policyToAdd = add;
+    *policyToSubtract = sub;
+}
+
+
 float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
 {
     Q_ASSERT(node);
@@ -469,18 +493,21 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
 
     // Search the children
     float best = -2.0f;
+    Node *bestChild = nullptr;
     bool bestIsExact = false;
-    bool everythingScored = true;
-    for (int index = 0; index < node->m_children.count(); ++index) {
+    int numberScored = 0;
+    quint32 previousVisits = node->visits();
+    const int count = node->m_children.count();
+    for (int index = 0; index < count; ++index) {
         Node *child = node->m_children.at(index);
         Q_ASSERT(child);
 
         // If the child is not visited and is not marked dirty then it has not been scored yet, so
         // just continue
-        if (!child->m_visited && !child->m_isDirty) {
-            everythingScored = false;
+        if (!child->m_visited && !child->m_isDirty)
             continue;
-        }
+
+        ++numberScored;
         Q_ASSERT(child->hasRawQValue());
 
         bool subtreeIsExact = false;
@@ -488,19 +515,73 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
 
         // Check if we have a new best child
         if (score > best) {
-            bestIsExact = subtreeIsExact;
             best = score;
+            bestChild = child;
+            bestIsExact = subtreeIsExact;
         }
     }
 
     // We only propagate exact certainty if the best score from subtree is exact AND either the best
     // score is > 0 (a proven win) OR the potential children of this node have all been played out
-    const bool miniMaxComplete = everythingScored && !node->hasPotentials();
+    const bool miniMaxComplete = numberScored == count && !node->hasPotentials();
     const bool shouldPropagateExact = bestIsExact && (best > 0 || miniMaxComplete) && !node->isRootNode();
 
-    // Score the node based on minimax of children
-    if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
+    // Score the node and adjust policies based on minimax of children
+    if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax))) {
         node->scoreMiniMax(-best, shouldPropagateExact);
+        if (count > 1) {
+            Q_ASSERT(!qFuzzyCompare(best, -2.0f));
+            Q_ASSERT(bestChild);
+            const quint32 policyWeight = node->visits() - previousVisits;
+            Q_ASSERT(policyWeight > 0);
+            const float policyRange = miniMaxComplete ? 1.0f : node->m_policySum;
+            const float minAllowed = std::numeric_limits<float>::min();
+            float policyToAdd = 0.0f;
+            float policyToSubtract = 0.0f;
+            calculatePolicyForMinimax(numberScored, policyRange,
+                policyWeight, &policyToAdd, &policyToSubtract);
+
+#if defined(DEBUG_POLICY_FOR_MINIMAX)
+            for (int index = 0; index < count; ++index) {
+                Node *child = node->m_children.at(index);
+                Q_ASSERT(child);
+                if (!child->m_visited && !child->m_isDirty)
+                    continue;
+                qDebug() << "before" << child->toString() << child->m_pValue;
+            }
+#endif
+            float newPolicyRange = 0.0f;
+            for (int index = 0; index < count; ++index) {
+                Node *child = node->m_children.at(index);
+                Q_ASSERT(child);
+                if (child == bestChild || (!child->m_visited && !child->m_isDirty))
+                    continue;
+
+                child->m_pValue = qMax(minAllowed, child->m_pValue - policyToSubtract);
+                newPolicyRange += child->m_pValue;
+                Q_ASSERT(child->m_pValue < 1.0f);
+                Q_ASSERT(child->m_pValue > 0.0f);
+            }
+
+#if defined(DEBUG_POLICY_FOR_MINIMAX)
+            const float maxAdded = policyRange - newPolicyRange - bestChild->m_pValue;
+            qDebug() << "max add" << maxAdded << "max sub" << policyToSubtract;
+#endif
+            bestChild->m_pValue = policyRange - newPolicyRange;
+            newPolicyRange += bestChild->m_pValue;
+            Q_ASSERT(qFuzzyCompare(policyRange, newPolicyRange));
+
+#if defined(DEBUG_POLICY_FOR_MINIMAX)
+            for (int index = 0; index < count; ++index) {
+                Node *child = node->m_children.at(index);
+                Q_ASSERT(child);
+                if (!child->m_visited && !child->m_isDirty)
+                    continue;
+                qDebug() << "after" << child->toString() << child->m_pValue;
+            }
+#endif
+        }
+    }
 
     // Record info
     ++(info->nodesSearched);

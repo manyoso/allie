@@ -34,7 +34,7 @@
 
 #define MAX_DEPTH 127
 #define USE_PARENT_QVALUE
-#define USE_CPUCT_SCALING
+//#define USE_CPUCT_SCALING
 
 //#define DEBUG_FETCHANDBP
 //#define DEBUG_PLAYOUT
