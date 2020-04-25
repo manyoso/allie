@@ -481,7 +481,7 @@ void UciEngine::sendBestMove()
         QString out;
         QTextStream stream(&out);
         stream << "info"
-               << " extraBudgetedTime " << extraBudgetedTime << " as percent" << m_clock->extraBudgetedTime()
+               << " extraBudgetedTime " << extraBudgetedTime << " as percent " << m_clock->extraBudgetedTime()
                << endl;
         output(out);
     }
@@ -692,7 +692,7 @@ void UciEngine::stopRequested(bool earlyExit)
         QString out;
         QTextStream stream(&out);
         stream << "info"
-               << " stopRequested estimatedNodes" << m_searchEngine->estimatedNodes()
+               << " stopRequested estimatedNodes " << m_searchEngine->estimatedNodes()
                << " rawnps " << m_averageInfo.rawnps
                << endl;
         output(out);
