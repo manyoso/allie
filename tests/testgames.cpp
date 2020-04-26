@@ -749,3 +749,77 @@ void Tests::testTB()
     // 2K5/8/2P3q1/8/P4k2/7Q/8/8 w - - 3 110
     QVERIFY(true);
 }
+
+void Tests::testDoNotPropagateDrawnAsExact()
+{
+    // The following is a contrived position that was examined by a specific net as more or less
+    // drawn. It is not important if the the net was correct and the position is theoretically drawn
+    // or not. The point of the test is that if a position is reached where we score it as exactly
+    // drawn due to stalemate or the threefold rule for instance, we *must not* propagate this
+    // thereby allowing the net to change its mind upon further examination of sibling playouts.
+    QString fen = QLatin1String("1rk2b1r/q7/1ppp4/4p1B1/2PP2nN/8/7P/R4R1K w - - 0 35");
+
+    QVector<QString> moves = QString("a1a7 b8b7 a7a8 b7b8 a8a7 b8b7 a7a8").split(" ").toVector();
+
+    History::globalInstance()->clear();
+
+    StandaloneGame game(fen);
+    for (QString move : moves) {
+        Move mv = Notation::stringToMove(move, Chess::Computer);
+        bool success = game.makeMove(mv);
+        History::globalInstance()->addGame(game);
+        QVERIFY(success);
+    }
+
+    Tree tree;
+    Node *root = tree.embodiedRoot();
+    root->setRawQValue(0.0f);
+    root->setQValueAndPropagate();
+    QVERIFY(root);
+
+    Node::NodeGenerationError error = Node::NoError;
+    Node *b7b8 = root->generateNode(Notation::stringToMove(QLatin1String("b7b8"), Chess::Computer), 1.0f, root, Cache::globalInstance(), &error);
+    QVERIFY(b7b8);
+    QCOMPARE(Node::NoError, error);
+    b7b8->initializePosition(Cache::globalInstance());
+    b7b8->setRawQValue(0.0f);
+    b7b8->setQValueAndPropagate();
+    b7b8->generatePotentials();
+
+    Node *a8a7 = nullptr;
+    Node *a8b8 = nullptr;
+    for (Node::Potential potential : *b7b8->m_position->potentials()) {
+        QString move = Notation::moveToString(potential.move(), Chess::Computer);
+        Node::NodeGenerationError error = Node::NoError;
+        Node *child = b7b8->generateNode(potential.move(), potential.pValue(), b7b8, Cache::globalInstance(), &error);
+        QVERIFY(child);
+        QCOMPARE(Node::NoError, error);
+        child->initializePosition(Cache::globalInstance());
+        ++b7b8->m_potentialIndex;
+        if (move == QLatin1String("a8a7")) {
+            a8a7 = child;
+            QVERIFY(child->checkMoveClockOrThreefold());
+            QVERIFY(child->isExact());
+            QVERIFY(qFuzzyCompare(child->rawQValue(), 0.0f));
+        } else {
+            if (move == QLatin1String("a8b8"))
+                a8b8 = child;
+
+            // Initially score all the children except for a8a7 as losing
+            child->setRawQValue(-0.1f);
+        }
+
+        child->backPropagateDirty();
+    }
+
+    QVERIFY(a8a7);
+    QVERIFY(a8b8);
+
+    bool isExact = false;
+    WorkerInfo info;
+    Node::minimax(b7b8, 0, &isExact, &info);
+
+    // This is the whole point. We do not want to propagate a draw here as it is possible that upon
+    // further playouts of other siblings that they will no longer be losing and could be winning.
+    QVERIFY(!isExact);
+}

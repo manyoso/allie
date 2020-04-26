@@ -117,6 +117,7 @@ private slots:
     void testMateWithKBBvK();
     void testMateWithKQQvK();
     void testTB();
+    void testDoNotPropagateDrawnAsExact();
 
     // TestMath
     void testFastLog();

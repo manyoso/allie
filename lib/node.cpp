@@ -470,17 +470,15 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
     // Search the children
     float best = -2.0f;
     bool bestIsExact = false;
-    bool everythingScored = true;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
         Q_ASSERT(child);
 
         // If the child is not visited and is not marked dirty then it has not been scored yet, so
         // just continue
-        if (!child->m_visited && !child->m_isDirty) {
-            everythingScored = false;
+        if (!child->m_visited && !child->m_isDirty)
             continue;
-        }
+
         Q_ASSERT(child->hasRawQValue());
 
         bool subtreeIsExact = false;
@@ -493,10 +491,9 @@ float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
         }
     }
 
-    // We only propagate exact certainty if the best score from subtree is exact AND either the best
-    // score is > 0 (a proven win) OR the potential children of this node have all been played out
-    const bool miniMaxComplete = everythingScored && !node->hasPotentials();
-    const bool shouldPropagateExact = bestIsExact && (best > 0 || miniMaxComplete) && !node->isRootNode();
+    // We only propagate exact certainty if the best score from subtree is exact AND the best score
+    // is a proven win
+    const bool shouldPropagateExact = bestIsExact && best > 0 && !node->isRootNode();
 
     // Score the node based on minimax of children
     if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
@@ -884,8 +881,6 @@ Node *Node::generateNode(const Move &childMove, float childPValue, Node *parent,
     parent->m_children.append(child);
     return child;
 }
-
-
 
 const Node *Node::findSuccessor(const QVector<QString> &child) const
 {
