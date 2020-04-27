@@ -180,7 +180,7 @@ public:
     ~Node();
 
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
-    static float minimax(Node *, int depth, bool *isExact, WorkerInfo *info);
+    static float minimax(Node *, quint32 depth, bool *isExact, WorkerInfo *info);
     static void validateTree(const Node *);
     static void trimUnscoredFromTree(Node *);
     static float uctFormula(float qValue, float uValue);

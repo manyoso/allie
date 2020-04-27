@@ -71,38 +71,38 @@ struct SearchSettings {
 QDebug operator<<(QDebug, const Search &);
 
 struct WorkerInfo {
-    int sumDepths = 0;
-    int maxDepth = 0;
-    int nodesSearched = 0;
-    int nodesEvaluated = 0;
-    int nodesVisited = 0;
-    int numberOfBatches = 0;
-    int nodesCacheHits = 0;
-    int nodesTBHits = 0;
-    int searchId = 0;
+    quint32 sumDepths = 0;
+    quint32 maxDepth = 0;
+    quint64 nodesSearched = 0;
+    quint64 nodesEvaluated = 0;
+    quint64 nodesVisited = 0;
+    quint32 numberOfBatches = 0;
+    quint64 nodesCacheHits = 0;
+    quint64 nodesTBHits = 0;
+    quint32 searchId = 0;
     bool hasTarget = false;
     bool targetReached = false;
     QString threadId;
 };
 
 struct SearchInfo {
-    int depth = -1;
-    int seldepth = -1;
-    qint64 time = -1;
-    int nodes = -1;
+    quint32 depth = 0;
+    quint32 seldepth = 0;
+    qint64 time = 0;
+    quint64 nodes = 0;
     QString score;
-    int nps = -1;
-    int batchSize = -1;
+    quint32 nps = 0;
+    quint32 batchSize = 0;
     QString pv;
-    int rawnps = -1;
-    int nnnps = -1;
+    quint32 rawnps = 0;
+    quint32 nnnps = 0;
     QString bestMove;
     QString ponderMove;
     bool isResume = false;
     bool isDTZ = false;
     bool bestIsMostVisited = true;
     WorkerInfo workerInfo;
-    int games = 0;
+    quint32 games = 0;
 
     void calculateSpeeds(qint64 time);
     static SearchInfo nodeAndBatchDiff(const SearchInfo &a, const SearchInfo &b);

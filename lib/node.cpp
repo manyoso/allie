@@ -412,7 +412,7 @@ bool Node::isThreeFold() const
     return repetitions() >= 2;
 }
 
-float Node::minimax(Node *node, int depth, bool *isExact, WorkerInfo *info)
+float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
 {
     Q_ASSERT(node);
     Q_ASSERT(node->hasRawQValue());

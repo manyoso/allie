@@ -115,7 +115,7 @@ void BenchmarkEngine::reportInfo(bool isPartial)
 void BenchmarkEngine::runNextGame()
 {
     SearchInfo averages = m_ioHandler->averageInfo();
-    if (averages.rawnps != -1) {
+    if (averages.rawnps != 0) {
         QString out;
         QTextStream stream(&out);
         stream << "Totals \t\ttime "

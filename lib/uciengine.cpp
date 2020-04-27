@@ -608,6 +608,11 @@ void UciEngine::sendInfo(const SearchInfo &info, bool isPartial)
            << " pv " << m_lastInfo.pv
            << endl;
 
+    Q_ASSERT(m_lastInfo.depth > 0);
+    Q_ASSERT(m_lastInfo.seldepth > 0);
+    Q_ASSERT(m_lastInfo.nodes > 0);
+    Q_ASSERT(m_lastInfo.time >= 0);
+
     Q_ASSERT(m_clock->isActive());
     output(out);
 

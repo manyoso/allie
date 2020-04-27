@@ -85,7 +85,8 @@ public:
 
 
 public Q_SLOTS:
-    void startSearch(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted);
+    void startSearch(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted,
+        const SearchInfo &info);
 
 Q_SIGNALS:
     void sendInfo(const SearchInfo &info, bool isPartial);
@@ -133,7 +134,7 @@ public:
     QThread thread;
 
 Q_SIGNALS:
-    void startWorker(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted);
+    void startWorker(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted, const SearchInfo &info);
 };
 
 class SearchEngine : public QObject
@@ -155,7 +156,7 @@ public Q_SLOTS:
     void stopSearch();
     void searchWorkerStopped();
     void receivedSearchInfo(const SearchInfo &info, bool isPartial);
-    void receivedRequestStop(int searchId, bool);
+    void receivedRequestStop(quint32 searchId, bool);
     void printTree(const QVector<QString> &node, int depth, bool printPotentials) const;
     void startPonder() {}
     void stopPonder() {}
@@ -169,7 +170,7 @@ private:
     bool tryResumeSearch(const Search &search);
 
     Tree *m_tree;
-    int m_searchId;
+    quint32 m_searchId;
     bool m_startedWorker;
     WorkerThread* m_worker;
     QMutex m_mutex;

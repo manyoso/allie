@@ -208,18 +208,20 @@ void SearchWorker::stopSearch()
     m_stop = true;
 }
 
-void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted)
+void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted,
+    const SearchInfo &info)
 {
     // Reset state
+    m_tree = tree;
+    m_searchId = searchId;
     m_depthTargeted = depthTargeted;
     m_nodesTargeted = nodesTargeted;
-    m_moveNode = nullptr;
-    m_timer.restart();
-    m_searchId = searchId;
-    m_currentInfo = SearchInfo();
+    m_currentInfo = info;
     m_currentInfo.workerInfo.searchId = searchId;
+    Node *root = m_tree->embodiedRoot();
+    const Node *best = root->bestChild();
+    m_moveNode = best;
     m_estimatedNodes = std::numeric_limits<quint32>::max();
-    m_tree = tree;
     m_stop = false;
 
     if (m_gpuWorkers.isEmpty()) {
@@ -237,6 +239,9 @@ void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, q
             m_batchPool.append(batch);
         }
     }
+
+    // Start the info timer
+    m_timer.restart();
 
     // Start the search
     search();
@@ -493,17 +498,18 @@ QString mateDistanceOrScore(float score, int pvDepth, bool isTB) {
 void SearchWorker::processWorkerInfo()
 {
     // Update our depth info
-    const int newDepth = m_currentInfo.workerInfo.sumDepths / qMax(1, m_currentInfo.workerInfo.nodesVisited);
+    const quint32 newDepth = qMax(quint32(1), quint32(m_currentInfo.workerInfo.sumDepths /
+        qMax(quint64(1), m_currentInfo.workerInfo.nodesVisited)));
     bool isPartial = newDepth <= m_currentInfo.depth;
     m_currentInfo.depth = qMax(newDepth, m_currentInfo.depth);
 
     // Update our seldepth info
-    const int newSelDepth = m_currentInfo.workerInfo.maxDepth;
+    const quint32 newSelDepth = qMax(quint32(1), m_currentInfo.workerInfo.maxDepth);
     isPartial = newSelDepth > m_currentInfo.seldepth ? false : isPartial;
     m_currentInfo.seldepth = qMax(newSelDepth, m_currentInfo.seldepth);
 
     // Update our node info
-    m_currentInfo.nodes = m_currentInfo.workerInfo.nodesSearched;
+    m_currentInfo.nodes = qMax(quint64(1), m_currentInfo.workerInfo.nodesSearched);
 
     // See if root has a best child
     Node *root = m_tree->embodiedRoot();
@@ -519,7 +525,7 @@ void SearchWorker::processWorkerInfo()
 
     m_currentInfo.workerInfo.hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
     m_currentInfo.workerInfo.targetReached = (m_depthTargeted != -1 && m_currentInfo.depth >= m_depthTargeted)
-        || (m_nodesTargeted != -1 && m_currentInfo.nodes >= m_nodesTargeted);
+        || (m_nodesTargeted != -1 && qint64(m_currentInfo.nodes) >= m_nodesTargeted);
     isPartial = m_currentInfo.workerInfo.targetReached ? false : isPartial;
 
     // Check for an early exit
@@ -683,10 +689,10 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
 
     // Check the DTZ and if found just use it and stop the search
     int dtz = 0;
+    SearchInfo info;
     if (root->checkAndGenerateDTZ(&dtz)) {
         // We found a dtz move
         const int depth = dtz;
-        SearchInfo info;
         info.isDTZ = true;
         info.depth = depth;
         info.seldepth = depth;
@@ -705,7 +711,9 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
         return; // We are all done
     } else if (const Node *best = root->bestChild()) {
         // If we have a bestmove candidate, set it now
-        SearchInfo info;
+        info.depth = 1;
+        info.seldepth = 1;
+        info.nodes = 1;
         info.isResume = true;
         info.bestMove = Notation::moveToString(best->m_game.lastMove(), Chess::Computer);
         if (const Node *ponder = best->bestChild())
@@ -727,7 +735,7 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
         requestStop(true /*isEarlyExit*/);
     } else {
         Q_ASSERT(m_worker);
-        m_worker->startWorker(m_tree, m_searchId, depthTargeted, nodesTargeted);
+        m_worker->startWorker(m_tree, m_searchId, depthTargeted, nodesTargeted, info);
         m_startedWorker = true;
     }
 }
@@ -767,7 +775,7 @@ void SearchEngine::receivedSearchInfo(const SearchInfo &info, bool isPartial)
     emit sendInfo(info, isPartial);
 }
 
-void SearchEngine::receivedRequestStop(int searchId, bool isEarlyExit)
+void SearchEngine::receivedRequestStop(quint32 searchId, bool isEarlyExit)
 {
     // It is possible this could have been queued before we were asked to stop
     // so ignore if so
