@@ -270,10 +270,12 @@ void Node::scoreMiniMax(float score, bool isExact)
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
     Q_ASSERT(!m_isExact || isExact);
     m_isExact = isExact;
-    if (m_isExact)
+    if (m_isExact) {
         m_qValue = score;
-    else
+        setRawQValue(score);
+    } else {
         m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
+    }
 }
 
 void Node::incrementVisited()
