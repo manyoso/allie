@@ -260,6 +260,7 @@ void IOWorker::readyReadOutput(const QString &output)
 UciEngine::UciEngine(QObject *parent, const QString &debugFile)
     : QObject(parent),
     m_averageInfoN(0),
+    m_minBatchesForAverage(0),
     m_gameInitialized(false),
     m_pendingBestMove(false),
     m_debugFile(debugFile),
@@ -443,9 +444,7 @@ void UciEngine::calculateRollingAverage()
     m_averageInfo.nodes             = rollingAverage(m_averageInfo.nodes, m_lastInfo.nodes, n);
     m_averageInfo.batchSize         = rollingAverage(m_averageInfo.batchSize, m_lastInfo.batchSize, n);
 
-    // Don't average the nps unless we have at least ten batches in this search to avoid averaging
-    // in very low nps due to early exit
-    if (m_lastInfo.workerInfo.numberOfBatches >= 10) {
+    if (m_lastInfo.workerInfo.numberOfBatches >= m_minBatchesForAverage) {
         Q_ASSERT(m_lastInfo.rawnps > 0);
         m_averageInfo.nps               = rollingAverage(m_averageInfo.nps, m_lastInfo.nps, n);
         m_averageInfo.rawnps            = rollingAverage(m_averageInfo.rawnps, m_lastInfo.rawnps, n);
@@ -671,6 +670,11 @@ void UciEngine::uciNewGame()
     Q_ASSERT(!SearchSettings::weightsFile.isEmpty());
     NeuralNet::globalInstance()->setWeights(SearchSettings::weightsFile);
     NeuralNet::globalInstance()->reset();
+
+    // Don't average the nps unless we have at least two batches from each GPU
+    const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt();
+    m_minBatchesForAverage = numberOfGPUCores * 2;
+
     TB::globalInstance()->reset();
     ++m_averageInfo.games;
 }

@@ -150,7 +150,8 @@ private:
     void output(const QString &out);
 
 private:
-    int m_averageInfoN;
+    quint32 m_averageInfoN;
+    quint32 m_minBatchesForAverage;
     SearchInfo m_averageInfo;
     SearchInfo m_lastInfo;
     bool m_gameInitialized;
