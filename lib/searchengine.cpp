@@ -268,7 +268,15 @@ void SearchWorker::fetchFromNN(Batch *batch, bool sync)
 {
     Q_ASSERT(!batch->isEmpty());
     if (SearchSettings::featuresOff.testFlag(SearchSettings::Threading) || sync) {
-        actualFetchFromNN(batch);
+        // Generate potentials
+        Batch batchForEvaluating;
+        for (int index = 0; index < batch->count(); ++index) {
+            Node *node = batch->at(index);
+            node->generatePotentials();
+            if (!node->isExact())
+                batchForEvaluating.append(node);
+        }
+        actualFetchFromNN(&batchForEvaluating);
         minimaxBatch(batch, m_tree);
     } else {
         m_queue.releaseIn(batch);
@@ -419,13 +427,8 @@ void SearchWorker::ensureRootAndChildrenScored()
         if (!root->m_visited) {
             root->m_virtualLoss += 1;
             bool shouldFetchFromNN = handlePlayout(root, hash);
-            if (shouldFetchFromNN) {
-                root->generatePotentials();
-                if (!root->isExact())
-                    nodes.append(root);
-                else
-                    root->backPropagateDirty();
-            }
+            if (shouldFetchFromNN)
+                nodes.append(root);
         }
         fetchAndMinimax(&nodes, true /*sync*/);
     }
@@ -447,13 +450,8 @@ void SearchWorker::ensureRootAndChildrenScored()
         Batch nodes;
         for (Node *child : children) {
             bool shouldFetchFromNN = handlePlayout(child, hash);
-            if (shouldFetchFromNN) {
-                child->generatePotentials();
-                if (!child->isExact())
-                    nodes.append(child);
-                else
-                    child->backPropagateDirty();
-            }
+            if (shouldFetchFromNN)
+                nodes.append(child);
         }
 
         if (didWork)
