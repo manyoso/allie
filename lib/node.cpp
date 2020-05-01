@@ -424,14 +424,13 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
     // First we look to see if this node has been scored
     if (!node->m_visited) {
         // Record info
+        Q_ASSERT(node->m_isDirty);
         ++(info->nodesSearched);
         ++(info->nodesVisited);
         info->sumDepths += depth;
         info->maxDepth = qMax(info->maxDepth, depth);
         if (node->m_isTB)
             ++(info->nodesTBHits);
-
-        Q_ASSERT(node->m_isDirty);
         *isExact = nodeIsExact;
         node->setQValueAndPropagate();
         return node->m_qValue;
@@ -444,8 +443,6 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
         ++(info->nodesVisited);
         if (node->m_isTB)
             ++(info->nodesTBHits);
-
-        Q_ASSERT(node->m_isDirty);
         *isExact = nodeIsExact;
         // If this node has children and was proven to be an exact node, then it is possible that
         // recently leafs have been made to we must trim the tree of any leafs

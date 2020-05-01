@@ -43,7 +43,6 @@ public:
 private:
     QMutex m_treeMutex;
     Node *m_root;
-    QVector<quint64> m_pinned;
     bool m_resumePreviousPositionIfPossible;
 };
 
@@ -51,7 +50,6 @@ inline Tree::Tree(bool resumePreviousPositionIfPossible)
     : m_root(nullptr),
     m_resumePreviousPositionIfPossible(resumePreviousPositionIfPossible)
 {
-    m_pinned.reserve(1000);
 }
 
 inline Tree::~Tree()
