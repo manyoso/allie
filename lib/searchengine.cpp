@@ -699,8 +699,11 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
     SearchSettings::cpuctF = Options::globalInstance()->option("CpuctF").value().toFloat();
     SearchSettings::cpuctInit = Options::globalInstance()->option("CpuctInit").value().toFloat();
     SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();
-    SearchSettings::tryPlayoutLimit = Options::globalInstance()->option("TryPlayoutLimit").value().toInt();
     SearchSettings::featuresOff = SearchSettings::stringToFeatures(Options::globalInstance()->option("FeaturesOff").value());
+    SearchSettings::fpuReduction = Options::globalInstance()->option("ReduceFPU").value().toFloat();
+    SearchSettings::policySoftmaxTemp = Options::globalInstance()->option("PolicySoftmaxTemp").value().toFloat();
+    SearchSettings::policySoftmaxTempInverse = 1 / SearchSettings::policySoftmaxTemp;
+    SearchSettings::tryPlayoutLimit = Options::globalInstance()->option("TryPlayoutLimit").value().toInt();
 
     // Remove the old root if it exists
     m_tree->clearRoot(!SearchSettings::featuresOff.testFlag(SearchSettings::TreeReuse));

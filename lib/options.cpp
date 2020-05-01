@@ -122,6 +122,17 @@ void Options::addRegularOptions()
                                               "minimax,treereuse'");
     insertOption(featuresOff);
 
+    UciOption FPUReduction;
+    FPUReduction.m_name = QLatin1Literal("ReduceFPU");
+    FPUReduction.m_type = UciOption::String;
+    FPUReduction.m_default = QString::number(double(SearchSettings::fpuReduction));
+    FPUReduction.m_value = FPUReduction.m_default;
+    FPUReduction.m_valueType = QLatin1String("float");
+    FPUReduction.m_min = QLatin1Literal("0");
+    FPUReduction.m_max = QLatin1Literal("1");
+    FPUReduction.m_description = QLatin1String("FPU reduction guides the initial score of unexpanded nodes.");
+    insertOption(FPUReduction);
+
     UciOption cache;
     cache.m_name = QLatin1Literal("Cache");
     cache.m_type = UciOption::Spin;
@@ -185,6 +196,17 @@ void Options::addRegularOptions()
     ponder.m_valueType = QLatin1String("boolean");
     ponder.m_description = QLatin1String("Whether to ponder");
     insertOption(ponder);
+
+    UciOption policySoftmaxTemp;
+    policySoftmaxTemp.m_name = QLatin1Literal("PolicySoftmaxTemp");
+    policySoftmaxTemp.m_type = UciOption::String;
+    policySoftmaxTemp.m_default = QString::number(double(SearchSettings::policySoftmaxTemp));
+    policySoftmaxTemp.m_value = policySoftmaxTemp.m_default;
+    policySoftmaxTemp.m_valueType = QLatin1String("float");
+    policySoftmaxTemp.m_min = QLatin1Literal("0");
+    policySoftmaxTemp.m_max = QLatin1Literal("5");
+    policySoftmaxTemp.m_description = QLatin1String("The policy softmax temp for moves.");
+    insertOption(policySoftmaxTemp);
 
     UciOption tb;
     tb.m_name = QLatin1Literal("SyzygyPath");

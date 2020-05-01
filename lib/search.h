@@ -56,6 +56,7 @@ struct SearchSettings {
     static float cpuctBase;
     static float fpuReduction;
     static float policySoftmaxTemp;
+    static float policySoftmaxTempInverse;
     static float openingTimeFactor;
     static float earlyExitFactor;
     static int tryPlayoutLimit;
