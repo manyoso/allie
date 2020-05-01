@@ -187,6 +187,8 @@ SearchWorker::SearchWorker(QObject *parent)
       m_nodesTargeted(-1),
       m_moveNode(nullptr),
       m_searchId(0),
+      m_maximumBatchSize(0),
+      m_currentBatchSize(0),
       m_estimatedNodes(std::numeric_limits<quint32>::max()),
       m_tree(nullptr),
       m_stop(true)
@@ -215,6 +217,8 @@ void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, q
     // Reset state
     m_tree = tree;
     m_searchId = searchId;
+    m_maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
+    m_currentBatchSize = m_maximumBatchSize;
     m_depthTargeted = depthTargeted;
     m_nodesTargeted = nodesTargeted;
     m_currentInfo = info;
@@ -228,15 +232,14 @@ void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, q
     if (m_gpuWorkers.isEmpty()) {
         // Start as many gpu worker threads as we have available networks and create a batch pool
         // to satisfy those workers
-        const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
         const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt() * 2;
         for (int i = 0; i < numberOfGPUCores; ++i) {
-            GPUWorker *worker = new GPUWorker(&m_queue, maximumBatchSize);
+            GPUWorker *worker = new GPUWorker(&m_queue, m_maximumBatchSize);
             worker->setObjectName(QString("gpuworker %0").arg(i));
             worker->start();
             m_gpuWorkers.append(worker);
             Batch *batch = new Batch;
-            batch->reserve(maximumBatchSize);
+            batch->reserve(m_maximumBatchSize);
             m_batchPool.append(batch);
         }
     }
@@ -374,7 +377,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
 {
 #if defined(DEBUG_PLAYOUT)
-    qDebug() << "begin playout filling" << batch->capacity();
+    qDebug() << "begin playout filling" << m_currentBatchSize;
 #endif
 
     bool didWork = false;
@@ -382,17 +385,21 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
     int vldMax = SearchSettings::vldMax;
     int tryPlayoutLimit = SearchSettings::tryPlayoutLimit;
     Cache *hash = Cache::globalInstance();
-    while (batch->count() < batch->capacity()) {
+    while (batch->count() < m_currentBatchSize) {
         // Check if the we are out of nodes
         if (hash->used() == hash->size()) {
             *hardExit = true;
             break;
         }
 
-        if (exactOrCached > batch->capacity()) {
+        if (exactOrCached >= m_currentBatchSize) {
             actualMinimaxTree(m_tree, 0 /*evaluatedCount*/, &m_currentInfo.workerInfo);
             processWorkerInfo();
             exactOrCached = 0;
+            // I have not seen an infinite loop here, but I guess it is theoretically possible for
+            // some position in the wild, so add an extra check here just in case.
+            if (m_stop)
+                break;
         }
 
         Node *playout = Node::playout(m_tree->embodiedRoot(), &vldMax, &tryPlayoutLimit, hardExit, hash);
@@ -416,6 +423,11 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
     qDebug() << "end playout return" << batch->count();
 #endif
 
+    // Dynamically adjust batchsize based on how well we are meeting the current batchsize target
+    if (batch->count() < m_currentBatchSize)
+        m_currentBatchSize = qMax(1, m_currentBatchSize - 1);
+    else if (batch->count() == m_currentBatchSize)
+        m_currentBatchSize = qMin(m_maximumBatchSize, m_currentBatchSize + 1);
     return didWork;
 }
 

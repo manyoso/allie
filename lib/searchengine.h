@@ -116,6 +116,8 @@ private:
     const Node *m_moveNode;
     QElapsedTimer m_timer;
     int m_searchId;
+    int m_maximumBatchSize;
+    int m_currentBatchSize;
     std::atomic<quint32> m_estimatedNodes;
     SearchInfo m_currentInfo;
     Tree *m_tree;
