@@ -47,8 +47,9 @@ float cpToScore(int cp)
 
 Node::Position::Position()
 {
-    m_transpositionNode = nullptr;
+    m_canonicalNode = nullptr;
     m_rawQValue = -2.0f;
+    m_isUnique = false;
 }
 
 Node::Position::~Position()
@@ -57,33 +58,34 @@ Node::Position::~Position()
 
 void Node::Position::initialize(Node *node, const Game::Position &position)
 {
-    if (m_transpositionNode)
+    if (m_canonicalNode)
         return;
 
     m_position = position;
-    m_transpositionNode = node;
-    Q_ASSERT(m_transpositionNode->m_position == this);
-    if (m_transpositionNode) {
+    m_canonicalNode = node;
+    Q_ASSERT(m_canonicalNode->m_position == this);
+    if (m_canonicalNode) {
 #if defined(DEBUG_CHURN)
         QString string;
         QTextStream stream(&string);
         stream << "ctor p ";
         stream << positionHash();
         stream << " [";
-        stream << m_transpositionNode;
+        stream << m_canonicalNode;
         stream << "]";
         qDebug().noquote() << string;
 #endif
     }
 }
 
-bool Node::Position::deinitialize(bool forcedFree)
+void Node::Position::deinitialize(bool forcedFree)
 {
     Q_UNUSED(forcedFree)
     m_position = Game::Position();
-    m_transpositionNode = nullptr;
+    m_canonicalNode = nullptr;
     m_potentials.clear();
     m_rawQValue = -2.0f;
+    m_isUnique = false;
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -91,18 +93,17 @@ bool Node::Position::deinitialize(bool forcedFree)
     stream << positionHash();
     qDebug().noquote() << string;
 #endif
-    return true;
 }
 
-Node::Position *Node::Position::relinkOrClone(quint64 positionHash, Cache *cache, bool *cloned)
+Node::Position *Node::Position::relinkOrMakeUnique(quint64 positionHash, Cache *cache, bool *madeUnique)
 {
     if (!cache->containsNodePosition(positionHash))
         return nullptr;
 
     // Update the reference for this position in LRU hash
-    Node::Position *p = cache->nodePositionRelinkOrClone(positionHash, cloned);
+    Node::Position *p = cache->nodePositionRelinkOrMakeUnique(positionHash, madeUnique);
 #if defined(DEBUG_CHURN)
-    if (*cloned) {
+    if (*madeUnique) {
         QString string;
         QTextStream stream(&string);
         stream << "relk p ";
@@ -160,12 +161,15 @@ quint64 Node::initializePosition(Cache *cache)
 
     // Get a node position from hashpositions
     quint64 childPositionHash = childPosition.positionHash();
+
+    // FIXME: This leaks memory because cache won't know how to erase the position as it does
+    // not have access to the node's address when deinitializing the position!
     if (SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions))
         childPositionHash ^= reinterpret_cast<quint64>(this);
 
-    bool cloned = false;
-    m_position = Node::Position::relinkOrClone(childPositionHash, cache, &cloned);
-    if (!m_position || cloned) {
+    bool madeUnique = false;
+    m_position = Node::Position::relinkOrMakeUnique(childPositionHash, cache, &madeUnique);
+    if (!m_position || madeUnique) {
         m_position = cache->newNodePosition(childPositionHash);
         if (!m_position) {
             qFatal("Fatal error: we have run out of positions in memory!");
@@ -204,7 +208,7 @@ void Node::setPosition(Node::Position *position)
 #endif
 }
 
-bool Node::deinitialize(bool forcedFree)
+void Node::deinitialize(bool forcedFree)
 {
     Cache *cache = Cache::globalInstance();
     if (Node *parent = this->parent()) {
@@ -225,8 +229,8 @@ bool Node::deinitialize(bool forcedFree)
     for (int i = 0; i < m_children.count(); ++i)
         cache->unlinkNode(m_children.at(i));
 
-    if (m_position && m_position->transposition() == this)
-        m_position->clearTransposition();
+    if (m_position && m_position->canonicalNode() == this)
+        m_position->clearCanonicalNode();
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -243,14 +247,12 @@ bool Node::deinitialize(bool forcedFree)
     m_position = nullptr;
     m_isDirty = false;
     m_children.clear();
-
-    return true;
 }
 
 void Node::updateTranspositions() const
 {
-    if (!m_position->transposition())
-        m_position->updateTransposition(const_cast<const Node*>(this));
+    if (!m_position->canonicalNode())
+        m_position->updateCanonicalNode(const_cast<const Node*>(this));
 
     for (int i = 0; i < m_children.count(); ++i)
         m_children.at(i)->updateTranspositions();
@@ -544,8 +546,8 @@ void Node::trimUnscoredFromTree(Node *node)
         if (!child->m_visited && child->isDirty()) {
             Q_ASSERT(child->m_children.isEmpty());
             --node->m_potentialIndex;
-            if (child->m_position && child->m_position->transposition() == child)
-                child->m_position->clearTransposition(); // Unpins the position
+            if (child->m_position && child->m_position->canonicalNode() == child)
+                child->m_position->clearCanonicalNode(); // Unpins the position
             it.remove();                    // deletes ourself from our parent
             child->m_position = nullptr;    // unpins the node
             child->m_parent = nullptr;      // make sure to nullify our parent
@@ -804,7 +806,7 @@ void Node::generatePotentials()
 
     Q_ASSERT(m_position);
     Q_ASSERT(m_position->potentials()->isEmpty());
-    Q_ASSERT(m_position->transposition() == this);
+    Q_ASSERT(m_position->canonicalNode() == this);
 
     m_position->position().pseudoLegalMoves(this);
 

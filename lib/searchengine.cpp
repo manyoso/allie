@@ -64,7 +64,8 @@ void actualFetchFromNN(Batch *batch)
         Q_ASSERT(node->hasPotentials());
         node->setRawQValue(-computation->qVal(index));
         if (node->hasPotentials()) {
-            Q_ASSERT(node->position()->transposition() == node);
+            Q_ASSERT(!node->isExact());
+            Q_ASSERT(!node->isTransposition());
             computation->setPVals(index, node);
         }
     }
@@ -317,7 +318,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     qDebug() << "adding regular playout" << playout->toString();
 #endif
 
-    // If we *re-encounter* a true term node that overrides the NN (checkmate/stalemate/drawish...)
+    // If we *re-encounter* an exact node that overrides the NN (checkmate/stalemate/drawish...)
     // then let's just *reset* (which is noop since it is exact) the value, increment and propagate
     // which is *not* noop
     if (playout->isExact()) {
@@ -334,34 +335,36 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     // Check if we have found a draw by move clock or threefold
     if (playout->checkMoveClockOrThreefold()) {
         // This can never be a transposition as it depends upon information not found in the
-        // generic position, but rather depend upon game specific context
-        cache->nodePositionClone(hash);
+        // generic position, but rather depends upon game specific context
+        cache->nodePositionMakeUnique(hash);
         playout->backPropagateDirty();
         return false;
     }
 
     // Check if we can find a transposition now
-    const Node *transposition = playout->position()->transposition();
-    Q_ASSERT(transposition);
-    Q_ASSERT(transposition->position() == playout->position());
-    if (!SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions)) {
-        // If we are using another transposition, then it *must* already have a qValue or it would
-        // have been cloned and made unique when this playout first got its position
-        Q_ASSERT(transposition == playout || transposition->visits());
+    {
+        const Node *canonicalNode = playout->position()->canonicalNode();
+        Q_ASSERT(canonicalNode);
+        Q_ASSERT(canonicalNode->position() == playout->position());
+        if (!SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions)) {
+            // If we are using another canonical node, then it *must* already have a qValue or it
+            // would have been made unique when this playout first got its position
+            Q_ASSERT(canonicalNode == playout || canonicalNode->visits());
 
-        // We can go ahead and use the transposition iff it is not this playout OR if it is this
-        // playout AND it already has a rawQValue
-        if ((transposition != playout) ||
-            (transposition == playout && transposition->hasRawQValue())) {
+            // We can go ahead and use the transposition iff it is not this playout OR if it is this
+            // playout AND it already has legit scored other than for FPU
+            if ((canonicalNode != playout) ||
+                (canonicalNode == playout && playout->position()->hasRawQValue())) {
 #if defined(DEBUG_PLAYOUT)
-            qDebug() << "found cached playout" << playout->toString();
+                qDebug() << "found cached playout" << playout->toString();
 #endif
-            // It is possible this is a transposition of a terminal node, but we only know that if
-            // the transposition has no potentials, but we don't mark whether this is a checkmate
-            // or a stalemate or TB drawn or deadPosition or what
-            playout->m_isExact = !playout->hasPotentials();
-            playout->backPropagateDirty();
-            return false;
+                // It is possible this is a transposition of a terminal node, but we only know that
+                // if the position has no potentials, but we don't mark whether this is a checkmate
+                // or a stalemate or TB drawn or deadPosition or what
+                playout->m_isExact = !playout->hasPotentials();
+                playout->backPropagateDirty();
+                return false;
+            }
         }
     }
 

@@ -39,7 +39,10 @@ template <class T>
 extern bool isPinned(const T &object);
 
 template <class T>
-extern bool shouldClone(const T &object);
+extern bool shouldMakeUnique(const T &object);
+
+template <class T>
+inline void setUniqueFlag(T &object);
 
 template <class T>
 class FixedSizeArena {
@@ -154,8 +157,8 @@ public:
     void reset(int positions);
     bool contains(quint64 hash) const;
     T *object(quint64 hash);
-    T *objectClone(quint64 hash);
-    T *objectRelinkOrClone(quint64 hash, bool *cloned);
+    T *objectMakeUnique(quint64 hash);
+    T *objectRelinkOrMakeUnique(quint64 hash, bool *madeUnique);
     T *newObject(quint64 hash);
     void unlink(quint64 hash);
     float percentFull(int halfMoveNumber) const;
@@ -308,11 +311,9 @@ inline typename FixedSizeCache<T>::ObjectInfo* FixedSizeCache<T>::unlinkFromUsed
     ObjectInfo &info = *unpinned;
 
     // Remove from actual hash
-    if (!info.object.deinitialize(true /*forcedFree*/))
-        return nullptr;
-
     Q_ASSERT(m_cache.count(fixedHash(info.object)));
     m_cache.erase(fixedHash(info.object));
+    info.object.deinitialize(true /*forcedFree*/);
 
     // Update first and last
     if (m_first == &info) {
@@ -412,11 +413,10 @@ template <class T>
 inline void FixedSizeCache<T>::relinkToUnused(ObjectInfo &info, quint64 hash)
 {
     // Remove from actual hash
-    bool success = info.object.deinitialize(false /*forcedFree*/);
-    Q_ASSERT(success);
     Q_ASSERT(m_cache.count(hash));
     Q_ASSERT(fixedHash(info.object) == hash);
     m_cache.erase(hash);
+    info.object.deinitialize(false /*forcedFree*/);
 
     // Possibly update first and last
     if (m_first == &info) {
@@ -465,7 +465,7 @@ inline T *FixedSizeCache<T>::object(quint64 hash)
 }
 
 template <class T>
-inline T *FixedSizeCache<T>::objectClone(quint64 hash)
+inline T *FixedSizeCache<T>::objectMakeUnique(quint64 hash)
 {
     Q_ASSERT(m_maxSize);
     Q_ASSERT(m_cache.count(hash));
@@ -476,11 +476,12 @@ inline T *FixedSizeCache<T>::objectClone(quint64 hash)
 
     m_cache.erase(hash);
     m_cache.insert({hash ^ reinterpret_cast<quint64>(&(info->object)), info});
+    setUniqueFlag(info->object);
     return &(info->object);
 }
 
 template <class T>
-inline T *FixedSizeCache<T>::objectRelinkOrClone(quint64 hash, bool *cloned)
+inline T *FixedSizeCache<T>::objectRelinkOrMakeUnique(quint64 hash, bool *madeUnique)
 {
     Q_ASSERT(m_maxSize);
     Q_ASSERT(m_cache.count(hash));
@@ -489,12 +490,13 @@ inline T *FixedSizeCache<T>::objectRelinkOrClone(quint64 hash, bool *cloned)
     if (!info)
         return nullptr;
 
-    if (shouldClone(info->object)) {
-        // Clone by using hash ^ address of object, thereby freeing up the hash
+    if (shouldMakeUnique(info->object)) {
+        // Make unique by using hash ^ address of object, thereby freeing up the hash
         // to be used by something else
         m_cache.erase(hash);
         m_cache.insert({hash ^ reinterpret_cast<quint64>(&(info->object)), info});
-        *cloned = true;
+        setUniqueFlag(info->object);
+        *madeUnique = true;
     } else {
         relinkToUsed(*info);
     }
@@ -560,8 +562,8 @@ public:
 
     bool containsNodePosition(quint64 hash) const;
     Node::Position *nodePosition(quint64 hash);
-    Node::Position *nodePositionClone(quint64 hash);
-    Node::Position *nodePositionRelinkOrClone(quint64 hash, bool *cloned);
+    Node::Position *nodePositionMakeUnique(quint64 hash);
+    Node::Position *nodePositionRelinkOrMakeUnique(quint64 hash, bool *madeUnique);
     Node::Position *newNodePosition(quint64 hash);
     void unlinkNodePosition(quint64 hash);
 
@@ -621,14 +623,14 @@ inline Node::Position *Cache::nodePosition(quint64 hash)
     return m_positionCache.object(hash);
 }
 
-inline Node::Position *Cache::nodePositionClone(quint64 hash)
+inline Node::Position *Cache::nodePositionMakeUnique(quint64 hash)
 {
-    return m_positionCache.objectClone(hash);
+    return m_positionCache.objectMakeUnique(hash);
 }
 
-inline Node::Position *Cache::nodePositionRelinkOrClone(quint64 hash, bool *cloned)
+inline Node::Position *Cache::nodePositionRelinkOrMakeUnique(quint64 hash, bool *madeUnique)
 {
-    return m_positionCache.objectRelinkOrClone(hash, cloned);
+    return m_positionCache.objectRelinkOrMakeUnique(hash, madeUnique);
 }
 
 inline Node::Position *Cache::newNodePosition(quint64 hash)

@@ -70,7 +70,7 @@ inline void Tree::validateTree(Node *node, int *total)
     Q_ASSERT(node->visits());
     Q_ASSERT(node->isRootNode() || node->hasPValue());
     Q_ASSERT(node->position());
-    Q_ASSERT(node->position()->transposition());
+    Q_ASSERT(node->position()->canonicalNode());
     const QVector<Node*> children = *node->children();
     for (Node *child : children)
         validateTree(child, total);

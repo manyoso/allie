@@ -149,29 +149,40 @@ public:
         ~Position();
 
         void initialize(Node *node, const Game::Position &position);
-        bool deinitialize(bool forcedFree);
-        static Node::Position *relinkOrClone(quint64 positionHash, Cache *cache, bool *cloned);
-        inline void clearTransposition() { m_transpositionNode = nullptr; }
-        inline const Node* transposition() const { return m_transpositionNode; }
-        inline void updateTransposition(const Node *node)
+        void deinitialize(bool forcedFree);
+        static Node::Position *relinkOrMakeUnique(quint64 positionHash, Cache *cache, bool *madeUnique);
+        inline void clearCanonicalNode() { m_canonicalNode = nullptr; }
+        inline const Node* canonicalNode() const { return m_canonicalNode; }
+        inline void updateCanonicalNode(const Node *node)
         {
-            m_transpositionNode = node;
-            Q_ASSERT(m_transpositionNode->position() == this);
+            m_canonicalNode = node;
+            Q_ASSERT(m_canonicalNode->position() == this);
         }
         inline bool hasPotentials() const { return !m_potentials.isEmpty(); }
         inline QVector<Potential> *potentials() { return &m_potentials; }
         inline const QVector<Potential> *potentials() const { return &m_potentials; }
         inline const Game::Position &position() const { return m_position; }
-        inline quint64 positionHash() const { return m_position.positionHash(); }
+        inline quint64 positionHash() const
+        {
+            quint64 positionHash = m_position.positionHash();
+            if (isUnique())
+                positionHash ^= reinterpret_cast<quint64>(this);
+            return positionHash;
+        }
         inline bool hasRawQValue() const { return !qFuzzyCompare(m_rawQValue, -2.0f); }
         inline float rawQValue() const { return m_rawQValue; }
         inline void setRawQValue(float rawQvalue) { m_rawQValue = rawQvalue; }
 
+        // Indicates whether the position can ever be used by transpositions
+        inline bool isUnique() const { return m_isUnique; }
+        inline void setUnique(bool b) { m_isUnique = b; }
+
     private:
         Game::Position m_position;
-        const Node* m_transpositionNode;
+        const Node* m_canonicalNode;
         QVector<Potential> m_potentials;
         float m_rawQValue;
+        bool m_isUnique : 1;
         friend class Node;
         friend class Tests;
     };
@@ -189,11 +200,12 @@ public:
     void initialize(Node *parent, const Game &game);
     quint64 initializePosition(Cache *cache);
     void setPosition(Node::Position *position);
-    bool deinitialize(bool forcedFree);
+    void deinitialize(bool forcedFree);
     void updateTranspositions() const;
 
     int treeDepth() const;
     bool isExact() const;
+    bool isTransposition() const;
     bool isTrueTerminal() const;
     bool isTB() const;
     bool isDirty() const;
@@ -322,6 +334,13 @@ inline int Node::treeDepth() const
 inline bool Node::isExact() const
 {
     return m_isExact;
+}
+
+inline bool Node::isTransposition() const
+{
+    Q_ASSERT(m_position);
+    // If we are not our position's canonical node, then we are just a transposition
+    return m_position->canonicalNode() != this;
 }
 
 inline bool Node::isTrueTerminal() const
@@ -541,7 +560,7 @@ inline quint64 fixedHash(const Node::Position &position)
 
 inline bool isPinned(const Node::Position &position)
 {
-    return position.transposition();
+    return position.canonicalNode();
 }
 
 inline bool isPinned(Node *node)
@@ -549,10 +568,15 @@ inline bool isPinned(Node *node)
     return node->position();
 }
 
-inline bool shouldClone(const Node::Position &position)
+inline bool shouldMakeUnique(const Node::Position &position)
 {
-    Q_ASSERT(position.transposition() || position.hasRawQValue());
-    return position.transposition() && (!position.transposition()->visits());
+    Q_ASSERT(position.canonicalNode() || position.hasRawQValue());
+    return position.canonicalNode() && !position.canonicalNode()->visits();
+}
+
+inline void setUniqueFlag(Node::Position &position)
+{
+    position.setUnique(true);
 }
 
 QDebug operator<<(QDebug debug, const Node &node);
