@@ -474,7 +474,11 @@ void UciEngine::sendBestMove()
     stopTheClock();
 
     const qint64 extraBudgetedTime = qMax(qint64(0), m_clock->timeToDeadline());
-    m_clock->setExtraBudgetedTime(extraBudgetedTime / float(m_clock->deadline()) / float(SearchSettings::openingTimeFactor));
+    const qint64 deadline = qMax(qint64(0), m_clock->deadline());
+    m_clock->setExtraBudgetedTime(!deadline ? 0 :
+        extraBudgetedTime / float(m_clock->deadline()) /
+            float(SearchSettings::openingTimeFactor));
+
 #if defined(DEBUG_TIME)
     {
         QString out;
