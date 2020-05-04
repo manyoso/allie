@@ -681,6 +681,7 @@ void SearchEngine::reset()
 void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
 {
     QMutexLocker locker(&m_mutex);
+    Q_ASSERT(m_stop);
 
     // Remove the old root if it exists
     m_tree->clearRoot();
@@ -746,7 +747,9 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
 
     if (onlyLegalMove) {
         requestStop(true /*isEarlyExit*/);
-    } else {
+    } else if (!m_stop) {
+        // We check if we've already been requested to stop as the sendInfo above and a very low
+        // clock might have already stopped the search before the worker can even get started
         Q_ASSERT(m_worker);
         m_worker->startWorker(m_tree, m_searchId, depthTargeted, nodesTargeted, info);
         m_startedWorker = true;

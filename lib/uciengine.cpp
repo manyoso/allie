@@ -824,6 +824,8 @@ void UciEngine::parseOption(const QString &line)
 
 void UciEngine::go(const Search& s)
 {
+    Q_ASSERT(m_searchEngine->isStopped());
+
     //qDebug() << "go";
     if (!m_gameInitialized)
         uciNewGame();
