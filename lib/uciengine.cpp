@@ -414,11 +414,11 @@ void UciEngine::stopTheClock()
     m_clock->stop();
 }
 
-void UciEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
+void UciEngine::startSearch(const Search &s)
 {
     Q_ASSERT(m_searchEngine && m_gameInitialized);
     if (m_searchEngine)
-        m_searchEngine->startSearch(depthTargeted, nodesTargeted);
+        m_searchEngine->startSearch(s);
 }
 
 void UciEngine::stopSearch()
@@ -775,14 +775,14 @@ void UciEngine::parseGo(const QString &line)
 
     Search search;
     if ((index = goLine.indexOf("searchmoves")) != -1) {
-        while (index++ < goLine.count()) {
+        while (++index < goLine.count()) {
             QString move = goLine.at(index);
             if (move.count() < 4 || !move.at(0).isLetter() || !move.at(1).isNumber())
                 break;
 
             Move mv = Notation::stringToMove(move, Chess::Computer);
             if (mv.isValid())
-                search.searchMoves << mv;
+                search.searchMoves << move;
         }
     }
 
@@ -858,7 +858,7 @@ void UciEngine::go(const Search& s)
            << endl;
     output(out);
 #endif
-    startSearch(s.depth, s.nodes);
+    startSearch(s);
 }
 
 void UciEngine::input(const QString &in)

@@ -27,7 +27,7 @@
 #include "game.h"
 
 struct Search {
-    QVector<Move> searchMoves;
+    QVector<QString> searchMoves;
     qint64 wtime = -1;
     qint64 btime = -1;
     qint64 winc = -1;

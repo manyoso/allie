@@ -178,8 +178,6 @@ void GPUWorker::run()
 
 SearchWorker::SearchWorker(QObject *parent)
     : QObject(parent),
-      m_depthTargeted(-1),
-      m_nodesTargeted(-1),
       m_totalPlayouts(0),
       m_resumedPlayouts(0),
       m_moveNode(nullptr),
@@ -208,17 +206,15 @@ void SearchWorker::stopSearch()
     m_stop = true;
 }
 
-void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, qint64 nodesTargeted,
-    const SearchInfo &info)
+void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const SearchInfo &info)
 {
     // Reset state
     m_tree = tree;
     m_searchId = searchId;
     m_maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
     m_currentBatchSize = m_maximumBatchSize;
-    m_depthTargeted = depthTargeted;
-    m_nodesTargeted = nodesTargeted;
     m_totalPlayouts = 0;
+    m_search = s;
     m_currentInfo = info;
     m_currentInfo.workerInfo.searchId = searchId;
     Node *root = m_tree->embodiedRoot();
@@ -387,7 +383,7 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
     Cache *hash = Cache::globalInstance();
     while (batch->count() < m_currentBatchSize) {
         // Check if the we are out of nodes
-        if (hash->used() == hash->size() || m_totalPlayouts == m_nodesTargeted) {
+        if (hash->used() == hash->size() || m_totalPlayouts == m_search.nodes) {
             *hardExit = true;
             break;
         }
@@ -455,6 +451,32 @@ void SearchWorker::ensureRootAndChildrenScored()
         bool didWork = false;
         QVector<Node *> children;
         Node *root = m_tree->embodiedRoot();
+
+        // Filter the root children if necessary
+        if (!m_search.searchMoves.isEmpty()) {
+            float total = 0;
+            QVector<Node::Potential> *potentials = root->position()->potentials();
+            QMutableVectorIterator<Node::Potential> it(*potentials);
+            while (it.hasNext()) {
+                Node::Potential p = it.next();
+                if (!m_search.searchMoves.contains(Notation::moveToString(p.move(), Chess::Computer)))
+                    it.remove();
+                else
+                    total += p.pValue();
+            }
+
+            // Rescale the pVals if necessary
+            const float scale = 1.0f / total;
+            for (int i = 0; i < potentials->size(); ++i) {
+                // We get a non-const reference to the actual value and change it in place
+                const Node::Potential *potential = &(*potentials)[i];
+                const_cast<Node::Potential*>(potential)->setPValue(scale * potential->pValue());
+            }
+
+            // Make it unique so the position can not be reused since we are fundamentally altering
+            hash->nodePositionMakeUnique(root->position()->positionHash());
+        }
+
         for (int i = root->m_potentialIndex; i < root->m_position->potentials()->count(); ++i) {
             Node::NodeGenerationError error = Node::NoError;
             Node *child = root->generateNextChild(Cache::globalInstance(), &error);
@@ -537,9 +559,9 @@ void SearchWorker::processWorkerInfo()
     const bool hasNewMove = best != m_moveNode;
     isPartial = hasNewMove ? false : isPartial;
 
-    m_currentInfo.workerInfo.hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
-    m_currentInfo.workerInfo.targetReached = (m_depthTargeted != -1 && m_currentInfo.depth >= m_depthTargeted)
-        || (m_nodesTargeted != -1 && qint64(m_currentInfo.workerInfo.nodesVisited) >= m_nodesTargeted);
+    m_currentInfo.workerInfo.hasTarget = m_search.depth != -1 || m_search.nodes != -1;
+    m_currentInfo.workerInfo.targetReached = (m_search.depth != -1 && m_currentInfo.depth >= m_search.depth)
+        || (m_search.nodes != -1 && qint64(m_currentInfo.workerInfo.nodesVisited) >= m_search.nodes);
 
     // If we've set a target, make sure that root is not completely played out, otherwise set
     // target reached flag to true
@@ -690,7 +712,7 @@ void SearchEngine::reset()
             this, &SearchEngine::receivedRequestStop);
 }
 
-void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
+void SearchEngine::startSearch(const Search &search)
 {
     QMutexLocker locker(&m_mutex);
     Q_ASSERT(m_stop);
@@ -766,7 +788,7 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
         // We check if we've already been requested to stop as the sendInfo above and a very low
         // clock might have already stopped the search before the worker can even get started
         Q_ASSERT(m_worker);
-        m_worker->startWorker(m_tree, m_searchId, depthTargeted, nodesTargeted, info);
+        m_worker->startWorker(m_tree, m_searchId, search, info);
         m_startedWorker = true;
     }
 }
