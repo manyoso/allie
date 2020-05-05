@@ -538,7 +538,7 @@ void SearchWorker::processWorkerInfo()
 
     m_currentInfo.workerInfo.hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
     m_currentInfo.workerInfo.targetReached = (m_depthTargeted != -1 && m_currentInfo.depth >= m_depthTargeted)
-        || (m_nodesTargeted != -1 && qint64(m_currentInfo.nodes) >= m_nodesTargeted);
+        || (m_nodesTargeted != -1 && qint64(m_currentInfo.workerInfo.nodesVisited) >= m_nodesTargeted);
     isPartial = m_currentInfo.workerInfo.targetReached ? false : isPartial;
 
     // Check for an early exit
