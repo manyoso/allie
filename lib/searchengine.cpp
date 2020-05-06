@@ -103,46 +103,41 @@ void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
 
 Batch *GuardedBatchQueue::acquireIn()
 {
-    QMutexLocker locker(&m_mutex);
+    QMutexLocker locker(&m_inMutex);
     while (m_inQueue.isEmpty() && !m_stop)
-        m_condition.wait(locker.mutex());
+        m_inCondition.wait(locker.mutex());
     if (m_stop)
         return nullptr;
-    ++m_processing;
     return m_inQueue.takeFirst();
 }
 
 void GuardedBatchQueue::releaseIn(Batch *batch)
 {
-    QMutexLocker locker(&m_mutex);
+    QMutexLocker locker(&m_inMutex);
     m_inQueue.append(batch);
-    m_condition.wakeAll();
+    m_inCondition.wakeOne();
 }
 
 Batch *GuardedBatchQueue::acquireOut()
 {
-    QMutexLocker locker(&m_mutex);
-    if (m_inQueue.isEmpty() && m_outQueue.isEmpty() && !m_processing)
-        return nullptr;
-
+    QMutexLocker locker(&m_outMutex);
     while (m_outQueue.isEmpty())
-        m_condition.wait(locker.mutex());
+        m_outCondition.wait(locker.mutex());
     return m_outQueue.takeFirst();
 }
 
 void GuardedBatchQueue::releaseOut(Batch *batch)
 {
-    QMutexLocker locker(&m_mutex);
+    QMutexLocker locker(&m_outMutex);
     m_outQueue.append(batch);
-    --m_processing;
-    m_condition.wakeAll();
+    m_outCondition.wakeOne();
 }
 
 void GuardedBatchQueue::stop()
 {
-    QMutexLocker locker(&m_mutex);
+    QMutexLocker locker(&m_inMutex);
     m_stop = true;
-    m_condition.wakeAll();
+    m_inCondition.wakeAll();
 }
 
 GPUWorker::GPUWorker(GuardedBatchQueue *queue, int maximumBatchSize,
@@ -260,8 +255,7 @@ void SearchWorker::waitForFetched()
 {
     Q_ASSERT(m_batchPool.count() != m_gpuWorkers.count());
     Batch *batch = m_queue.acquireOut(); // blocks
-    if (!batch)
-        qFatal("search main thread is waiting for a batch that is never coming!");
+    Q_ASSERT(batch);
     minimaxBatch(batch, m_tree);
     m_batchPool.append(batch);
     Q_ASSERT(!m_batchPool.isEmpty());

@@ -51,11 +51,12 @@ public:
 
 private:
     bool m_stop = false;
-    int m_processing = 0;
     BatchQueue m_inQueue;
     BatchQueue m_outQueue;
-    QMutex m_mutex;
-    QWaitCondition m_condition;
+    QMutex m_inMutex;
+    QMutex m_outMutex;
+    QWaitCondition m_inCondition;
+    QWaitCondition m_outCondition;
 };
 
 class GPUWorker : public QThread {
