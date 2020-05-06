@@ -774,7 +774,7 @@ void Tests::testDoNotPropagateDrawnAsExact()
     Tree tree;
     Node *root = tree.embodiedRoot();
     root->setRawQValue(0.0f);
-    root->setQValueAndPropagate();
+    root->setQValueAndVisit();
     QVERIFY(root);
 
     Node::NodeGenerationError error = Node::NoError;
@@ -783,7 +783,7 @@ void Tests::testDoNotPropagateDrawnAsExact()
     QCOMPARE(Node::NoError, error);
     b7b8->initializePosition(Cache::globalInstance());
     b7b8->setRawQValue(0.0f);
-    b7b8->setQValueAndPropagate();
+    b7b8->setQValueAndVisit();
     b7b8->generatePotentials();
 
     Node *a8a7 = nullptr;
@@ -817,7 +817,9 @@ void Tests::testDoNotPropagateDrawnAsExact()
 
     bool isExact = false;
     WorkerInfo info;
-    Node::minimax(b7b8, 0, &isExact, &info);
+    double newScores = 0;
+    quint32 newVisits = 0;
+    Node::minimax(b7b8, 0, &isExact, &info, &newScores, &newVisits);
 
     // This is the whole point. We do not want to propagate a draw here as it is possible that upon
     // further playouts of other siblings that they will no longer be losing and could be winning.

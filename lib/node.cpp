@@ -267,7 +267,7 @@ Node *Node::bestChild() const
     return children.first();
 }
 
-void Node::scoreMiniMax(float score, bool isExact)
+void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 newVisits)
 {
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
     Q_ASSERT(!m_isExact || isExact);
@@ -276,13 +276,17 @@ void Node::scoreMiniMax(float score, bool isExact)
         m_qValue = score;
         setRawQValue(score);
     } else {
-        m_qValue = qBound(-1.f, (m_visited * m_qValue + score) / float(m_visited + 1), 1.f);
+        if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
+            m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
+        else
+            m_qValue = qBound(-1.f, float(m_visited * m_qValue + newScores) / float(m_visited + newVisits), 1.f);
     }
+    incrementVisited(newVisits);
 }
 
-void Node::incrementVisited()
+void Node::incrementVisited(quint32 increment)
 {
-    ++m_visited;
+    m_visited += increment;
     const quint32 N = qMax(quint32(1), m_visited);
 #if defined(USE_CPUCT_SCALING)
     // From Deepmind's A0 paper
@@ -296,43 +300,18 @@ void Node::incrementVisited()
     m_isDirty = false;
 }
 
-void Node::backPropagateValue(float v)
-{
-    Q_ASSERT(m_visited);
-    Q_ASSERT(!m_isExact);
-    const float currentQValue = m_qValue;
-    m_qValue = qBound(-1.f, (m_visited * currentQValue + v) / float(m_visited + 1), 1.f);
-    incrementVisited();
-#if defined(DEBUG_FETCHANDBP)
-    qDebug() << "bp " << toString() << " n:" << m_visited
-        << "v:" << v << "oq:" << currentQValue << "fq:" << m_qValue;
-#endif
-}
-
-void Node::backPropagateValueFull()
-{
-    float v = qValue();
-    Node *parent = this->parent();
-    while (parent) {
-        v = -v; // flip
-        parent->backPropagateValue(v);
-        parent = parent->parent();
-    }
-}
-
-void Node::setQValueAndPropagate()
+void Node::setQValueAndVisit()
 {
     Q_ASSERT(hasRawQValue());
     Node *parent = this->parent();
     if (parent && !m_visited)
         parent->m_policySum += pValue();
     setQValueFromRaw();
-    incrementVisited();
+    incrementVisited(1);
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "bp " << toString() << " n:" << m_visited
         << "v:" << rawQValue() << "oq:" << 0.0 << "fq:" << m_qValue;
 #endif
-    backPropagateValueFull();
 }
 
 void Node::backPropagateDirty()
@@ -416,7 +395,8 @@ bool Node::isThreeFold() const
     return repetitions() >= 2;
 }
 
-float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
+float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
+    double *newScores, quint32 *newVisits)
 {
     Q_ASSERT(node);
     Q_ASSERT(node->hasRawQValue());
@@ -434,7 +414,9 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
         if (node->m_isTB)
             ++(info->nodesTBHits);
         *isExact = nodeIsExact;
-        node->setQValueAndPropagate();
+        node->setQValueAndVisit();
+        *newScores += node->rawQValue();
+        ++(*newVisits);
         return node->m_qValue;
     }
 
@@ -449,7 +431,9 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
         // If this node has children and was proven to be an exact node, then it is possible that
         // recently leafs have been made to we must trim the tree of any leafs
         trimUnscoredFromTree(node);
-        node->setQValueAndPropagate();
+        node->setQValueAndVisit();
+        *newScores += node->rawQValue();
+        ++(*newVisits);
         return node->m_qValue;
     }
 
@@ -471,6 +455,8 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
     // Search the children
     float best = -2.0f;
     bool bestIsExact = false;
+    double newScoresForChildren = 0;
+    quint32 newVisitsForChildren = 0;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
         Q_ASSERT(child);
@@ -483,7 +469,8 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
         Q_ASSERT(child->hasRawQValue());
 
         bool subtreeIsExact = false;
-        float score = minimax(child, depth + 1, &subtreeIsExact, info);
+        float score = minimax(child, depth + 1, &subtreeIsExact, info,
+            &newScoresForChildren, &newVisitsForChildren);
 
         // Check if we have a new best child
         if (score > best) {
@@ -497,8 +484,9 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info)
     const bool shouldPropagateExact = bestIsExact && best > 0 && !node->isRootNode();
 
     // Score the node based on minimax of children
-    if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
-        node->scoreMiniMax(-best, shouldPropagateExact);
+    *newVisits += newVisitsForChildren;
+    *newScores += -newScoresForChildren;
+    node->scoreMiniMax(-best, shouldPropagateExact, -newScoresForChildren, newVisitsForChildren);
 
     // Record info
     ++(info->nodesSearched);
@@ -751,7 +739,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
         ++m_visited;
     }
 
-    child->setQValueAndPropagate();
+    child->setQValueAndVisit();
     return true;
 }
 

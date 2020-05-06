@@ -191,7 +191,8 @@ public:
     ~Node();
 
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
-    static float minimax(Node *, quint32 depth, bool *isExact, WorkerInfo *info);
+    static float minimax(Node *, quint32 depth, bool *isExact, WorkerInfo *info,
+        double *newScores, quint32 *newVisits);
     static void validateTree(const Node *);
     static void trimUnscoredFromTree(Node *);
     static float uctFormula(float qValue, float uValue);
@@ -222,12 +223,12 @@ public:
     inline QVector<Node*> *children() { return &m_children; }
     inline const QVector<Node*> *children() const { return &m_children; }
 
-    void scoreMiniMax(float score, bool isExact);
+    void scoreMiniMax(float score, bool isExact, double newScores, quint32 increment);
     bool isAlreadyPlayingOut() const;
 
     int count() const;
 
-    void incrementVisited();
+    void incrementVisited(quint32 increment);
 
     // child generation
     enum NodeGenerationError {
@@ -253,7 +254,7 @@ public:
     // back propagation
     void backPropagateValue(float qValue);
     void backPropagateValueFull();
-    void setQValueAndPropagate();
+    void setQValueAndVisit();
     void backPropagateDirty();
 
     QVector<Game> previousMoves(bool fullHistory) const; // slow
