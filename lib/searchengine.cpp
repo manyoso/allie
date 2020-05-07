@@ -21,9 +21,6 @@
 #include "searchengine.h"
 
 #include <QtMath>
-#include <QThreadPool>
-#include <QtConcurrent/QtConcurrent>
-#include <QFuture>
 
 #include "cache.h"
 #include "game.h"
@@ -606,7 +603,6 @@ WorkerThread::WorkerThread()
                      worker, &SearchWorker::deleteLater);
     QObject::connect(this, &WorkerThread::startWorker,
                      worker, &SearchWorker::startSearch);
-    QThreadPool::globalInstance()->reserveThread();
 }
 
 WorkerThread::~WorkerThread()

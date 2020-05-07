@@ -21,8 +21,6 @@
 #ifndef TREE_H
 #define TREE_H
 
-#include <QMutex>
-
 #include "cache.h"
 #include "game.h"
 #include "node.h"
@@ -41,7 +39,6 @@ public:
     static void validateTree(Node *node, int *total);
 
 private:
-    QMutex m_treeMutex;
     Node *m_root;
     bool m_resumePreviousPositionIfPossible;
 };

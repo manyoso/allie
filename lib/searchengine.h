@@ -169,7 +169,6 @@ Q_SIGNALS:
 
 private:
     void resetSearch(const Search &search);
-    bool tryResumeSearch(const Search &search);
 
     Tree *m_tree;
     quint32 m_searchId;
