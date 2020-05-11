@@ -401,8 +401,6 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     Q_ASSERT(node);
     Q_ASSERT(node->hasRawQValue());
 
-    const bool nodeIsExact = node->isExact();
-
     // First we look to see if this node has been scored
     if (!node->m_visited) {
         // Record info
@@ -413,7 +411,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         info->maxDepth = qMax(info->maxDepth, depth);
         if (node->m_isTB)
             ++(info->nodesTBHits);
-        *isExact = nodeIsExact;
+        *isExact = node->isExact();
         node->setQValueAndVisit();
         *newScores += node->rawQValue();
         ++(*newVisits);
@@ -421,13 +419,13 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     }
 
     // Next look if it is a dirty terminal
-    if (nodeIsExact && node->m_isDirty) {
+    if (node->isExact() && node->m_isDirty) {
         // Record info
         ++(info->nodesSearched);
         ++(info->nodesVisited);
         if (node->m_isTB)
             ++(info->nodesTBHits);
-        *isExact = nodeIsExact;
+        *isExact = node->isExact();
         // If this node has children and was proven to be an exact node, then it is possible that
         // recently leafs have been made to we must trim the tree of any leafs
         trimUnscoredFromTree(node);
@@ -438,14 +436,14 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     }
 
     // If we are an exact node, then we are terminal so just return the score
-    if (nodeIsExact) {
-        *isExact = nodeIsExact;
+    if (node->isExact()) {
+        *isExact = node->isExact();
         return node->m_qValue;
     }
 
     // However, if the subtree is not dirty, then we can just return our score
     if (!node->m_isDirty) {
-        *isExact = nodeIsExact;
+        *isExact = node->isExact();
         return node->m_qValue;
     }
 
