@@ -43,6 +43,8 @@ TB::~TB()
 
 void TB::reset()
 {
+    // FIXME: Fathom does not reset this!!
+    TB_LARGEST = 0;
     const QString path = Options::globalInstance()->option("SyzygyPath").value();
     bool success = tb_init(path.toLatin1().constData());
     m_enabled = success && TB_LARGEST;

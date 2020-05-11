@@ -119,7 +119,7 @@ void Options::addRegularOptions()
     featuresOff.m_description = QLatin1String("Specify features to turn off for debugging purposes"
                                               " as a comma delineated list without spaces in lower"
                                               "case including 'threading,earlyexit,transpositions,"
-                                              "minimax'");
+                                              "minimax,treereuse'");
     insertOption(featuresOff);
 
     UciOption cache;

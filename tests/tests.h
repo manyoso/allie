@@ -119,6 +119,9 @@ private slots:
     void testTB();
     void testDoNotPropagateDrawnAsExact();
 
+    // Placed at the end because this turns off fathom and fathom is bugged
+    void testExhaustSearch();
+
     // TestMath
     void testFastLog();
     void testFastPow();

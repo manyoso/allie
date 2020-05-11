@@ -825,3 +825,30 @@ void Tests::testDoNotPropagateDrawnAsExact()
     // further playouts of other siblings that they will no longer be losing and could be winning.
     QVERIFY(!isExact);
 }
+
+void Tests::testExhaustSearch()
+{
+    const QLatin1String mateInOne = QLatin1String("position fen 8/8/8/8/6Q1/5K2/7k/8 w - - 49 90");
+
+    // Turn off tablebases for this one
+    Options::globalInstance()->setOption("SyzygyPath", QString());
+
+    UciEngine engine(this, QString());
+    UCIIOHandler handler(this);
+    engine.installIOHandler(&handler);
+
+    QSignalSpy bestMoveSpy(&handler, &UCIIOHandler::receivedBestMove);
+    engine.readyRead(mateInOne);
+    engine.readyRead(QLatin1String("go nodes 100000000"));
+    const bool receivedSignal = bestMoveSpy.isEmpty() ? bestMoveSpy.wait() : true;
+    if (!receivedSignal) {
+        QString message = QString("Did not receive signal for %1").arg(mateInOne);
+        QWARN(message.toLatin1().constData());
+        engine.readyRead(QLatin1String("stop"));
+    }
+    QVERIFY(receivedSignal);
+    QVERIFY2(handler.lastBestMove() == QLatin1String("g4g2"), QString("Result is %1")
+        .arg(handler.lastBestMove()).toLatin1().constData());
+    QVERIFY(handler.lastInfo().score == QLatin1String("mate 1")
+        || handler.lastInfo().score == QLatin1String("cp 25600"));
+}

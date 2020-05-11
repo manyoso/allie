@@ -30,29 +30,26 @@
 
 class Tree {
 public:
-    Tree(bool resumePreviousPositionIfPossible = true);
+    Tree();
     ~Tree();
 
     Node *embodiedRoot();
     void reset();
-    void clearRoot();
+    void clearRoot(bool resumeIfPossible = true);
     static void validateTree(Node *node, int *total);
 
 private:
     Node *m_root;
-    bool m_resumePreviousPositionIfPossible;
 };
 
-inline Tree::Tree(bool resumePreviousPositionIfPossible)
-    : m_root(nullptr),
-    m_resumePreviousPositionIfPossible(resumePreviousPositionIfPossible)
+inline Tree::Tree()
+    : m_root(nullptr)
 {
 }
 
 inline Tree::~Tree()
 {
-    m_resumePreviousPositionIfPossible = false;
-    clearRoot();
+    clearRoot(false /*resumeIfPossible*/);
 }
 
 inline void Tree::reset()
@@ -73,13 +70,13 @@ inline void Tree::validateTree(Node *node, int *total)
         validateTree(child, total);
 }
 
-inline void Tree::clearRoot()
+inline void Tree::clearRoot(bool resumeIfPossible)
 {
     const StandaloneGame rootGame = History::globalInstance()->currentGame();
     Cache &cache = *Cache::globalInstance();
 
     if (m_root) {
-        if (!m_resumePreviousPositionIfPossible) {
+        if (!resumeIfPossible) {
             cache.unlinkNode(m_root);
             m_root = nullptr;
         } else {

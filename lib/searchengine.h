@@ -114,6 +114,8 @@ private:
 
     qint64 m_depthTargeted;
     qint64 m_nodesTargeted;
+    qint64 m_totalPlayouts;
+    qint64 m_resumedPlayouts;
     const Node *m_moveNode;
     QElapsedTimer m_timer;
     int m_searchId;

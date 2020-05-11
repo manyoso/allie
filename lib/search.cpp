@@ -50,6 +50,8 @@ SearchSettings::Features SearchSettings::stringToFeatures(const QString &string)
             f.setFlag(SearchSettings::Transpositions, true);
         if (s == QLatin1String("minimax"))
             f.setFlag(SearchSettings::Minimax, true);
+        if (s == QLatin1String("treereuse"))
+            f.setFlag(SearchSettings::TreeReuse, true);
     }
     return f;
 }

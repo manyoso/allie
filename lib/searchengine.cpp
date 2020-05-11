@@ -179,6 +179,8 @@ SearchWorker::SearchWorker(QObject *parent)
     : QObject(parent),
       m_depthTargeted(-1),
       m_nodesTargeted(-1),
+      m_totalPlayouts(0),
+      m_resumedPlayouts(0),
       m_moveNode(nullptr),
       m_searchId(0),
       m_maximumBatchSize(0),
@@ -215,9 +217,11 @@ void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, q
     m_currentBatchSize = m_maximumBatchSize;
     m_depthTargeted = depthTargeted;
     m_nodesTargeted = nodesTargeted;
+    m_totalPlayouts = 0;
     m_currentInfo = info;
     m_currentInfo.workerInfo.searchId = searchId;
     Node *root = m_tree->embodiedRoot();
+    m_resumedPlayouts = root->visits();
     const Node *best = root->bestChild();
     m_moveNode = best;
     m_estimatedNodes = std::numeric_limits<quint32>::max();
@@ -248,6 +252,7 @@ void SearchWorker::startSearch(Tree *tree, int searchId, qint64 depthTargeted, q
 void SearchWorker::minimaxBatch(Batch *batch, Tree *tree)
 {
     actualMinimaxBatch(batch, tree, &m_currentInfo.workerInfo);
+    m_totalPlayouts = qMin(m_totalPlayouts, qint64(tree->embodiedRoot()->visits() - m_resumedPlayouts));
     processWorkerInfo();
 }
 
@@ -380,7 +385,7 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
     Cache *hash = Cache::globalInstance();
     while (batch->count() < m_currentBatchSize) {
         // Check if the we are out of nodes
-        if (hash->used() == hash->size()) {
+        if (hash->used() == hash->size() || m_totalPlayouts == m_nodesTargeted) {
             *hardExit = true;
             break;
         }
@@ -401,6 +406,7 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
             break;
 
         didWork = true;
+        ++m_totalPlayouts;
 
         bool shouldFetchFromNN = handlePlayout(playout, hash);
         if (!shouldFetchFromNN) {
@@ -437,6 +443,7 @@ void SearchWorker::ensureRootAndChildrenScored()
             bool shouldFetchFromNN = handlePlayout(root, hash);
             if (shouldFetchFromNN)
                 nodes.append(root);
+            ++m_totalPlayouts;
         }
         fetchAndMinimax(&nodes, true /*sync*/);
     }
@@ -460,6 +467,7 @@ void SearchWorker::ensureRootAndChildrenScored()
             bool shouldFetchFromNN = handlePlayout(child, hash);
             if (shouldFetchFromNN)
                 nodes.append(child);
+            ++m_totalPlayouts;
         }
 
         if (didWork)
@@ -532,6 +540,18 @@ void SearchWorker::processWorkerInfo()
     m_currentInfo.workerInfo.hasTarget = m_depthTargeted != -1 || m_nodesTargeted != -1;
     m_currentInfo.workerInfo.targetReached = (m_depthTargeted != -1 && m_currentInfo.depth >= m_depthTargeted)
         || (m_nodesTargeted != -1 && qint64(m_currentInfo.workerInfo.nodesVisited) >= m_nodesTargeted);
+
+    // If we've set a target, make sure that root is not completely played out, otherwise set
+    // target reached flag to true
+    if (m_currentInfo.workerInfo.hasTarget && !root->hasPotentials()) {
+        QVector<Node*> children = *root->children();
+        bool allAreExact = true;
+        for (Node *node : children)
+            allAreExact = node->isExact() ? allAreExact : false;
+        if (allAreExact)
+            m_currentInfo.workerInfo.targetReached = true;
+    }
+
     isPartial = m_currentInfo.workerInfo.targetReached ? false : isPartial;
 
     // Check for an early exit
@@ -675,15 +695,15 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
     QMutexLocker locker(&m_mutex);
     Q_ASSERT(m_stop);
 
-    // Remove the old root if it exists
-    m_tree->clearRoot();
-
     // Set the search parameters
     SearchSettings::cpuctF = Options::globalInstance()->option("CpuctF").value().toFloat();
     SearchSettings::cpuctInit = Options::globalInstance()->option("CpuctInit").value().toFloat();
     SearchSettings::cpuctBase = Options::globalInstance()->option("CpuctBase").value().toFloat();
     SearchSettings::tryPlayoutLimit = Options::globalInstance()->option("TryPlayoutLimit").value().toInt();
     SearchSettings::featuresOff = SearchSettings::stringToFeatures(Options::globalInstance()->option("FeaturesOff").value());
+
+    // Remove the old root if it exists
+    m_tree->clearRoot(!SearchSettings::featuresOff.testFlag(SearchSettings::TreeReuse));
 
     m_startedWorker = false;
     m_stop = false;

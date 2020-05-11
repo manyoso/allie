@@ -316,6 +316,7 @@ void Node::setQValueAndVisit()
 
 void Node::backPropagateDirty()
 {
+    Q_ASSERT(!m_isDirty);
     Q_ASSERT(hasRawQValue());
     Q_ASSERT(!m_visited || m_isExact);
     m_isDirty = true;

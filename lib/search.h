@@ -46,7 +46,8 @@ struct SearchSettings {
         Threading = 0x1,
         EarlyExit = 0x2,
         Transpositions = 0x4,
-        Minimax = 0x8
+        Minimax = 0x8,
+        TreeReuse = 0x10
     };
     Q_DECLARE_FLAGS(Features, Feature)
 
