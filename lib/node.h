@@ -346,7 +346,7 @@ inline bool Node::isTransposition() const
 
 inline bool Node::isTrueTerminal() const
 {
-    return m_isExact && m_children.isEmpty();
+    return m_isExact && m_children.isEmpty() && !hasPotentials();
 }
 
 inline bool Node::isTB() const

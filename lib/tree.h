@@ -137,10 +137,13 @@ inline Node *Tree::embodiedRoot()
 
     Node::Position *rootPosition = nullptr;
     quint64 rootPositionHash = rootGame.position().positionHash();
+
+    // Always generate a new position for root to ensure we do not get a previous position that was
+    // a TB hit or propagated exact node for instance
     if (cache.containsNodePosition(rootPositionHash))
-        rootPosition = cache.nodePosition(rootPositionHash);
-    else
-        rootPosition = cache.newNodePosition(rootPositionHash);
+        cache.nodePositionMakeUnique(rootPositionHash);
+
+    rootPosition = cache.newNodePosition(rootPositionHash);
     m_root->initialize(nullptr, rootGame);
     m_root->setPosition(rootPosition);
     rootPosition->initialize(m_root, rootGame.position());
