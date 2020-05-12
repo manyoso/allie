@@ -364,10 +364,10 @@ QVector<Game> Node::previousMoves(bool fullHistory) const
     return result;
 }
 
-void Node::principalVariation(int *depth, bool *isTB, QTextStream *stream) const
+void Node::principalVariation(int *depth, bool *isCheckMate, QTextStream *stream) const
 {
     if (!isRootNode() && !hasPValue()) {
-        *isTB = m_isTB;
+        *isCheckMate = this->isCheckMate();
         return;
     }
 
@@ -375,7 +375,7 @@ void Node::principalVariation(int *depth, bool *isTB, QTextStream *stream) const
 
     const Node *bestChild = this->bestChild();
     if (!bestChild) {
-        *isTB = m_isTB;
+        *isCheckMate = this->isCheckMate();
         *stream << Notation::moveToString(m_game.lastMove(), Chess::Computer);
         return;
     }
@@ -384,7 +384,7 @@ void Node::principalVariation(int *depth, bool *isTB, QTextStream *stream) const
         *stream << Notation::moveToString(m_game.lastMove(), Chess::Computer) << QStringLiteral(" ");
     }
 
-    bestChild->principalVariation(depth, isTB, stream);
+    bestChild->principalVariation(depth, isCheckMate, stream);
 }
 
 int Node::repetitions() const
@@ -853,7 +853,7 @@ void Node::generatePotentials()
 
         if (isChecked) {
             m_game.setCheckMate(true);
-            setRawQValue(1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f));
+            setRawQValue(1.0f);
             setExact(Win);
         } else {
             m_game.setStaleMate(true);
@@ -939,6 +939,11 @@ const Node *Node::findSuccessor(const QVector<QString> &child) const
     }
 
     return n;
+}
+
+QString Node::toFen() const
+{
+    return m_game.stateOfGameToFen(&m_position->position());
 }
 
 QString Node::toString(Chess::NotationType notation) const

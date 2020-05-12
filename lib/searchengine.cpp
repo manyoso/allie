@@ -357,9 +357,19 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
                 qDebug() << "found cached playout" << playout->toString();
 #endif
                 // It is possible this is a transposition of a terminal node, but we only know that
-                // if the position has no potentials, but we don't mark whether this is a checkmate
-                // or a stalemate or TB drawn or deadPosition or what
-                playout->m_isExact = !playout->hasPotentials();
+                // if the position has no potentials, but we don't mark whether this is a stalemate
+                // or TB drawn or deadPosition
+                if (!playout->hasPotentials()) {
+                    playout->m_isExact = true;
+
+                    // We *can* see though if the transposition reflects checkmate!
+                    const bool isChecked
+                        = playout->m_game.isChecked(playout->m_position->position().activeArmy(),
+                            &playout->m_position->position());
+                    if (isChecked)
+                        playout->m_game.setCheckMate(true);
+                }
+
                 playout->backPropagateDirty();
                 return false;
             }
@@ -495,13 +505,11 @@ void SearchWorker::search()
     emit searchWorkerStopped();
 }
 
-QString mateDistanceOrScore(float score, int pvDepth, bool isTB) {
+QString mateDistanceOrScore(float score, int pvDepth, bool isCheckMate) {
     QString s = QString("cp %0").arg(scoreToCP(score));
-    if (isTB)
-        return s;
-    if (score > 1.0f || qFuzzyCompare(score, 1.0f))
+    if (isCheckMate && score > 0)
         s = QString("mate %0").arg(qCeil(qreal(pvDepth - 1) / 2));
-    else if (score < -1.0f || qFuzzyCompare(score, -1.0f))
+    else if (isCheckMate && score < 0)
         s = QString("mate -%0").arg(qCeil(qreal(pvDepth - 1) / 2));
     return s;
 }
@@ -595,11 +603,11 @@ void SearchWorker::processWorkerInfo()
         // Record a pv and score
         float score = best->qValue();
         int pvDepth = 0;
-        bool isTB = false;
+        bool isCheckMate = false;
         m_currentInfo.pv = QString();
         QTextStream stream(&m_currentInfo.pv);
-        root->principalVariation(&pvDepth, &isTB, &stream);
-        m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isTB);
+        root->principalVariation(&pvDepth, &isCheckMate, &stream);
+        m_currentInfo.score = mateDistanceOrScore(score, pvDepth, isCheckMate);
         m_timer.restart();
         emit sendInfo(m_currentInfo, isPartial);
     }
@@ -729,7 +737,7 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
         Q_ASSERT(dtzNode);
         info.bestMove = Notation::moveToString(dtzNode->m_game.lastMove(), Chess::Computer);
         info.pv = info.bestMove;
-        info.score = mateDistanceOrScore(-dtzNode->qValue(), depth + 1, true /*isTB*/);
+        info.score = mateDistanceOrScore(-dtzNode->qValue(), depth + 1, dtzNode->isCheckMate());
         emit sendInfo(info, false /*isPartial*/);
         return; // We are all done
     } else if (const Node *best = root->bestChild()) {
@@ -745,12 +753,12 @@ void SearchEngine::startSearch(qint64 depthTargeted, qint64 nodesTargeted)
             info.ponderMove = QString();
         onlyLegalMove = !root->hasPotentials() && root->children()->count() == 1;
         int pvDepth = 0;
-        bool isTB = false;
+        bool isCheckMate = false;
         info.pv = QString();
         QTextStream stream(&info.pv);
-        root->principalVariation(&pvDepth, &isTB, &stream);
+        root->principalVariation(&pvDepth, &isCheckMate, &stream);
         float score = best->qValue();
-        info.score = mateDistanceOrScore(score, pvDepth, isTB);
+        info.score = mateDistanceOrScore(score, pvDepth, isCheckMate);
         emit sendInfo(info, !onlyLegalMove /*isPartial*/);
     }
 

@@ -32,7 +32,6 @@
 #include "notation.h"
 #include "search.h"
 
-#define MAX_DEPTH 127
 #define USE_PARENT_QVALUE
 #define USE_CPUCT_SCALING
 
@@ -274,8 +273,9 @@ public:
 
     Node *parent() const;
 
-    void principalVariation(int *depth, bool *isTB, QTextStream *stream) const; // recursive
+    void principalVariation(int *depth, bool *isCheckMate, QTextStream *stream) const; // recursive
 
+    QString toFen() const;
     QString toString(Chess::NotationType = Chess::Computer) const;
     QString printTree(int topDepth, int depth, bool printPotentials) const; // recursive
 
