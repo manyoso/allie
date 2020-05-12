@@ -712,17 +712,17 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     switch (result) {
     case TB::Win:
         child->setRawQValue(1.0f);
-        child->m_isExact = true;
+        child->setExact(Win);
         child->m_isTB = true;
         break;
     case TB::Loss:
         child->setRawQValue(-1.0f);
-        child->m_isExact = true;
+        child->setExact(Loss);
         child->m_isTB = true;
         break;
     case TB::Draw:
         child->setRawQValue(0.0f);
-        child->m_isExact = true;
+        child->setExact(Draw);
         child->m_isTB = true;
         break;
     default:
@@ -748,11 +748,11 @@ bool Node::checkMoveClockOrThreefold()
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
         setRawQValue(0.0f);
-        m_isExact = true;
+        setExact(Draw);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
         setRawQValue(0.0f);
-        m_isExact = true;
+        setExact(Draw);
         return true;
     }
     return false;
@@ -765,7 +765,7 @@ void Node::generatePotentials()
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
         setRawQValue(0.0f);
-        m_isExact = true;
+        setExact(Draw);
         return;
     }
 
@@ -776,17 +776,17 @@ void Node::generatePotentials()
         break;
     case TB::Win:
         setRawQValue(1.0f);
-        m_isExact = true;
+        setExact(Win);
         m_isTB = true;
         return;
     case TB::Loss:
         setRawQValue(-1.0f);
-        m_isExact = true;
+        setExact(Loss);
         m_isTB = true;
         return;
     case TB::Draw:
         setRawQValue(0.0f);
-        m_isExact = true;
+        setExact(Draw);
         m_isTB = true;
         return;
     }
@@ -806,11 +806,11 @@ void Node::generatePotentials()
         if (isChecked) {
             m_game.setCheckMate(true);
             setRawQValue(1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f));
-            m_isExact = true;
+            setExact(Win);
         } else {
             m_game.setStaleMate(true);
             setRawQValue(0.0f);
-            m_isExact = true;
+            setExact(Draw);
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
     }

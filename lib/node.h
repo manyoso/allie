@@ -187,6 +187,12 @@ public:
         friend class Tests;
     };
 
+    enum ExactType {
+        Win,
+        Draw,
+        Loss
+    };
+
     Node();
     ~Node();
 
@@ -206,6 +212,7 @@ public:
 
     int treeDepth() const;
     bool isExact() const;
+    void setExact(ExactType type);
     bool isTransposition() const;
     bool isTrueTerminal() const;
     bool isTB() const;
@@ -335,6 +342,12 @@ inline int Node::treeDepth() const
 inline bool Node::isExact() const
 {
     return m_isExact;
+}
+
+inline void Node::setExact(ExactType type)
+{
+    Q_UNUSED(type);
+    m_isExact = true;
 }
 
 inline bool Node::isTransposition() const
