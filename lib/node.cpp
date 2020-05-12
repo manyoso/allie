@@ -271,10 +271,15 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
 {
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
     Q_ASSERT(!m_isExact || isExact);
-    m_isExact = isExact;
-    if (m_isExact) {
+    if (isExact) {
         m_qValue = score;
-        setRawQValue(score);
+        const ExactType exactType = score > 0 ? Win : score < 0 ? Loss : Draw;
+        // Iff it is a proven win or loss, then we can go ahead and update the rawQValue which will
+        // be passed along to transpositions, but not for draws as they could have been threefold or
+        // 50 move rule which does not pertain to a transposition with different move history
+        if (exactType != Draw)
+            setRawQValue(score);
+        setExact(exactType);
     } else {
         if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
@@ -453,7 +458,9 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
 
     // Search the children
     float best = -2.0f;
+    bool allAreExact = true;
     bool bestIsExact = false;
+    bool allChildrenAreScored = true;
     double newScoresForChildren = 0;
     quint32 newVisitsForChildren = 0;
     for (int index = 0; index < node->m_children.count(); ++index) {
@@ -462,14 +469,17 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
 
         // If the child is not visited and is not marked dirty then it has not been scored yet, so
         // just continue
-        if (!child->m_visited && !child->m_isDirty)
+        if (!child->m_visited && !child->m_isDirty) {
+            allChildrenAreScored = false;
             continue;
+        }
 
         Q_ASSERT(child->hasRawQValue());
 
         bool subtreeIsExact = false;
         float score = minimax(child, depth + 1, &subtreeIsExact, info,
             &newScoresForChildren, &newVisitsForChildren);
+        allAreExact = subtreeIsExact ? allAreExact : false;
 
         // Check if we have a new best child
         if (score > best) {
@@ -479,8 +489,12 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     }
 
     // We only propagate exact certainty if the best score from subtree is exact AND the best score
-    // is a proven win
-    const bool shouldPropagateExact = bestIsExact && best > 0 && !node->isRootNode();
+    // is a proven win OR if the subtree is complete and all nodes are exact in which case the score
+    // is totally certain
+    const bool shouldPropagateExact =
+        ((bestIsExact && best > 0) || // proven win
+         (allAreExact && allChildrenAreScored && !node->hasPotentials())) // score totally certain
+        && !node->isRootNode();
 
     // Score the node based on minimax of children
     *newVisits += newVisitsForChildren;
