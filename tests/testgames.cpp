@@ -600,7 +600,7 @@ void Tests::testThreeFold4()
             Node *threeFold = root->generateNode(potential->move(), potential->pValue(), root, Cache::globalInstance(), &error);
             threeFold->initializePosition(Cache::globalInstance());
             Q_ASSERT(threeFold);
-            bool success = threeFold->checkMoveClockOrThreefold();
+            bool success = threeFold->checkMoveClockOrThreefold(threeFold->position()->positionHash(), Cache::globalInstance());
             QVERIFY(success);
             QVERIFY(threeFold->isThreeFold());
         }
@@ -644,7 +644,7 @@ void Tests::checkGame(const QString &fen, const QVector<QString> &mv)
         Node *root = tree->embodiedRoot();
         QVERIFY(root);
         QVERIFY(!root->isThreeFold());
-        if (!root->checkMoveClockOrThreefold())
+        if (!root->checkMoveClockOrThreefold(root->position()->positionHash(), Cache::globalInstance()))
             root->generatePotentials();
 
         if (root->isThreeFold()) {
@@ -798,7 +798,7 @@ void Tests::testDoNotPropagateDrawnAsExact()
         ++b7b8->m_potentialIndex;
         if (move == QLatin1String("a8a7")) {
             a8a7 = child;
-            QVERIFY(child->checkMoveClockOrThreefold());
+            QVERIFY(child->checkMoveClockOrThreefold(child->position()->positionHash(), Cache::globalInstance()));
             QVERIFY(child->isExact());
             QVERIFY(qFuzzyCompare(child->rawQValue(), 0.0f));
         } else {

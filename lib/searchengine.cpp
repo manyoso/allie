@@ -334,10 +334,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     quint64 hash = playout->initializePosition(cache);
 
     // Check if we have found a draw by move clock or threefold
-    if (playout->checkMoveClockOrThreefold()) {
-        // This can never be a transposition as it depends upon information not found in the
-        // generic position, but rather depends upon game specific context
-        cache->nodePositionMakeUnique(hash);
+    if (playout->checkMoveClockOrThreefold(hash, cache)) {
         playout->backPropagateDirty();
         return false;
     }

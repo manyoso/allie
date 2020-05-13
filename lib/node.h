@@ -209,6 +209,7 @@ public:
     void setPosition(Node::Position *position);
     void deinitialize(bool forcedFree);
     void updateTranspositions() const;
+    void unwindTransposition(quint64 hash, Cache *cache);
 
     int treeDepth() const;
     bool isExact() const;
@@ -246,7 +247,7 @@ public:
     };
 
     bool checkAndGenerateDTZ(int *dtz);
-    bool checkMoveClockOrThreefold();
+    bool checkMoveClockOrThreefold(quint64 hash, Cache *cache);
     void generatePotentials();
     void reservePotentials(int totalSize);
     Node::Potential *generatePotential(const Move &move);

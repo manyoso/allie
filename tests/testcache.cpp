@@ -49,6 +49,11 @@ inline quint64 isPinned(const CacheItem &item)
     return false;
 }
 
+inline void setUniqueFlag(CacheItem &item)
+{
+    Q_UNUSED(item)
+}
+
 void Tests::testBasicCache()
 {
     FixedSizeCache<CacheItem> cache;
@@ -311,7 +316,7 @@ void Tests::perft(int depth, Node *node, PerftResult *result)
 
     QVERIFY(node);
     QVERIFY(node->position());
-    if (!node->checkMoveClockOrThreefold())
+    if (!node->checkMoveClockOrThreefold(node->position()->positionHash(), Cache::globalInstance()))
         node->generatePotentials();
 
     QVector<Node::Potential> *potentials = node->m_position->potentials(); // not a copy

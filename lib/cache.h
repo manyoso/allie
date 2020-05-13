@@ -159,7 +159,7 @@ public:
     T *object(quint64 hash);
     T *objectMakeUnique(quint64 hash);
     T *objectRelinkOrMakeUnique(quint64 hash, bool *madeUnique);
-    T *newObject(quint64 hash);
+    T *newObject(quint64 hash, bool makeUnique = false);
     void unlink(quint64 hash);
     float percentFull(int halfMoveNumber) const;
     int size() const { return m_maxSize; }
@@ -504,13 +504,11 @@ inline T *FixedSizeCache<T>::objectRelinkOrMakeUnique(quint64 hash, bool *madeUn
 }
 
 template <class T>
-inline T *FixedSizeCache<T>::newObject(quint64 hash)
+inline T *FixedSizeCache<T>::newObject(quint64 hash, bool makeUnique)
 {
     Q_ASSERT(m_maxSize);
     if (int(m_size) < m_maxSize)
         grow();
-
-    Q_ASSERT(!m_cache.count(hash));
 
     ObjectInfo *info = nullptr;
     if (m_unused) {
@@ -522,6 +520,12 @@ inline T *FixedSizeCache<T>::newObject(quint64 hash)
     if (!info)
         return nullptr;
 
+    if (makeUnique) {
+        hash = hash ^ reinterpret_cast<quint64>(&(info->object));
+        setUniqueFlag(info->object);
+    }
+
+    Q_ASSERT(!m_cache.count(hash));
     m_cache.insert({hash, info});
     linkToUsed(*info);
     return &(info->object);
@@ -564,7 +568,7 @@ public:
     Node::Position *nodePosition(quint64 hash);
     Node::Position *nodePositionMakeUnique(quint64 hash);
     Node::Position *nodePositionRelinkOrMakeUnique(quint64 hash, bool *madeUnique);
-    Node::Position *newNodePosition(quint64 hash);
+    Node::Position *newNodePosition(quint64 hash, bool makeUnique = false);
     void unlinkNodePosition(quint64 hash);
 
 private:
@@ -633,9 +637,9 @@ inline Node::Position *Cache::nodePositionRelinkOrMakeUnique(quint64 hash, bool 
     return m_positionCache.objectRelinkOrMakeUnique(hash, madeUnique);
 }
 
-inline Node::Position *Cache::newNodePosition(quint64 hash)
+inline Node::Position *Cache::newNodePosition(quint64 hash, bool makeUnique)
 {
-    return m_positionCache.newObject(hash);
+    return m_positionCache.newObject(hash, makeUnique);
 }
 
 inline void Cache::unlinkNodePosition(quint64 hash)

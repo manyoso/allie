@@ -258,6 +258,20 @@ void Node::updateTranspositions() const
         m_children.at(i)->updateTranspositions();
 }
 
+void Node::unwindTransposition(quint64 hash, Cache *cache)
+{
+    Q_ASSERT(isTransposition());
+    Game::Position gamePosition = m_position->position(); // copy
+    m_position = cache->newNodePosition(hash, true /*makeUnique*/);
+    if (!m_position) {
+        qFatal("Fatal error: we have run out of positions in memory!");
+    }
+    Q_ASSERT(m_position);
+    m_position->initialize(this, gamePosition);
+    Q_ASSERT(!isTransposition());
+    Q_ASSERT(m_position->isUnique());
+}
+
 Node *Node::bestChild() const
 {
     if (!hasChildren())
@@ -762,15 +776,29 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     return true;
 }
 
-bool Node::checkMoveClockOrThreefold()
+bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
 {
     Q_ASSERT(m_children.isEmpty());
     // Check if this is drawn by rules
     if (Q_UNLIKELY(isMoveClock())) {
+        // This can never be a transposition as it depends upon information not found in the
+        // generic position, but rather depends upon game specific context
+        if (isTransposition())
+            unwindTransposition(hash, cache);
+        else
+            cache->nodePositionMakeUnique(hash);
+        Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
         setExact(Draw);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
+        // This can never be a transposition as it depends upon information not found in the
+        // generic position, but rather depends upon game specific context
+        if (isTransposition())
+            unwindTransposition(hash, cache);
+        else
+            cache->nodePositionMakeUnique(hash);
+        Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
         setExact(Draw);
         return true;
