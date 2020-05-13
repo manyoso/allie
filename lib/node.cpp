@@ -49,6 +49,7 @@ Node::Position::Position()
 {
     m_canonicalNode = nullptr;
     m_rawQValue = -2.0f;
+    m_type = NonTerminal;
     m_isUnique = false;
 }
 
@@ -85,6 +86,7 @@ void Node::Position::deinitialize(bool forcedFree)
     m_canonicalNode = nullptr;
     m_potentials.clear();
     m_rawQValue = -2.0f;
+    m_type = NonTerminal;
     m_isUnique = false;
 #if defined(DEBUG_CHURN)
     QString string;
@@ -144,8 +146,6 @@ void Node::initialize(Node *parent, const Game &game)
     m_pValue = -2.0f;
     m_policySum = 0;
     m_uCoeff = -2.0f;
-    m_isExact = false;
-    m_isTB = false;
     m_isDirty = false;
 }
 
@@ -281,19 +281,24 @@ Node *Node::bestChild() const
     return children.first();
 }
 
-void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 newVisits)
+void Node::scoreMiniMax(float score, bool propagateExact, double newScores, quint32 newVisits)
 {
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
-    Q_ASSERT(!m_isExact || isExact);
-    if (isExact) {
+    if (propagateExact) {
         m_qValue = score;
-        const ExactType exactType = score > 0 ? Win : score < 0 ? Loss : Draw;
-        // Iff it is a proven win or loss, then we can go ahead and update the rawQValue which will
-        // be passed along to transpositions, but not for draws as they could have been threefold or
-        // 50 move rule which does not pertain to a transposition with different move history
-        if (exactType != Draw)
+        // Iff it is a proven win or loss, then we can go ahead and update the rawQValue which
+        // will be passed along to transpositions, but not for draws as they could have been
+        // threefold or 50 move rule which does not pertain to a transposition with different
+        // move history
+        const Position::Type type = score > 0 ? Position::PropagateWin : score < 0 ?
+            Position::PropagateLoss : Position::PropagateDraw;
+        if (type != Position::PropagateDraw)
             setRawQValue(score);
-        setExact(exactType);
+
+        // This might have already been set by a transposition, so make sure it agrees with what we
+        // are attempting to do here
+        Q_ASSERT(!this->isExact() || positionType() == type);
+        setPositionType(type);
     } else {
         if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
@@ -337,7 +342,7 @@ void Node::backPropagateDirty()
 {
     Q_ASSERT(!m_isDirty);
     Q_ASSERT(hasRawQValue());
-    Q_ASSERT(!m_visited || m_isExact);
+    Q_ASSERT(!m_visited || isExact());
     m_isDirty = true;
 
     Node *parent = this->parent();
@@ -367,7 +372,7 @@ QVector<Game> Node::previousMoves(bool fullHistory) const
 void Node::principalVariation(int *depth, bool *isTB, QTextStream *stream) const
 {
     if (!isRootNode() && !hasPValue()) {
-        *isTB = m_isTB;
+        *isTB = this->isTB();
         return;
     }
 
@@ -375,7 +380,7 @@ void Node::principalVariation(int *depth, bool *isTB, QTextStream *stream) const
 
     const Node *bestChild = this->bestChild();
     if (!bestChild) {
-        *isTB = m_isTB;
+        *isTB = this->isTB();
         *stream << Notation::moveToString(m_game.lastMove(), Chess::Computer);
         return;
     }
@@ -435,7 +440,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         ++(info->nodesVisited);
         info->sumDepths += depth;
         info->maxDepth = qMax(info->maxDepth, depth);
-        if (node->m_isTB)
+        if (node->isTB())
             ++(info->nodesTBHits);
         *isExact = node->isExact();
         node->setQValueAndVisit();
@@ -449,7 +454,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         // Record info
         ++(info->nodesSearched);
         ++(info->nodesVisited);
-        if (node->m_isTB)
+        if (node->isTB())
             ++(info->nodesTBHits);
         *isExact = node->isExact();
         // If this node has children and was proven to be an exact node, then it is possible that
@@ -514,7 +519,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     const bool shouldPropagateExact =
         ((bestIsExact && best > 0) || // proven win
          (allAreExact && allChildrenAreScored && !node->hasPotentials())) // score totally certain
-        && !node->isRootNode();
+        && !node->isRootNode() && !node->position()->canonicalNode()->isRootNode();
 
     // Score the node based on minimax of children
     *newVisits += newVisitsForChildren;
@@ -746,18 +751,15 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     switch (result) {
     case TB::Win:
         child->setRawQValue(1.0f);
-        child->setExact(Win);
-        child->m_isTB = true;
+        child->setPositionType(Position::TBWin);
         break;
     case TB::Loss:
         child->setRawQValue(-1.0f);
-        child->setExact(Loss);
-        child->m_isTB = true;
+        child->setPositionType(Position::TBLoss);
         break;
     case TB::Draw:
         child->setRawQValue(0.0f);
-        child->setExact(Draw);
-        child->m_isTB = true;
+        child->setPositionType(Position::TBDraw);
         break;
     default:
         Q_UNREACHABLE();
@@ -789,7 +791,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
-        setExact(Draw);
+        setPositionType(Position::FiftyMoveRuleDraw);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
         // This can never be a transposition as it depends upon information not found in the
@@ -800,7 +802,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
-        setExact(Draw);
+        setPositionType(Position::ThreeFoldDraw);
         return true;
     }
     return false;
@@ -813,7 +815,7 @@ void Node::generatePotentials()
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
         setRawQValue(0.0f);
-        setExact(Draw);
+        setPositionType(Position::Draw);
         return;
     }
 
@@ -824,18 +826,15 @@ void Node::generatePotentials()
         break;
     case TB::Win:
         setRawQValue(1.0f);
-        setExact(Win);
-        m_isTB = true;
+        setPositionType(Position::TBWin);
         return;
     case TB::Loss:
         setRawQValue(-1.0f);
-        setExact(Loss);
-        m_isTB = true;
+        setPositionType(Position::TBLoss);
         return;
     case TB::Draw:
         setRawQValue(0.0f);
-        setExact(Draw);
-        m_isTB = true;
+        setPositionType(Position::TBDraw);
         return;
     }
 
@@ -854,11 +853,11 @@ void Node::generatePotentials()
         if (isChecked) {
             m_game.setCheckMate(true);
             setRawQValue(1.0f + (MAX_DEPTH * 0.0001f) - (depth() * 0.0001f));
-            setExact(Win);
+            setPositionType(Position::Win);
         } else {
             m_game.setStaleMate(true);
             setRawQValue(0.0f);
-            setExact(Draw);
+            setPositionType(Position::Draw);
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
     }

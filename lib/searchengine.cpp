@@ -356,10 +356,6 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 #if defined(DEBUG_PLAYOUT)
                 qDebug() << "found cached playout" << playout->toString();
 #endif
-                // It is possible this is a transposition of a terminal node, but we only know that
-                // if the position has no potentials, but we don't mark whether this is a checkmate
-                // or a stalemate or TB drawn or deadPosition or what
-                playout->m_isExact = !playout->hasPotentials();
                 playout->backPropagateDirty();
                 return false;
             }

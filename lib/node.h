@@ -148,6 +148,21 @@ public:
         Position();
         ~Position();
 
+        enum Type : quint8 {
+            NonTerminal,
+            Win,
+            Loss,
+            Draw,
+            TBWin,
+            TBLoss,
+            TBDraw,
+            PropagateWin,
+            PropagateLoss,
+            PropagateDraw,
+            FiftyMoveRuleDraw,
+            ThreeFoldDraw
+        };
+
         void initialize(Node *node, const Game::Position &position);
         void deinitialize(bool forcedFree);
         static Node::Position *relinkOrMakeUnique(quint64 positionHash, Cache *cache, bool *madeUnique);
@@ -172,6 +187,8 @@ public:
         inline bool hasRawQValue() const { return !qFuzzyCompare(m_rawQValue, -2.0f); }
         inline float rawQValue() const { return m_rawQValue; }
         inline void setRawQValue(float rawQvalue) { m_rawQValue = rawQvalue; }
+        inline Type type() const { return m_type; }
+        inline void setType(Type type) { m_type = type; }
 
         // Indicates whether the position can ever be used by transpositions
         inline bool isUnique() const { return m_isUnique; }
@@ -182,15 +199,10 @@ public:
         const Node* m_canonicalNode;
         QVector<Potential> m_potentials;
         float m_rawQValue;
+        Type m_type;
         bool m_isUnique : 1;
         friend class Node;
         friend class Tests;
-    };
-
-    enum ExactType {
-        Win,
-        Draw,
-        Loss
     };
 
     Node();
@@ -212,10 +224,11 @@ public:
     void unwindTransposition(quint64 hash, Cache *cache);
 
     int treeDepth() const;
-    bool isExact() const;
-    void setExact(ExactType type);
+    Node::Position::Type positionType() const;
+    void setPositionType(Node::Position::Type type);
     bool isTransposition() const;
     bool isTrueTerminal() const;
+    bool isExact() const;
     bool isTB() const;
     bool isDirty() const;
     float uCoeff() const;
@@ -231,7 +244,7 @@ public:
     inline QVector<Node*> *children() { return &m_children; }
     inline const QVector<Node*> *children() const { return &m_children; }
 
-    void scoreMiniMax(float score, bool isExact, double newScores, quint32 increment);
+    void scoreMiniMax(float score, bool propagateExact, double newScores, quint32 increment);
     bool isAlreadyPlayingOut() const;
 
     int count() const;
@@ -319,8 +332,6 @@ private:
     float m_policySum;                  // 4
     float m_uCoeff;                     // 4
     quint8 m_potentialIndex;            // 2
-    bool m_isExact: 1;                  // 1
-    bool m_isTB: 1;                     // 1
     bool m_isDirty: 1;                  // 1
     friend class SearchWorker;
     friend class SearchEngine;
@@ -341,15 +352,16 @@ inline int Node::treeDepth() const
     return d;
 }
 
-inline bool Node::isExact() const
+inline Node::Position::Type Node::positionType() const
 {
-    return m_isExact;
+    Q_ASSERT(m_position);
+    return m_position->type();
 }
 
-inline void Node::setExact(ExactType type)
+inline void Node::setPositionType(Node::Position::Type type)
 {
-    Q_UNUSED(type);
-    m_isExact = true;
+    Q_ASSERT(m_position);
+    return m_position->setType(type);
 }
 
 inline bool Node::isTransposition() const
@@ -361,12 +373,22 @@ inline bool Node::isTransposition() const
 
 inline bool Node::isTrueTerminal() const
 {
-    return m_isExact && m_children.isEmpty() && !hasPotentials();
+    return isExact() && m_children.isEmpty() && !hasPotentials();
+}
+
+inline bool Node::isExact() const
+{
+    if (!m_position)
+        return false;
+
+    return positionType() != Position::NonTerminal;
 }
 
 inline bool Node::isTB() const
 {
-    return m_isTB;
+    return positionType() == Position::TBWin ||
+        positionType() == Position::TBLoss ||
+        positionType() == Position::TBDraw;
 }
 
 inline bool Node::isDirty() const
@@ -432,7 +454,7 @@ inline void Node::setAsRootNode()
 
     // Now we have no parent
     m_parent = nullptr;
-    m_isExact = false;
+    setPositionType(Position::NonTerminal);
 }
 
 inline Node *Node::parent() const
