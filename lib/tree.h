@@ -91,6 +91,7 @@ inline void Tree::clearRoot(bool resumeIfPossible)
                         cache.unlinkNode(m_root);
                         m_root = grandChild;
                         m_root->updateTranspositions();
+                        Q_ASSERT(!m_root->isTransposition());
                         foundResume = true;
                         break;
                     }
