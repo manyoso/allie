@@ -282,6 +282,7 @@ public:
     bool isStaleMate() const { return m_game.lastMove().isStaleMate(); }
     int repetitions() const;
     bool isThreeFold() const;
+    bool isMoveClock() const;
     bool isNoisy() const;
 
     static bool greaterThan(const Node *a, const Node *b);

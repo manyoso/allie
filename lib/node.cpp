@@ -401,6 +401,12 @@ bool Node::isThreeFold() const
     return repetitions() >= 2;
 }
 
+bool Node::isMoveClock() const
+{
+    // FIXME: This isn't a moveclock draw if it delivers checkmate!
+    return m_game.halfMoveClock() >= 100;
+}
+
 float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     double *newScores, quint32 *newVisits)
 {
@@ -760,7 +766,7 @@ bool Node::checkMoveClockOrThreefold()
 {
     Q_ASSERT(m_children.isEmpty());
     // Check if this is drawn by rules
-    if (Q_UNLIKELY(m_game.halfMoveClock() >= 100)) {
+    if (Q_UNLIKELY(isMoveClock())) {
         setRawQValue(0.0f);
         setExact(Draw);
         return true;
