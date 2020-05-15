@@ -879,7 +879,7 @@ bool Game::Position::isChecked(Chess::Army army) const
 {
     const Chess::Army friends = army == White ? White : Black;
     const Chess::Army enemies = army == Black ? White : Black;
-    const BitBoard kingBoard(board(friends) & board(King));
+    const Square king = BitBoard(board(friends) & board(King)).first();
     const Movegen *gen = Movegen::globalInstance();
 
     // Boards from perspective of attacker!
@@ -887,33 +887,32 @@ bool Game::Position::isChecked(Chess::Army army) const
     const BitBoard enemiesBoard = enemies == Black ? m_whitePositionBoard : m_blackPositionBoard;
 
     {
-        const BitBoard b(kingBoard & queenAttackBoard(gen, friendsBoard, enemiesBoard));
-        if (!b.isClear())
+        const BitBoard occupied = friendsBoard | enemiesBoard;
+        const BitBoard bishop(gen->bishopAttacks(king, occupied));
+        if (!BitBoard(bishop & friendsBoard & board(Bishop)).isClear())
+            return true;
+
+        const BitBoard rook(gen->rookAttacks(king, occupied));
+        if (!BitBoard(rook & friendsBoard & board(Rook)).isClear())
+            return true;
+
+        const BitBoard queen(rook | bishop);
+        if (!BitBoard(queen & friendsBoard & board(Queen)).isClear())
             return true;
     }
     {
-        const BitBoard b(kingBoard & rookAttackBoard(gen, friendsBoard, enemiesBoard));
-        if (!b.isClear())
-            return true;
-    }
-    {
-        const BitBoard b(kingBoard & bishopAttackBoard(gen, friendsBoard, enemiesBoard));
-        if (!b.isClear())
-            return true;
-    }
-    {
-        const BitBoard b(kingBoard & knightAttackBoard(gen, friendsBoard));
+        const BitBoard b(gen->knightAttacks(king) & friendsBoard & board(Knight));
         if (!b.isClear())
             return true;
     }
     {
         // Checks for illegality...
-        const BitBoard b(kingBoard & kingAttackBoard(gen, friendsBoard));
+        const BitBoard b(gen->kingAttacks(king) & friendsBoard & board(King));
         if (!b.isClear())
             return true;
     }
     {
-        const BitBoard b(kingBoard & pawnAttackBoard(enemies, gen, friendsBoard));
+        const BitBoard b(gen->pawnAttacks(friends, king) & friendsBoard & board(Pawn));
         if (!b.isClear())
             return true;
     }

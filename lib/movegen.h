@@ -42,10 +42,14 @@ public:
     static Movegen *globalInstance();
 
     inline BitBoard kingMoves(const Square &sq, const BitBoard &friends) const;
+    inline BitBoard kingAttacks(const Square &sq) const;
     inline BitBoard queenMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
     inline BitBoard rookMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
+    inline BitBoard rookAttacks(const Square &sq, const BitBoard &occupied) const;
     inline BitBoard bishopMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
+    inline BitBoard bishopAttacks(const Square &sq, const BitBoard &occupied) const;
     inline BitBoard knightMoves(const Square &sq, const BitBoard &friends) const;
+    inline BitBoard knightAttacks(const Square &sq) const;
     inline BitBoard pawnMoves(Chess::Army army, const Square &sq, const BitBoard &friends, const BitBoard &enemies) const;
     inline BitBoard pawnAttacks(Chess::Army army, const Square &sq) const;
 
@@ -96,6 +100,11 @@ inline BitBoard Movegen::knightMoves(const Square &sq, const BitBoard &friends) 
     return m_knightMoves[sq.data()] & BitBoard(~friends.data());
 }
 
+inline BitBoard Movegen::knightAttacks(const Square &sq) const
+{
+    return m_knightMoves[sq.data()];
+}
+
 inline BitBoard Movegen::bishopMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
 {
     const BitBoard occupied(friends | enemies);
@@ -103,11 +112,21 @@ inline BitBoard Movegen::bishopMoves(const Square &sq, const BitBoard &friends, 
     return m_bishopTable[sq.data()].offset[sliderIndex(occupied, &m_bishopTable[sq.data()])] & destinations;
 }
 
+inline BitBoard Movegen::bishopAttacks(const Square &sq, const BitBoard &occupied) const
+{
+    return m_bishopTable[sq.data()].offset[sliderIndex(occupied, &m_bishopTable[sq.data()])];
+}
+
 inline BitBoard Movegen::rookMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
 {
     const BitBoard occupied(friends | enemies);
     const BitBoard destinations = ~occupied | enemies;
     return m_rookTable[sq.data()].offset[sliderIndex(occupied, &m_rookTable[sq.data()])] & destinations;
+}
+
+inline BitBoard Movegen::rookAttacks(const Square &sq, const BitBoard &occupied) const
+{
+    return m_rookTable[sq.data()].offset[sliderIndex(occupied, &m_rookTable[sq.data()])];
 }
 
 inline BitBoard Movegen::queenMoves(const Square &sq, const BitBoard &friends, const BitBoard &enemies) const
@@ -118,6 +137,11 @@ inline BitBoard Movegen::queenMoves(const Square &sq, const BitBoard &friends, c
 inline BitBoard Movegen::kingMoves(const Square &sq, const BitBoard &friends) const
 {
     return m_kingMoves[sq.data()] & BitBoard(~friends.data());
+}
+
+inline BitBoard Movegen::kingAttacks(const Square &sq) const
+{
+    return m_kingMoves[sq.data()];
 }
 
 #endif // MOVEGEN_H

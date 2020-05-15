@@ -163,15 +163,11 @@ Movegen::Movegen()
 
         m_knightMoves[i] = raysForKnight(sq);
 
-        if (sq.rank() != 0) {
-            m_pawnMoves[Chess::White][i] = raysForPawn(Chess::White, sq);
-            m_pawnAttacks[Chess::White][i] = raysForPawnAttack(Chess::White, sq);
-        }
+        m_pawnMoves[Chess::White][i] = raysForPawn(Chess::White, sq);
+        m_pawnAttacks[Chess::White][i] = raysForPawnAttack(Chess::White, sq);
 
-        if (sq.rank() != 7) {
-            m_pawnMoves[Chess::Black][i] = raysForPawn(Chess::Black, sq);
-            m_pawnAttacks[Chess::Black][i] = raysForPawnAttack(Chess::Black, sq);
-        }
+        m_pawnMoves[Chess::Black][i] = raysForPawn(Chess::Black, sq);
+        m_pawnAttacks[Chess::Black][i] = raysForPawnAttack(Chess::Black, sq);
     }
 }
 
