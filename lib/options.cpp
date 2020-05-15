@@ -226,6 +226,15 @@ void Options::addRegularOptions()
     useHalfFloatingPoint.m_description = QLatin1String("Use half floating point on GPU");
     insertOption(useHalfFloatingPoint);
 
+    UciOption useCustomWinograd;
+    useCustomWinograd.m_name = QLatin1Literal("UseCustomWinograd");
+    useCustomWinograd.m_type = UciOption::Check;
+    useCustomWinograd.m_default = QLatin1Literal("false");
+    useCustomWinograd.m_value = useCustomWinograd.m_default;
+    useCustomWinograd.m_valueType = QLatin1String("boolean");
+    useCustomWinograd.m_description = QLatin1String("Use custom winograd algorithm on GPU");
+    insertOption(useCustomWinograd);
+
     UciOption weightsFile;
     weightsFile.m_name = QLatin1Literal("WeightsFile");
     weightsFile.m_type = UciOption::String;

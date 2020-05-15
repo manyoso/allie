@@ -143,7 +143,8 @@ NeuralNet *NeuralNet::globalInstance()
 
 NeuralNet::NeuralNet()
     : m_weightsValid(false),
-    m_usingFP16(false)
+    m_usingFP16(false),
+    m_usingCustomWinograd(false)
 {
 }
 
@@ -152,14 +153,14 @@ NeuralNet::~NeuralNet()
     qDeleteAll(m_availableNetworks);
 }
 
-Network *NeuralNet::createNewGPUNetwork(int id, bool useFP16) const
+Network *NeuralNet::createNewGPUNetwork(int id, bool useFP16, bool useCustomWinograd) const
 {
     Q_ASSERT(m_weightsValid);
     if (!m_weightsValid)
         qFatal("Could not load NN weights!");
 
     if (useFP16)
-        return createCudaFP16Network(s_weights, id);
+        return createCudaFP16Network(s_weights, id, useCustomWinograd);
     else
         return createCudaNetwork(s_weights, id);
 }
@@ -169,15 +170,18 @@ void NeuralNet::reset()
     Q_ASSERT(m_weightsValid);
     const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt();
     const bool useFP16 = Options::globalInstance()->option("UseFP16").value() == "true";
+    const bool useCustomWinograd = Options::globalInstance()->option("UseCustomWinograd").value() == "true";
     if (numberOfGPUCores == m_availableNetworks.count()
-        && useFP16 == m_usingFP16)
+        && useFP16 == m_usingFP16
+        && useCustomWinograd == m_usingCustomWinograd)
         return; // Nothing to do
 
     m_usingFP16 = useFP16;
+    m_usingCustomWinograd = useCustomWinograd;
     qDeleteAll(m_availableNetworks);
     m_availableNetworks.clear();
     for (int i = 0; i < numberOfGPUCores; ++i) {
-        QSharedPointer<lczero::Network> network(createNewGPUNetwork(i, m_usingFP16));
+        QSharedPointer<lczero::Network> network(createNewGPUNetwork(i, m_usingFP16, m_usingCustomWinograd));
         m_availableNetworks.append(new Computation(network));
         m_availableNetworks.append(new Computation(network));
     }

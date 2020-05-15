@@ -33,6 +33,7 @@ struct OptionsDict
 {
     int gpuId;
     int maxBatchSize;
+    bool useCustomWinograd;
 };
 
 inline std::vector<std::string> GetFileList(const std::string &dir)

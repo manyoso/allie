@@ -62,13 +62,14 @@ public:
 private:
     NeuralNet();
     ~NeuralNet();
-    lczero::Network *createNewGPUNetwork(int id, bool fp16) const;
+    lczero::Network *createNewGPUNetwork(int id, bool fp16, bool useCustomWinograd) const;
 
     QVector<Computation*> m_availableNetworks;
     QMutex m_mutex;
     QWaitCondition m_condition;
     bool m_weightsValid;
     bool m_usingFP16;
+    bool m_usingCustomWinograd;
     friend class Computation;
     friend class MyNeuralNet;
 };
