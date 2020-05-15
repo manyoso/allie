@@ -17,6 +17,7 @@ and manually cherry-picked patches of Ankan's SHAs for custom winograd:
   7f7802e9795a70db3cf26f6db4ab7dc87ad67a5f
   938615a413f217be6fa8062652649bf4b901a502
   ad4b5f2c1db68c8120ad77c33a748bef724b053f
+  177d4ace609ce0f60ee655f01bbca029a403a90a
 
 They are minimally modified to compile and work with the Allie chess
 engine.
