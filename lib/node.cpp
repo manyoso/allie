@@ -171,9 +171,8 @@ quint64 Node::initializePosition(Cache *cache)
     m_position = Node::Position::relinkOrMakeUnique(childPositionHash, cache, &madeUnique);
     if (!m_position || madeUnique) {
         m_position = cache->newNodePosition(childPositionHash);
-        if (!m_position) {
+        if (!m_position)
             qFatal("Fatal error: we have run out of positions in memory!");
-        }
     }
 
     Q_ASSERT(m_position);
@@ -263,9 +262,8 @@ void Node::unwindTransposition(quint64 hash, Cache *cache)
     Q_ASSERT(isTransposition());
     Game::Position gamePosition = m_position->position(); // copy
     m_position = cache->newNodePosition(hash, true /*makeUnique*/);
-    if (!m_position) {
+    if (!m_position)
         qFatal("Fatal error: we have run out of positions in memory!");
-    }
     Q_ASSERT(m_position);
     m_position->initialize(this, gamePosition);
     Q_ASSERT(!isTransposition());

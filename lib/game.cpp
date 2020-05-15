@@ -648,11 +648,11 @@ BitBoard Game::Position::bishopAttackBoard(const Movegen *gen,
     const BitBoard &friends, const BitBoard &enemies) const
 {
     BitBoard bits;
-            const BitBoard pieces(friends & board(Bishop));
-            BitBoard::Iterator sq = pieces.begin();
-            for (; sq != pieces.end(); ++sq)
-                bits = bits | gen->bishopMoves(*sq, friends, enemies);
-            return bits;
+    const BitBoard pieces(friends & board(Bishop));
+    BitBoard::Iterator sq = pieces.begin();
+    for (; sq != pieces.end(); ++sq)
+        bits = bits | gen->bishopMoves(*sq, friends, enemies);
+    return bits;
 }
 
 BitBoard Game::Position::knightAttackBoard(const Movegen *gen,
