@@ -162,7 +162,7 @@ Network *NeuralNet::createNewGPUNetwork(int id, bool useFP16, bool useCustomWino
     if (useFP16)
         return createCudaFP16Network(s_weights, id, useCustomWinograd);
     else
-        return createCudaNetwork(s_weights, id);
+        return createCudaNetwork(s_weights, id, useCustomWinograd);
 }
 
 void NeuralNet::reset()

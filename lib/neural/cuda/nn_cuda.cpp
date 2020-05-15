@@ -332,7 +332,7 @@ class CudnnNetwork : public Network {
 #ifndef DISABLE_FOR_ALLIE
     const bool custom_winograd_override = !options.IsDefault<bool>("custom_winograd");
 #else
-    const bool custom_winograd_override = false;
+    const bool custom_winograd_override = true;
 #endif
 
     if (!custom_winograd_override && use_custom_winograd_ &&
@@ -1070,12 +1070,12 @@ Network *createCudaFP16Network(const WeightsFile& file, int id, bool useCustomWi
     return MakeCudnnNetwork<half>(file, o).release();
 }
 
-Network *createCudaNetwork(const WeightsFile& file, int id)
+Network *createCudaNetwork(const WeightsFile& file, int id, bool useCustomWinograd)
 {
     OptionsDict o;
     o.gpuId = id;
     o.maxBatchSize = 1024;
-    o.useCustomWinograd = true;
+    o.useCustomWinograd = useCustomWinograd;
     return MakeCudnnNetwork<float>(file, o).release();
 }
 
