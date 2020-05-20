@@ -278,7 +278,7 @@ Node *Node::bestChild() const
     return children.first();
 }
 
-void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 newVisits)
+void Node::scoreMiniMax(float score, bool isExact, bool hasGameContext, double newScores, quint32 newVisits)
 {
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
     Q_ASSERT(!this->isExact() || isExact);
@@ -288,7 +288,7 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
         // Iff it is a proven win or loss, then we can go ahead and update the rawQValue which will
         // be passed along to transpositions, but not for draws as they could have been threefold or
         // 50 move rule which does not pertain to a transposition with different move history
-        if (exactType != PropagateDraw)
+        if (!hasGameContext || exactType != PropagateDraw)
             setRawQValue(score);
         setExact(exactType);
     } else {
@@ -296,6 +296,11 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
         else
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + newScores) / float(m_visited + newVisits), 1.f);
+
+        // Update the raw qvalue for any new transpositions to use the best score available which
+        // includes the subtree if it has no game context
+        if (!hasGameContext)
+            setRawQValue(m_qValue);
     }
     incrementVisited(newVisits);
 }
@@ -418,7 +423,7 @@ bool Node::isMoveClock() const
     return m_game.halfMoveClock() >= 100;
 }
 
-float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
+float Node::minimax(Node *node, quint32 depth, bool *isExact, bool *hasGameContext, WorkerInfo *info,
     double *newScores, quint32 *newVisits)
 {
     Q_ASSERT(node);
@@ -435,6 +440,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         if (node->isTB())
             ++(info->nodesTBHits);
         *isExact = node->isExact();
+        *hasGameContext = node->isThreeFoldOrFiftyMove();
         node->setQValueAndVisit();
         *newScores += node->rawQValue();
         ++(*newVisits);
@@ -449,6 +455,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         if (node->isTB())
             ++(info->nodesTBHits);
         *isExact = node->isExact();
+        *hasGameContext = node->isThreeFoldOrFiftyMove();
         // If this node has children and was proven to be an exact node, then it is possible that
         // recently leafs have been made to we must trim the tree of any leafs
         trimUnscoredFromTree(node);
@@ -461,12 +468,14 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     // If we are an exact node, then we are terminal so just return the score
     if (node->isExact()) {
         *isExact = node->isExact();
+        *hasGameContext = node->isThreeFoldOrFiftyMove();
         return node->m_qValue;
     }
 
     // However, if the subtree is not dirty, then we can just return our score
     if (!node->m_isDirty) {
         *isExact = node->isExact();
+        *hasGameContext = node->isThreeFoldOrFiftyMove();
         return node->m_qValue;
     }
 
@@ -494,9 +503,11 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         Q_ASSERT(child->hasRawQValue());
 
         bool subtreeIsExact = false;
-        float score = minimax(child, depth + 1, &subtreeIsExact, info,
+        bool subtreeHasGameContext = false;
+        float score = minimax(child, depth + 1, &subtreeIsExact, &subtreeHasGameContext, info,
             &newScoresForChildren, &newVisitsForChildren);
         allAreExact = subtreeIsExact ? allAreExact : false;
+        *hasGameContext = subtreeHasGameContext ? true : *hasGameContext;
 
         // Check if we have a new best child
         if (score > best) {
@@ -516,7 +527,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     // Score the node based on minimax of children
     *newVisits += newVisitsForChildren;
     *newScores += -newScoresForChildren;
-    node->scoreMiniMax(-best, shouldPropagateExact, -newScoresForChildren, newVisitsForChildren);
+    node->scoreMiniMax(-best, shouldPropagateExact, *hasGameContext, -newScoresForChildren, newVisitsForChildren);
 
     // Record info
     ++(info->nodesSearched);

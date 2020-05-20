@@ -206,7 +206,7 @@ public:
     ~Node();
 
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
-    static float minimax(Node *, quint32 depth, bool *isExact, WorkerInfo *info,
+    static float minimax(Node *, quint32 depth, bool *isExact, bool *hasGameContext, WorkerInfo *info,
         double *newScores, quint32 *newVisits);
     static void validateTree(const Node *);
     static void trimUnscoredFromTree(Node *);
@@ -241,7 +241,7 @@ public:
     inline QVector<Node*> *children() { return &m_children; }
     inline const QVector<Node*> *children() const { return &m_children; }
 
-    void scoreMiniMax(float score, bool isExact, double newScores, quint32 increment);
+    void scoreMiniMax(float score, bool isExact, bool hasGameContext, double newScores, quint32 increment);
     bool isAlreadyPlayingOut() const;
 
     int count() const;
