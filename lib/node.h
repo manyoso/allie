@@ -223,6 +223,7 @@ public:
     int treeDepth() const;
     bool isExact() const;
     void setExact(NodeType type);
+    bool isThreeFoldOrFiftyMove() const;
     bool isTransposition() const;
     bool isTrueTerminal() const;
     bool isTB() const;
@@ -366,6 +367,11 @@ inline bool Node::isTransposition() const
     Q_ASSERT(m_position);
     // If we are not our position's canonical node, then we are just a transposition
     return m_position->canonicalNode() != this;
+}
+
+inline bool Node::isThreeFoldOrFiftyMove() const
+{
+    return m_nodeType == ThreeFoldDraw || m_nodeType == FiftyMoveRuleDraw;
 }
 
 inline bool Node::isTrueTerminal() const
