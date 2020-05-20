@@ -69,26 +69,26 @@ void actualFetchFromNN(Batch *batch)
     NeuralNet::globalInstance()->releaseNetwork(computation);
 }
 
-void actualMinimaxTree(Tree *tree, int evaluatedCount, WorkerInfo *info)
+void actualMinimaxTree(Tree *tree, quint32 evaluatedCount, WorkerInfo *info)
 {
     // Gather minimax scores;
     bool isExact = false;
     double newScores = 0;
     quint32 newVisits = 0;
-    quint32 currentVisited = info->nodesVisited;
     Node::minimax(tree->embodiedRoot(), 0 /*depth*/, &isExact, info, &newScores, &newVisits);
 #if defined(DEBUG_VALIDATE_TREE)
     Node::validateTree(tree->embodiedRoot());
 #endif
 
-    info->nodesCacheHits += currentVisited - evaluatedCount;
+    Q_ASSERT(newVisits >= evaluatedCount);
+    info->nodesCacheHits += newVisits - evaluatedCount;
     info->nodesEvaluated += evaluatedCount;
     info->numberOfBatches += evaluatedCount ? 1 : 0;
 }
 
 void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
 {
-    int countNonExact = 0;
+    quint32 countNonExact = 0;
     for (int index = 0; index < batch->count(); ++index) {
         Node *node = batch->at(index);
         if (!node->isExact()) {
