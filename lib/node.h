@@ -186,10 +186,20 @@ public:
         friend class Tests;
     };
 
-    enum ExactType {
+    enum NodeType : quint8 {
+        NonTerminal,
         Win,
+        Loss,
         Draw,
-        Loss
+        TBWin,
+        TBLoss,
+        TBDraw,
+        PropagateWin,
+        PropagateLoss,
+        PropagateDraw,
+        FiftyMoveRuleDraw,
+        ThreeFoldDraw,
+        ExactFromTransposition
     };
 
     Node();
@@ -212,7 +222,7 @@ public:
 
     int treeDepth() const;
     bool isExact() const;
-    void setExact(ExactType type);
+    void setExact(NodeType type);
     bool isTransposition() const;
     bool isTrueTerminal() const;
     bool isTB() const;
@@ -318,9 +328,8 @@ private:
     float m_pValue;                     // 4
     float m_policySum;                  // 4
     float m_uCoeff;                     // 4
-    quint8 m_potentialIndex;            // 2
-    bool m_isExact: 1;                  // 1
-    bool m_isTB: 1;                     // 1
+    quint8 m_potentialIndex;            // 1
+    NodeType m_nodeType;                // 1
     bool m_isDirty: 1;                  // 1
     friend class SearchWorker;
     friend class SearchEngine;
@@ -343,13 +352,13 @@ inline int Node::treeDepth() const
 
 inline bool Node::isExact() const
 {
-    return m_isExact;
+    return m_nodeType != NonTerminal;
 }
 
-inline void Node::setExact(ExactType type)
+inline void Node::setExact(NodeType type)
 {
-    Q_UNUSED(type);
-    m_isExact = true;
+    Q_ASSERT(type != NonTerminal);
+    m_nodeType = type;
 }
 
 inline bool Node::isTransposition() const
@@ -361,12 +370,12 @@ inline bool Node::isTransposition() const
 
 inline bool Node::isTrueTerminal() const
 {
-    return m_isExact && m_children.isEmpty() && !hasPotentials();
+    return isExact() && m_children.isEmpty() && !hasPotentials();
 }
 
 inline bool Node::isTB() const
 {
-    return m_isTB;
+    return m_nodeType == TBWin || m_nodeType == TBLoss || m_nodeType == TBDraw;
 }
 
 inline bool Node::isDirty() const
@@ -432,7 +441,7 @@ inline void Node::setAsRootNode()
 
     // Now we have no parent
     m_parent = nullptr;
-    m_isExact = false;
+    m_nodeType = NonTerminal;
 }
 
 inline Node *Node::parent() const

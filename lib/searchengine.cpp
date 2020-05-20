@@ -360,7 +360,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
                 // if the position has no potentials, but we don't mark whether this is a stalemate
                 // or TB drawn or deadPosition
                 if (!playout->hasPotentials()) {
-                    playout->m_isExact = true;
+                    playout->setExact(Node::ExactFromTransposition);
 
                     // We *can* see though if the transposition reflects checkmate!
                     const bool isChecked

@@ -144,8 +144,7 @@ void Node::initialize(Node *parent, const Game &game)
     m_pValue = -2.0f;
     m_policySum = 0;
     m_uCoeff = -2.0f;
-    m_isExact = false;
-    m_isTB = false;
+    m_nodeType = NonTerminal;
     m_isDirty = false;
 }
 
@@ -282,14 +281,14 @@ Node *Node::bestChild() const
 void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 newVisits)
 {
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
-    Q_ASSERT(!m_isExact || isExact);
+    Q_ASSERT(!this->isExact() || isExact);
     if (isExact) {
         m_qValue = score;
-        const ExactType exactType = score > 0 ? Win : score < 0 ? Loss : Draw;
+        const NodeType exactType = score > 0 ? PropagateWin : score < 0 ? PropagateLoss : PropagateDraw;
         // Iff it is a proven win or loss, then we can go ahead and update the rawQValue which will
         // be passed along to transpositions, but not for draws as they could have been threefold or
         // 50 move rule which does not pertain to a transposition with different move history
-        if (exactType != Draw)
+        if (exactType != PropagateDraw)
             setRawQValue(score);
         setExact(exactType);
     } else {
@@ -335,7 +334,7 @@ void Node::backPropagateDirty()
 {
     Q_ASSERT(!m_isDirty);
     Q_ASSERT(hasRawQValue());
-    Q_ASSERT(!m_visited || m_isExact);
+    Q_ASSERT(!m_visited || isExact());
     m_isDirty = true;
 
     Node *parent = this->parent();
@@ -433,7 +432,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         ++(info->nodesVisited);
         info->sumDepths += depth;
         info->maxDepth = qMax(info->maxDepth, depth);
-        if (node->m_isTB)
+        if (node->isTB())
             ++(info->nodesTBHits);
         *isExact = node->isExact();
         node->setQValueAndVisit();
@@ -447,7 +446,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         // Record info
         ++(info->nodesSearched);
         ++(info->nodesVisited);
-        if (node->m_isTB)
+        if (node->isTB())
             ++(info->nodesTBHits);
         *isExact = node->isExact();
         // If this node has children and was proven to be an exact node, then it is possible that
@@ -744,18 +743,15 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     switch (result) {
     case TB::Win:
         child->setRawQValue(1.0f);
-        child->setExact(Win);
-        child->m_isTB = true;
+        child->setExact(TBWin);
         break;
     case TB::Loss:
         child->setRawQValue(-1.0f);
-        child->setExact(Loss);
-        child->m_isTB = true;
+        child->setExact(TBLoss);
         break;
     case TB::Draw:
         child->setRawQValue(0.0f);
-        child->setExact(Draw);
-        child->m_isTB = true;
+        child->setExact(TBDraw);
         break;
     default:
         Q_UNREACHABLE();
@@ -787,7 +783,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
-        setExact(Draw);
+        setExact(FiftyMoveRuleDraw);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
         // This can never be a transposition as it depends upon information not found in the
@@ -798,7 +794,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
-        setExact(Draw);
+        setExact(ThreeFoldDraw);
         return true;
     }
     return false;
@@ -822,18 +818,15 @@ void Node::generatePotentials()
         break;
     case TB::Win:
         setRawQValue(1.0f);
-        setExact(Win);
-        m_isTB = true;
+        setExact(TBWin);
         return;
     case TB::Loss:
         setRawQValue(-1.0f);
-        setExact(Loss);
-        m_isTB = true;
+        setExact(TBLoss);
         return;
     case TB::Draw:
         setRawQValue(0.0f);
-        setExact(Draw);
-        m_isTB = true;
+        setExact(TBDraw);
         return;
     }
 
