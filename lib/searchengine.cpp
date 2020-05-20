@@ -80,8 +80,9 @@ void actualMinimaxTree(Tree *tree, quint32 evaluatedCount, WorkerInfo *info)
     Node::validateTree(tree->embodiedRoot());
 #endif
 
-    Q_ASSERT(newVisits >= evaluatedCount);
-    info->nodesCacheHits += newVisits - evaluatedCount;
+    // New visits can be less than what was evaluated due to trimming of unscored nodes if a parent
+    // was propagated exact in a minimax before the evaluation
+    info->nodesCacheHits += newVisits <= evaluatedCount ? 0 : newVisits - evaluatedCount;
     info->nodesEvaluated += evaluatedCount;
     info->numberOfBatches += evaluatedCount ? 1 : 0;
 }
