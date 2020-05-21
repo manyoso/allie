@@ -20,6 +20,8 @@
 
 #include "node.h"
 
+#include <cstring>
+
 #include "cache.h"
 #include "history.h"
 #include "notation.h"
@@ -418,98 +420,257 @@ bool Node::isMoveClock() const
     return m_game.halfMoveClock() >= 100;
 }
 
-Node::MinimaxResult Node::minimax(Node *node, quint32 depth, WorkerInfo *info)
+struct MinimaxFrame {
+    Node::MinimaxResult result;
+    Node *node = nullptr;
+    double newScoresForChildren = 0;
+    quint32 newVisitsForChildren = 0;
+    quint32 depth = 0;
+    int index = 0;
+    float best = -2.0f;
+    bool allChildrenAreScored = true;
+    bool allAreExact = true;
+    bool bestIsExact = false;
+    enum Stage : quint8 {
+        Begin,
+        BeginChild,
+        EndChild,
+        EndMinimax,
+        End
+    };
+    Stage stage = Begin;
+};
+
+class MinimaxStack {
+public:
+    MinimaxStack()
+    {
+        m_root = new StackObject;
+    }
+
+    ~MinimaxStack()
+    {
+        StackObject *f = m_root;
+        while (f) {
+            StackObject *delink = f;
+            f = f->n;
+            delete delink;
+        }
+        m_root = nullptr;
+        m_top = nullptr;
+    }
+
+    inline MinimaxFrame& addFrame()
+    {
+        static MinimaxFrame defaultFrame = MinimaxFrame();
+        if (Q_UNLIKELY(!m_top)) {
+            m_top = m_root;
+            std::memcpy(&m_top->f, &defaultFrame, sizeof(MinimaxFrame));
+            return m_top->f;
+        }
+
+        if (Q_UNLIKELY(!m_top->n)) {
+            StackObject *n = new StackObject;
+            n->p = m_top;
+            m_top->n = n;
+            m_top = n;
+            std::memcpy(&m_top->f, &defaultFrame, sizeof(MinimaxFrame));
+            return m_top->f;
+        }
+
+        m_top = m_top->n;
+        std::memcpy(&m_top->f, &defaultFrame, sizeof(MinimaxFrame));
+        return m_top->f;
+    }
+
+    inline MinimaxFrame& top()
+    {
+        return m_top->f;
+    }
+
+    inline void releaseFrame()
+    {
+        Q_ASSERT(m_top);
+        m_top = m_top->p;
+    }
+
+    inline bool isEmpty() { return !m_top; }
+
+private:
+    struct StackObject {
+        MinimaxFrame f;
+        StackObject *n = nullptr;
+        StackObject *p = nullptr;
+    };
+    StackObject *m_root = nullptr;
+    StackObject *m_top = nullptr;
+};
+
+static MinimaxStack s_frameStack;
+
+inline void beginMinimax(MinimaxFrame &f, WorkerInfo *info)
 {
-    Q_ASSERT(node);
-    Q_ASSERT(node->hasRawQValue());
+    Q_ASSERT(f.node);
+    Q_ASSERT(f.node->hasRawQValue());
 
     // First we look to see if this node has been scored
-    if (!node->m_visited) {
+    if (!f.node->visits()) {
         // Record info
-        Q_ASSERT(node->m_isDirty);
+        Q_ASSERT(f.node->isDirty());
         ++(info->nodesSearched);
         ++(info->nodesVisited);
-        info->sumDepths += depth;
-        info->maxDepth = qMax(info->maxDepth, depth);
-        if (node->isTB())
+        info->sumDepths += f.depth;
+        info->maxDepth = qMax(info->maxDepth, f.depth);
+        if (f.node->isTB())
             ++(info->nodesTBHits);
-        node->setQValueAndVisit();
-        return MinimaxResult { node->m_qValue, node->isExact(), node->rawQValue(), 1 };
+        f.node->setQValueAndVisit();
+        f.result
+            = Node::MinimaxResult { f.node->qValue(), f.node->isExact(), f.node->rawQValue(), 1 };
+        f.stage = MinimaxFrame::End;
+        return;
     }
 
     // Next look if it is a dirty terminal
-    if (node->isExact() && node->m_isDirty) {
+    if (f.node->isExact() && f.node->isDirty()) {
         // Record info
         ++(info->nodesSearched);
         ++(info->nodesVisited);
-        if (node->isTB())
+        if (f.node->isTB())
             ++(info->nodesTBHits);
         // If this node has children and was proven to be an exact node, then it is possible that
         // recently leafs have been made to we must trim the tree of any leafs
-        trimUnscoredFromTree(node);
-        node->setQValueAndVisit();
-        return MinimaxResult { node->m_qValue, node->isExact(), node->rawQValue(), 1 };
+        Node::trimUnscoredFromTree(f.node);
+        f.node->setQValueAndVisit();
+        f.result
+            = Node::MinimaxResult { f.node->qValue(), f.node->isExact(), f.node->rawQValue(), 1 };
+        f.stage = MinimaxFrame::End;
+        return;
     }
 
     // If we are an exact node, then we are terminal so just return the score
-    if (node->isExact()) {
-        return MinimaxResult { node->m_qValue, node->isExact(), 0, 0 };
+    if (f.node->isExact()) {
+        f.result = Node::MinimaxResult { f.node->qValue(), f.node->isExact(), 0, 0 };
+        f.stage = MinimaxFrame::End;
+        return;
     }
 
     // However, if the subtree is not dirty, then we can just return our score
-    if (!node->m_isDirty) {
-        return MinimaxResult { node->m_qValue, node->isExact(), 0, 0 };
+    if (!f.node->isDirty()) {
+        f.result = Node::MinimaxResult { f.node->qValue(), f.node->isExact(), 0, 0 };
+        f.stage = MinimaxFrame::End;
+        return;
     }
+
+    // Mark the frame as moving on to child
+    f.stage = MinimaxFrame::BeginChild;
 
     // At this point we should have children
-    Q_ASSERT(node->hasChildren());
+    Q_ASSERT(f.node->hasChildren());
+    Q_ASSERT(f.index < f.node->children()->count());
+}
 
+inline void beginChildOrEndMinimax(MinimaxFrame &f)
+{
+    if (f.index < f.node->children()->count() - 1) {
+        ++f.index;
+        f.stage = MinimaxFrame::BeginChild;
+    } else {
+        f.stage = MinimaxFrame::EndMinimax;
+    }
+}
+
+inline void beginChildMinimax(MinimaxFrame &f)
+{
     // Search the children
-    float best = -2.0f;
-    bool allAreExact = true;
-    bool bestIsExact = false;
-    bool allChildrenAreScored = true;
-    double newScoresForChildren = 0;
-    quint32 newVisitsForChildren = 0;
-    for (int index = 0; index < node->m_children.count(); ++index) {
-        Node *child = node->m_children.at(index);
-        Q_ASSERT(child);
+    Node *child = f.node->children()->at(f.index);
+    Q_ASSERT(child);
 
-        // If the child is not visited and is not marked dirty then it has not been scored yet, so
-        // just continue
-        if (!child->m_visited && !child->m_isDirty) {
-            allChildrenAreScored = false;
-            continue;
-        }
-
-        Q_ASSERT(child->hasRawQValue());
-
-        MinimaxResult result = minimax(child, depth + 1, info);
-        newScoresForChildren += result.newScores;
-        newVisitsForChildren += result.newVisits;
-        allAreExact = result.isExact ? allAreExact : false;
-
-        // Check if we have a new best child
-        if (result.score > best) {
-            bestIsExact = result.isExact;
-            best = result.score;
-        }
+    // If the child is not visited and is not marked dirty then it has not been scored yet, so
+    // just return
+    if (Q_UNLIKELY(!child->visits() && !child->isDirty())) {
+        f.allChildrenAreScored = false;
+        beginChildOrEndMinimax(f);
+        return;
     }
 
+    Q_ASSERT(child->hasRawQValue());
+    MinimaxFrame &newFrame = s_frameStack.addFrame();
+    newFrame.node = child;
+    newFrame.depth = f.depth + 1;
+    f.stage = MinimaxFrame::EndChild;
+}
+
+inline void endChildMinimax(MinimaxFrame &f)
+{
+    // Search the children
+    Node *child = f.node->children()->at(f.index);
+    Q_ASSERT(child);
+    Q_ASSERT(child->hasRawQValue());
+
+    Node::MinimaxResult &result = f.result;
+    f.newScoresForChildren += result.newScores;
+    f.newVisitsForChildren += result.newVisits;
+    f.allAreExact = result.isExact ? f.allAreExact : false;
+
+    // Check if we have a new best child
+    if (result.score > f.best) {
+        f.bestIsExact = result.isExact;
+        f.best = result.score;
+    }
+
+    beginChildOrEndMinimax(f);
+}
+
+inline void endMinimax(MinimaxFrame &f, WorkerInfo *info)
+{
     // We only propagate exact certainty if the best score from subtree is exact AND the best score
     // is a proven win OR if the subtree is complete and all nodes are exact in which case the score
     // is totally certain
     const bool shouldPropagateExact =
-        ((bestIsExact && best > 0) || // proven win
-         (allAreExact && allChildrenAreScored && !node->hasPotentials())) // score totally certain
-        && !node->isRootNode();
+        ((f.bestIsExact && f.best > 0) || // proven win
+         (f.allAreExact && f.allChildrenAreScored && !f.node->hasPotentials())) // score certain
+        && !f.node->isRootNode();
 
     // Record info
     ++(info->nodesSearched);
 
     // Score the node based on minimax of children
-    node->scoreMiniMax(-best, shouldPropagateExact, -newScoresForChildren, newVisitsForChildren);
-    return MinimaxResult { node->m_qValue, node->isExact(), -newScoresForChildren, newVisitsForChildren };
+    f.node->scoreMiniMax(-f.best, shouldPropagateExact, -f.newScoresForChildren,
+        f.newVisitsForChildren);
+    f.result = Node::MinimaxResult { f.node->qValue(), f.node->isExact(),
+        -f.newScoresForChildren, f.newVisitsForChildren };
+    f.stage = MinimaxFrame::End;
+}
+
+Node::MinimaxResult Node::minimax(Node *node, quint32 depth, WorkerInfo *info)
+{
+    MinimaxResult result;
+    MinimaxFrame &newFrame = s_frameStack.addFrame();
+    newFrame.node = node;
+    newFrame.depth = depth;
+    while (!s_frameStack.isEmpty()) {
+        MinimaxFrame &f = s_frameStack.top();
+        switch(f.stage) {
+        case MinimaxFrame::Begin:
+            beginMinimax(f, info);
+            break;
+        case MinimaxFrame::BeginChild:
+            beginChildMinimax(f);
+            break;
+        case MinimaxFrame::EndChild:
+            std::memcpy(&f.result, &result, sizeof(MinimaxResult));
+            endChildMinimax(f);
+            break;
+        case MinimaxFrame::EndMinimax:
+            endMinimax(f, info);
+            break;
+        case MinimaxFrame::End:
+            s_frameStack.releaseFrame();
+            std::memcpy(&result, &f.result, sizeof(MinimaxResult));
+            break;
+        }
+    }
+    return result;
 }
 
 void Node::validateTree(const Node *node)
