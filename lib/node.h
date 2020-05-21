@@ -206,8 +206,13 @@ public:
     ~Node();
 
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
-    static float minimax(Node *, quint32 depth, bool *isExact, WorkerInfo *info,
-        double *newScores, quint32 *newVisits);
+    struct MinimaxResult {
+        float score = -2.0f;
+        bool isExact = false;
+        double newScores = -2.0f;
+        quint32 newVisits = 0;
+    };
+    static MinimaxResult minimax(Node *, quint32 depth, WorkerInfo *info);
     static void validateTree(const Node *);
     static void trimUnscoredFromTree(Node *);
     static float uctFormula(float qValue, float uValue);

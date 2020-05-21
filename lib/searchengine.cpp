@@ -72,17 +72,14 @@ void actualFetchFromNN(Batch *batch)
 void actualMinimaxTree(Tree *tree, quint32 evaluatedCount, WorkerInfo *info)
 {
     // Gather minimax scores;
-    bool isExact = false;
-    double newScores = 0;
-    quint32 newVisits = 0;
-    Node::minimax(tree->embodiedRoot(), 0 /*depth*/, &isExact, info, &newScores, &newVisits);
+    Node::MinimaxResult r = Node::minimax(tree->embodiedRoot(), 0 /*depth*/, info);
 #if defined(DEBUG_VALIDATE_TREE)
     Node::validateTree(tree->embodiedRoot());
 #endif
 
     // New visits can be less than what was evaluated due to trimming of unscored nodes if a parent
     // was propagated exact in a minimax before the evaluation
-    info->nodesCacheHits += newVisits <= evaluatedCount ? 0 : newVisits - evaluatedCount;
+    info->nodesCacheHits += r.newVisits <= evaluatedCount ? 0 : r.newVisits - evaluatedCount;
     info->nodesEvaluated += evaluatedCount;
     info->numberOfBatches += evaluatedCount ? 1 : 0;
 }
