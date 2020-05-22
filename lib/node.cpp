@@ -148,6 +148,7 @@ void Node::initialize(Node *parent, const Game &game)
     m_uCoeff = -2.0f;
     m_nodeType = NonTerminal;
     m_isDirty = false;
+    m_hasGameContext = false;
 }
 
 quint64 Node::initializePosition(Cache *cache)
@@ -246,6 +247,7 @@ void Node::deinitialize(bool forcedFree)
     m_parent = nullptr;
     m_position = nullptr;
     m_isDirty = false;
+    m_hasGameContext = false;
     m_children.clear();
 }
 
@@ -290,7 +292,7 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
         // Iff it is a proven win or loss, then we can go ahead and update the rawQValue which will
         // be passed along to transpositions, but not for draws as they could have been threefold or
         // 50 move rule which does not pertain to a transposition with different move history
-        if (exactType != PropagateDraw)
+        if (!hasGameContext() || exactType != PropagateDraw)
             setRawQValue(score);
         setExact(exactType);
     } else {
@@ -298,6 +300,11 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
         else
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + newScores) / float(m_visited + newVisits), 1.f);
+
+        // Update the raw qvalue for any new transpositions to use the best score available which
+        // includes the subtree if it has no game context
+        if (!hasGameContext())
+            setRawQValue(m_qValue);
     }
     incrementVisited(newVisits);
 }
@@ -611,6 +618,8 @@ inline void endChildMinimax(MinimaxFrame &f)
     f.newScoresForChildren += result.newScores;
     f.newVisitsForChildren += result.newVisits;
     f.allAreExact = result.isExact ? f.allAreExact : false;
+    if (child->hasGameContext())
+        f.node->setHasGameContext(true);
 
     // Check if we have a new best child
     if (result.score > f.best) {
@@ -932,6 +941,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
         setExact(FiftyMoveRuleDraw);
+        setHasGameContext(true);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
         // This can never be a transposition as it depends upon information not found in the
@@ -943,6 +953,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
         setExact(ThreeFoldDraw);
+        setHasGameContext(true);
         return true;
     }
     return false;

@@ -354,7 +354,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 #if defined(DEBUG_PLAYOUT)
                 qDebug() << "found cached playout" << playout->toString();
 #endif
-                Q_ASSERT(!canonicalNode->isThreeFoldOrFiftyMove());
+                Q_ASSERT(!canonicalNode->hasGameContext());
 
                 // It is possible this is a transposition of a terminal node, but we only know that
                 // if the position has no potentials, but we don't mark whether this is a stalemate
