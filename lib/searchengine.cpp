@@ -336,7 +336,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 
     // Check if we have found a draw by move clock or threefold
     if (playout->checkMoveClockOrThreefold(hash, cache)) {
-        playout->backPropagateDirty();
+        playout->backPropagateGameContextAndDirty();
         return false;
     }
 
@@ -357,7 +357,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 #if defined(DEBUG_PLAYOUT)
                 qDebug() << "found cached playout" << playout->toString();
 #endif
-                Q_ASSERT(!canonicalNode->isThreeFoldOrFiftyMove());
+                Q_ASSERT(!canonicalNode->hasGameContext());
 
                 // It is possible this is a transposition of a terminal node, but we only know that
                 // if the position has no potentials, but we don't mark whether this is a stalemate

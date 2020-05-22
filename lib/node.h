@@ -223,7 +223,8 @@ public:
     int treeDepth() const;
     bool isExact() const;
     void setExact(NodeType type);
-    bool isThreeFoldOrFiftyMove() const;
+    bool hasGameContext() const;
+    void setHasGameContext(bool);
     bool isTransposition() const;
     bool isTrueTerminal() const;
     bool isTB() const;
@@ -274,6 +275,7 @@ public:
     void backPropagateValueFull();
     void setQValueAndVisit();
     void backPropagateDirty();
+    void backPropagateGameContextAndDirty();
 
     QVector<Game> previousMoves(bool fullHistory) const; // slow
 
@@ -332,6 +334,7 @@ private:
     quint8 m_potentialIndex;            // 1
     NodeType m_nodeType;                // 1
     bool m_isDirty: 1;                  // 1
+    bool m_hasGameContext : 1;          // 1
     friend class SearchWorker;
     friend class SearchEngine;
     friend class Tests;
@@ -369,9 +372,14 @@ inline bool Node::isTransposition() const
     return m_position->canonicalNode() != this;
 }
 
-inline bool Node::isThreeFoldOrFiftyMove() const
+inline bool Node::hasGameContext() const
 {
-    return m_nodeType == ThreeFoldDraw || m_nodeType == FiftyMoveRuleDraw;
+    return m_hasGameContext;
+}
+
+inline void Node::setHasGameContext(bool b)
+{
+    m_hasGameContext = b;
 }
 
 inline bool Node::isTrueTerminal() const
