@@ -222,7 +222,7 @@ public:
 
     int treeDepth() const;
     bool isExact() const;
-    void setExact(NodeType type);
+    void setNodeType(NodeType type);
     bool hasGameContext() const;
     void setHasGameContext(bool);
     bool isTransposition() const;
@@ -359,9 +359,8 @@ inline bool Node::isExact() const
     return m_nodeType != NonTerminal;
 }
 
-inline void Node::setExact(NodeType type)
+inline void Node::setNodeType(NodeType type)
 {
-    Q_ASSERT(type != NonTerminal);
     m_nodeType = type;
 }
 

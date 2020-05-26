@@ -292,7 +292,7 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
         // 50 move rule which does not pertain to a transposition with different move history
         if (!hasGameContext() || exactType != PropagateDraw)
             setRawQValue(score);
-        setExact(exactType);
+        setNodeType(exactType);
     } else {
         if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
@@ -765,15 +765,15 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     switch (result) {
     case TB::Win:
         child->setRawQValue(1.0f);
-        child->setExact(TBWin);
+        child->setNodeType(TBWin);
         break;
     case TB::Loss:
         child->setRawQValue(-1.0f);
-        child->setExact(TBLoss);
+        child->setNodeType(TBLoss);
         break;
     case TB::Draw:
         child->setRawQValue(0.0f);
-        child->setExact(TBDraw);
+        child->setNodeType(TBDraw);
         break;
     default:
         Q_UNREACHABLE();
@@ -805,7 +805,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
-        setExact(FiftyMoveRuleDraw);
+        setNodeType(FiftyMoveRuleDraw);
         setHasGameContext(true);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
@@ -817,7 +817,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
-        setExact(ThreeFoldDraw);
+        setNodeType(ThreeFoldDraw);
         setHasGameContext(true);
         return true;
     }
@@ -831,7 +831,7 @@ void Node::generatePotentials()
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
         setRawQValue(0.0f);
-        setExact(Draw);
+        setNodeType(Draw);
         return;
     }
 
@@ -842,15 +842,15 @@ void Node::generatePotentials()
         break;
     case TB::Win:
         setRawQValue(1.0f);
-        setExact(TBWin);
+        setNodeType(TBWin);
         return;
     case TB::Loss:
         setRawQValue(-1.0f);
-        setExact(TBLoss);
+        setNodeType(TBLoss);
         return;
     case TB::Draw:
         setRawQValue(0.0f);
-        setExact(TBDraw);
+        setNodeType(TBDraw);
         return;
     }
 
@@ -869,11 +869,11 @@ void Node::generatePotentials()
         if (isChecked) {
             m_game.setCheckMate(true);
             setRawQValue(1.0f);
-            setExact(Win);
+            setNodeType(Win);
         } else {
             m_game.setStaleMate(true);
             setRawQValue(0.0f);
-            setExact(Draw);
+            setNodeType(Draw);
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
     }

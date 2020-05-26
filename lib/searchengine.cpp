@@ -363,7 +363,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
                 // if the position has no potentials, but we don't mark whether this is a stalemate
                 // or TB drawn or deadPosition
                 if (!playout->hasPotentials())
-                    playout->setExact(Node::ExactFromTransposition);
+                    playout->setNodeType(Node::ExactFromTransposition);
 
                 playout->backPropagateDirty();
                 return false;
