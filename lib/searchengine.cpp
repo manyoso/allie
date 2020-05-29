@@ -362,16 +362,8 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
                 // It is possible this is a transposition of a terminal node, but we only know that
                 // if the position has no potentials, but we don't mark whether this is a stalemate
                 // or TB drawn or deadPosition
-                if (!playout->hasPotentials()) {
+                if (!playout->hasPotentials())
                     playout->setExact(Node::ExactFromTransposition);
-
-                    // We *can* see though if the transposition reflects checkmate!
-                    const bool isChecked
-                        = playout->m_game.isChecked(playout->m_position->position().activeArmy(),
-                            &playout->m_position->position());
-                    if (isChecked)
-                        playout->m_game.setCheckMate(true);
-                }
 
                 playout->backPropagateDirty();
                 return false;
