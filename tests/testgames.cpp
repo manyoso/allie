@@ -386,7 +386,7 @@ void Tests::testSearchForMateInOne()
     Node::Position position;
     node.initialize(nullptr, g);
     node.setPosition(&position);
-    position.initialize(&node, g.position());
+    position.initialize(g.position());
     node.generatePotentials();
     QVERIFY(node.m_game.lastMove().isCheckMate());
 

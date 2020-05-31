@@ -147,16 +147,9 @@ public:
         Position();
         ~Position();
 
-        void initialize(Node *node, const Game::Position &position);
+        void initialize(const Game::Position &position);
         void deinitialize(bool forcedFree);
         static Node::Position *relinkOrMakeUnique(quint64 positionHash, Cache *cache, bool *madeUnique);
-        inline void clearCanonicalNode() { m_canonicalNode = nullptr; }
-        inline const Node* canonicalNode() const { return m_canonicalNode; }
-        inline void updateCanonicalNode(const Node *node)
-        {
-            m_canonicalNode = node;
-            Q_ASSERT(m_canonicalNode->position() == this);
-        }
         inline bool hasPotentials() const { return !m_potentials.isEmpty(); }
         inline QVector<Potential> *potentials() { return &m_potentials; }
         inline const QVector<Potential> *potentials() const { return &m_potentials; }
@@ -172,16 +165,33 @@ public:
         inline float rawQValue() const { return m_rawQValue; }
         inline void setRawQValue(float rawQvalue) { m_rawQValue = rawQvalue; }
 
+        inline quint32 visits() const { return m_visits; }
+        inline void setVisits(quint32 v) { m_visits = v; }
+
+        inline void ref() { ++m_refs; }
+        inline void unref()
+        {
+            Q_ASSERT(m_refs >= 1);
+            --m_refs;
+            // FIXME: This is to keep the change introducing refcounts as a non-functional change
+            // to tree search. Previously, when a position had no more nodes using it, then this
+            // would effectively be set to zero.
+            if (!m_refs)
+                m_visits = 0;
+        }
+        inline quint32 refs() const { return m_refs; }
+
         // Indicates whether the position can ever be used by transpositions
         inline bool isUnique() const { return m_isUnique; }
         inline void setUnique(bool b) { m_isUnique = b; }
 
     private:
-        Game::Position m_position;
-        const Node* m_canonicalNode;
-        QVector<Potential> m_potentials;
-        float m_rawQValue;
-        bool m_isUnique : 1;
+        Game::Position m_position;          // 72
+        QVector<Potential> m_potentials;    // 8
+        float m_rawQValue;                  // 4
+        quint32 m_visits;                   // 4
+        quint32 m_refs;                     // 4
+        bool m_isUnique : 1;                // 1
         friend class Node;
         friend class Tests;
     };
@@ -217,15 +227,13 @@ public:
     quint64 initializePosition(Cache *cache);
     void setPosition(Node::Position *position);
     void deinitialize(bool forcedFree);
-    void updateTranspositions() const;
-    void unwindTransposition(quint64 hash, Cache *cache);
+    void unwindFromPosition(quint64 hash, Cache *cache);
 
     int treeDepth() const;
     bool isExact() const;
     void setNodeType(NodeType type);
     bool hasGameContext() const;
     void setHasGameContext(bool);
-    bool isTransposition() const;
     bool isTrueTerminal() const;
     bool isTB() const;
     bool isDirty() const;
@@ -362,13 +370,6 @@ inline bool Node::isExact() const
 inline void Node::setNodeType(NodeType type)
 {
     m_nodeType = type;
-}
-
-inline bool Node::isTransposition() const
-{
-    Q_ASSERT(m_position);
-    // If we are not our position's canonical node, then we are just a transposition
-    return m_position->canonicalNode() != this;
 }
 
 inline bool Node::hasGameContext() const
@@ -598,7 +599,7 @@ inline quint64 fixedHash(const Node::Position &position)
 
 inline bool isPinned(const Node::Position &position)
 {
-    return position.canonicalNode();
+    return position.refs();
 }
 
 inline bool isPinned(Node *node)
@@ -608,8 +609,13 @@ inline bool isPinned(Node *node)
 
 inline bool shouldMakeUnique(const Node::Position &position)
 {
-    Q_ASSERT(position.canonicalNode() || position.hasRawQValue());
-    return position.canonicalNode() && !position.canonicalNode()->visits();
+    // This function determines whether a position should be made unique when transpositions
+    // request this position from the cache. When the position has a reference, but no visits this
+    // means it has not been fully scored by the main search thread, and is thus made unique to
+    // avoid races by the GPU threads. Another possibility, this positin has no refs which means it
+    // was a fully scored position from a previous search in which case it should have a raw qvalue
+    Q_ASSERT(position.refs() || position.hasRawQValue());
+    return position.refs() && !position.visits();
 }
 
 inline void setUniqueFlag(Node::Position &position)

@@ -64,7 +64,8 @@ inline void Tree::validateTree(Node *node, int *total)
     Q_ASSERT(node->visits());
     Q_ASSERT(node->isRootNode() || node->hasPValue());
     Q_ASSERT(node->position());
-    Q_ASSERT(node->position()->canonicalNode());
+    Q_ASSERT(node->position()->refs());
+    Q_ASSERT(node->position()->visits());
     const QVector<Node*> children = *node->children();
     for (Node *child : children)
         validateTree(child, total);
@@ -90,8 +91,6 @@ inline void Tree::clearRoot(bool resumeIfPossible)
                         grandChild->setAsRootNode();
                         cache.unlinkNode(m_root);
                         m_root = grandChild;
-                        m_root->updateTranspositions();
-                        Q_ASSERT(!m_root->isTransposition());
                         foundResume = true;
                         break;
                     }
@@ -144,7 +143,7 @@ inline Node *Tree::embodiedRoot()
     rootPosition = cache.newNodePosition(rootPositionHash);
     m_root->initialize(nullptr, rootGame);
     m_root->setPosition(rootPosition);
-    rootPosition->initialize(m_root, rootGame.position());
+    rootPosition->initialize(rootGame.position());
 
     return m_root;
 }

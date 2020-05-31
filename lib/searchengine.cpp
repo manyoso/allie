@@ -62,7 +62,7 @@ void actualFetchFromNN(Batch *batch)
         node->setRawQValue(-computation->qVal(index));
         if (node->hasPotentials()) {
             Q_ASSERT(!node->isExact());
-            Q_ASSERT(!node->isTransposition());
+            Q_ASSERT(node->position()->refs() == 1);
             computation->setPVals(index, node);
         }
     }
@@ -336,35 +336,22 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
         return false;
     }
 
-    // Check if we can find a transposition now
-    {
-        const Node *canonicalNode = playout->position()->canonicalNode();
-        Q_ASSERT(canonicalNode);
-        Q_ASSERT(canonicalNode->position() == playout->position());
-        if (!SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions)) {
-            // If we are using another canonical node, then it *must* already have a qValue or it
-            // would have been made unique when this playout first got its position
-            Q_ASSERT(canonicalNode == playout || canonicalNode->visits());
-
-            // We can go ahead and use the transposition iff it is not this playout OR if it is this
-            // playout AND it already has legit scored other than for FPU
-            if ((canonicalNode != playout) ||
-                (canonicalNode == playout && playout->position()->hasRawQValue())) {
+    // We can go ahead and use the transposition iff it has already been scored, this is
+    // thread safe because the if the position does not have visits at this time, then it
+    // will have been made unique by the cache
+    if (playout->position()->hasRawQValue()) {
+        Q_ASSERT(!playout->position()->isUnique());
 #if defined(DEBUG_PLAYOUT)
-                qDebug() << "found cached playout" << playout->toString();
+        qDebug() << "found cached playout" << playout->toString();
 #endif
-                Q_ASSERT(!canonicalNode->isThreeFold() && !canonicalNode->isMoveClock());
+        // It is possible this is a transposition of a terminal node, but we only know that
+        // if the position has no potentials, but we don't mark whether this is a stalemate
+        // or TB drawn or deadPosition
+        if (!playout->hasPotentials())
+            playout->setNodeType(Node::ExactFromTransposition);
 
-                // It is possible this is a transposition of a terminal node, but we only know that
-                // if the position has no potentials, but we don't mark whether this is a stalemate
-                // or TB drawn or deadPosition
-                if (!playout->hasPotentials())
-                    playout->setNodeType(Node::ExactFromTransposition);
-
-                playout->backPropagateDirty();
-                return false;
-            }
-        }
+        playout->backPropagateDirty();
+        return false;
     }
 
     return true; // Otherwise we should fetch from NN

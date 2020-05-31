@@ -331,7 +331,7 @@ void Tests::perft(int depth, Node *node, PerftResult *result)
         QVERIFY(success);
         Node::Position childPosition;
         child.setPosition(&childPosition);
-        childPosition.initialize(&child, childGamePosition);
+        childPosition.initialize(childGamePosition);
 
         QCOMPARE(child.parent(), node);
         PerftResult childResult;

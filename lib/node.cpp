@@ -47,8 +47,9 @@ float cpToScore(int cp)
 
 Node::Position::Position()
 {
-    m_canonicalNode = nullptr;
     m_rawQValue = -2.0f;
+    m_visits = 0;
+    m_refs = 0;
     m_isUnique = false;
 }
 
@@ -56,35 +57,29 @@ Node::Position::~Position()
 {
 }
 
-void Node::Position::initialize(Node *node, const Game::Position &position)
+void Node::Position::initialize(const Game::Position &position)
 {
-    if (m_canonicalNode)
-        return;
-
     m_position = position;
-    m_canonicalNode = node;
-    Q_ASSERT(m_canonicalNode->m_position == this);
-    if (m_canonicalNode) {
 #if defined(DEBUG_CHURN)
-        QString string;
-        QTextStream stream(&string);
-        stream << "ctor p ";
-        stream << positionHash();
-        stream << " [";
-        stream << m_canonicalNode;
-        stream << "]";
-        qDebug().noquote() << string;
+    QString string;
+    QTextStream stream(&string);
+    stream << "ctor p ";
+    stream << positionHash();
+    stream << " [";
+    stream << m_refs;
+    stream << "]";
+    qDebug().noquote() << string;
 #endif
-    }
 }
 
 void Node::Position::deinitialize(bool forcedFree)
 {
     Q_UNUSED(forcedFree)
     m_position = Game::Position();
-    m_canonicalNode = nullptr;
     m_potentials.clear();
     m_rawQValue = -2.0f;
+    m_visits = 0;
+    m_refs = 0;
     m_isUnique = false;
 #if defined(DEBUG_CHURN)
     QString string;
@@ -177,7 +172,8 @@ quint64 Node::initializePosition(Cache *cache)
     }
 
     Q_ASSERT(m_position);
-    m_position->initialize(this, childPosition);
+    m_position->ref();
+    m_position->initialize(childPosition);
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -195,6 +191,7 @@ quint64 Node::initializePosition(Cache *cache)
 void Node::setPosition(Node::Position *position)
 {
     m_position = position;
+    m_position->ref();
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -229,8 +226,8 @@ void Node::deinitialize(bool forcedFree)
     for (int i = 0; i < m_children.count(); ++i)
         cache->unlinkNode(m_children.at(i));
 
-    if (m_position && m_position->canonicalNode() == this)
-        m_position->clearCanonicalNode();
+    if (m_position)
+        m_position->unref();
 
 #if defined(DEBUG_CHURN)
     QString string;
@@ -250,25 +247,19 @@ void Node::deinitialize(bool forcedFree)
     m_children.clear();
 }
 
-void Node::updateTranspositions() const
+void Node::unwindFromPosition(quint64 hash, Cache *cache)
 {
-    if (!m_position->canonicalNode())
-        m_position->updateCanonicalNode(const_cast<const Node*>(this));
-
-    for (int i = 0; i < m_children.count(); ++i)
-        m_children.at(i)->updateTranspositions();
-}
-
-void Node::unwindTransposition(quint64 hash, Cache *cache)
-{
-    Q_ASSERT(isTransposition());
+    Q_ASSERT(m_position);
+    Q_ASSERT(m_position->refs() > 1);
     Game::Position gamePosition = m_position->position(); // copy
+    m_position->unref(); // unref old position
     m_position = cache->newNodePosition(hash, true /*makeUnique*/);
+    m_position->ref();   // ref new position
     if (!m_position)
         qFatal("Fatal error: we have run out of positions in memory!");
     Q_ASSERT(m_position);
-    m_position->initialize(this, gamePosition);
-    Q_ASSERT(!isTransposition());
+    m_position->initialize(gamePosition);
+    Q_ASSERT(m_position->refs() == 1);
     Q_ASSERT(m_position->isUnique());
 }
 
@@ -311,6 +302,8 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
 void Node::incrementVisited(quint32 increment)
 {
     m_visited += increment;
+    if (!m_position->visits())
+        m_position->setVisits(m_visited);
     const quint32 N = qMax(quint32(1), m_visited);
 #if defined(USE_CPUCT_SCALING)
     // From Deepmind's A0 paper
@@ -556,6 +549,8 @@ void Node::validateTree(const Node *node)
     Q_ASSERT(node->hasRawQValue());
     Q_ASSERT(!node->m_isDirty);
     Q_ASSERT(node->visits());
+    Q_ASSERT(node->position()->refs());
+    Q_ASSERT(node->position()->visits());
     quint32 childVisits = 0;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
@@ -587,8 +582,8 @@ void Node::trimUnscoredFromTree(Node *node)
         if (!child->m_visited && child->isDirty()) {
             Q_ASSERT(child->m_children.isEmpty());
             --node->m_potentialIndex;
-            if (child->m_position && child->m_position->canonicalNode() == child)
-                child->m_position->clearCanonicalNode(); // Unpins the position
+            if (child->m_position)
+                child->m_position->unref(); // Unpins the position
             it.remove();                    // deletes ourself from our parent
             child->m_position = nullptr;    // unpins the node
             child->m_parent = nullptr;      // make sure to nullify our parent
@@ -798,10 +793,10 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
     Q_ASSERT(m_children.isEmpty());
     // Check if this is drawn by rules
     if (Q_UNLIKELY(isMoveClock())) {
-        // This can never be a transposition as it depends upon information not found in the
+        // This can never have a shared position as it depends upon information not found in the
         // generic position, but rather depends upon game specific context
-        if (isTransposition())
-            unwindTransposition(hash, cache);
+        if (m_position->refs() > 1)
+            unwindFromPosition(hash, cache);
         else if (!m_position->isUnique())
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
@@ -812,8 +807,8 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
     } else if (Q_UNLIKELY(isThreeFold())) {
         // This can never be a transposition as it depends upon information not found in the
         // generic position, but rather depends upon game specific context
-        if (isTransposition())
-            unwindTransposition(hash, cache);
+        if (m_position->refs() > 1)
+            unwindFromPosition(hash, cache);
         else if (!m_position->isUnique())
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
@@ -857,7 +852,7 @@ void Node::generatePotentials()
 
     Q_ASSERT(m_position);
     Q_ASSERT(m_position->potentials()->isEmpty());
-    Q_ASSERT(m_position->canonicalNode() == this);
+    Q_ASSERT(m_position->refs() == 1);
 
     m_position->position().pseudoLegalMoves(this);
 
