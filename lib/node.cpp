@@ -301,7 +301,7 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
 
         // Update the raw qvalue for any new transpositions to use the best score available which
         // includes the subtree if it has no game context
-        if (!hasGameContext())
+        if (!hasGameContext() && !isTransposition())
             setRawQValue(m_qValue);
     }
     incrementVisited(newVisits);
