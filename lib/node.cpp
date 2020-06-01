@@ -162,17 +162,18 @@ quint64 Node::initializePosition(Cache *cache)
     // Get a node position from hashpositions
     quint64 childPositionHash = childPosition.positionHash();
 
-    // FIXME: This leaks memory because cache won't know how to erase the position as it does
-    // not have access to the node's address when deinitializing the position!
-    if (SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions))
-        childPositionHash ^= reinterpret_cast<quint64>(this);
-
-    bool madeUnique = false;
-    m_position = Node::Position::relinkOrMakeUnique(childPositionHash, cache, &madeUnique);
-    if (!m_position || madeUnique) {
-        m_position = cache->newNodePosition(childPositionHash);
+    if (SearchSettings::featuresOff.testFlag(SearchSettings::Transpositions)) {
+        m_position = cache->newNodePosition(childPositionHash, true /*makeUnique*/);
         if (!m_position)
             qFatal("Fatal error: we have run out of positions in memory!");
+    } else {
+        bool madeUnique = false;
+        m_position = Node::Position::relinkOrMakeUnique(childPositionHash, cache, &madeUnique);
+        if (!m_position || madeUnique) {
+            m_position = cache->newNodePosition(childPositionHash);
+            if (!m_position)
+                qFatal("Fatal error: we have run out of positions in memory!");
+        }
     }
 
     Q_ASSERT(m_position);
@@ -801,7 +802,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
         // generic position, but rather depends upon game specific context
         if (isTransposition())
             unwindTransposition(hash, cache);
-        else
+        else if (!m_position->isUnique())
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
@@ -813,7 +814,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
         // generic position, but rather depends upon game specific context
         if (isTransposition())
             unwindTransposition(hash, cache);
-        else
+        else if (!m_position->isUnique())
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setRawQValue(0.0f);
