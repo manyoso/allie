@@ -302,8 +302,6 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
 void Node::incrementVisited(quint32 increment)
 {
     m_visited += increment;
-    if (!m_position->visits())
-        m_position->setVisits(m_visited);
     const quint32 N = qMax(quint32(1), m_visited);
 #if defined(USE_CPUCT_SCALING)
     // From Deepmind's A0 paper
@@ -323,6 +321,8 @@ void Node::setQValueAndVisit()
     Node *parent = this->parent();
     if (parent && !m_visited)
         parent->m_policySum += pValue();
+    if (!m_position->visits())
+        m_position->setVisits(1);
     setQValueFromRaw();
     incrementVisited(1);
 #if defined(DEBUG_FETCHANDBP)
@@ -582,8 +582,13 @@ void Node::trimUnscoredFromTree(Node *node)
         if (!child->m_visited && child->isDirty()) {
             Q_ASSERT(child->m_children.isEmpty());
             --node->m_potentialIndex;
-            if (child->m_position)
+            if (child->m_position) {
+                // If the position has not been visited, then mark it as such to show it is fully
+                // formed
+                if (!child->m_position->visits())
+                    child->m_position->setVisits(1);
                 child->m_position->unref(); // Unpins the position
+            }
             it.remove();                    // deletes ourself from our parent
             child->m_position = nullptr;    // unpins the node
             child->m_parent = nullptr;      // make sure to nullify our parent

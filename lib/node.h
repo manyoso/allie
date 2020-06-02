@@ -173,11 +173,6 @@ public:
         {
             Q_ASSERT(m_refs >= 1);
             --m_refs;
-            // FIXME: This is to keep the change introducing refcounts as a non-functional change
-            // to tree search. Previously, when a position had no more nodes using it, then this
-            // would effectively be set to zero.
-            if (!m_refs)
-                m_visits = 0;
         }
         inline quint32 refs() const { return m_refs; }
 
