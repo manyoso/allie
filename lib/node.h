@@ -173,17 +173,15 @@ public:
         {
             Q_ASSERT(m_refs >= 1);
             --m_refs;
-            // FIXME: This is to keep the change introducing refcounts as a non-functional change
-            // to tree search. Previously, when a position had no more nodes using it, then this
-            // would effectively be set to zero.
-            if (!m_refs)
-                m_visits = 0;
         }
         inline quint32 refs() const { return m_refs; }
 
         // Indicates whether the position can ever be used by transpositions
         inline bool isUnique() const { return m_isUnique; }
         inline void setUnique(bool b) { m_isUnique = b; }
+
+        inline bool isScored() const { return m_isScored; }
+        inline void setScored(bool b) { m_isScored = b; }
 
     private:
         Game::Position m_position;          // 72
@@ -192,6 +190,7 @@ public:
         quint32 m_visits;                   // 4
         quint32 m_refs;                     // 4
         bool m_isUnique : 1;                // 1
+        bool m_isScored : 1;                // 1
         friend class Node;
         friend class Tests;
     };
@@ -609,13 +608,7 @@ inline bool isPinned(Node *node)
 
 inline bool shouldMakeUnique(const Node::Position &position)
 {
-    // This function determines whether a position should be made unique when transpositions
-    // request this position from the cache. When the position has a reference, but no visits this
-    // means it has not been fully scored by the main search thread, and is thus made unique to
-    // avoid races by the GPU threads. Another possibility, this positin has no refs which means it
-    // was a fully scored position from a previous search in which case it should have a raw qvalue
-    Q_ASSERT(position.refs() || position.hasRawQValue());
-    return position.refs() && !position.visits();
+    return !position.isScored();
 }
 
 inline void setUniqueFlag(Node::Position &position)

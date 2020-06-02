@@ -51,6 +51,7 @@ Node::Position::Position()
     m_visits = 0;
     m_refs = 0;
     m_isUnique = false;
+    m_isScored = false;
 }
 
 Node::Position::~Position()
@@ -81,6 +82,7 @@ void Node::Position::deinitialize(bool forcedFree)
     m_visits = 0;
     m_refs = 0;
     m_isUnique = false;
+    m_isScored = false;
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -302,8 +304,10 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
 void Node::incrementVisited(quint32 increment)
 {
     m_visited += increment;
-    if (!m_position->visits())
+    if (!m_position->isScored()) {
         m_position->setVisits(m_visited);
+        m_position->setScored(true);
+    }
     const quint32 N = qMax(quint32(1), m_visited);
 #if defined(USE_CPUCT_SCALING)
     // From Deepmind's A0 paper
