@@ -59,7 +59,7 @@ void actualFetchFromNN(Batch *batch)
     for (int index = 0; index < batch->count(); ++index) {
         Node *node = batch->at(index);
         Q_ASSERT(node->hasPotentials());
-        node->setRawQValue(-computation->qVal(index));
+        node->setPositionQValue(-computation->qVal(index));
         if (node->hasPotentials()) {
             Q_ASSERT(!node->isExact());
             Q_ASSERT(node->position()->refs() == 1);
@@ -339,7 +339,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     // We can go ahead and use the transposition iff it has already been scored, this is
     // thread safe because the if the position does not have visits at this time, then it
     // will have been made unique by the cache
-    if (playout->position()->hasRawQValue()) {
+    if (playout->position()->hasQValue()) {
         Q_ASSERT(!playout->position()->isUnique());
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "found cached playout" << playout->toString();

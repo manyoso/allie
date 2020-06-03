@@ -269,7 +269,7 @@ void Tests::testStart(const StandaloneGame &start)
         QVERIFY(!child->hasChildren());
         QCOMPARE(quint32(0), child->visits());
         QCOMPARE(quint16(0), child->virtualLoss());
-        QVERIFY(qFuzzyCompare(-2.f, child->rawQValue()));
+        QVERIFY(qFuzzyCompare(-2.f, child->positionQValue()));
         QVERIFY(qFuzzyCompare(-2.f, child->m_pValue));
         QVERIFY(!child->isExact());
         QVERIFY(!child->isTB());

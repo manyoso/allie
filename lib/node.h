@@ -161,9 +161,9 @@ public:
                 positionHash ^= reinterpret_cast<quint64>(this);
             return positionHash;
         }
-        inline bool hasRawQValue() const { return !qFuzzyCompare(m_rawQValue, -2.0f); }
-        inline float rawQValue() const { return m_rawQValue; }
-        inline void setRawQValue(float rawQvalue) { m_rawQValue = rawQvalue; }
+        inline bool hasQValue() const { return !qFuzzyCompare(m_qValue, -2.0f); }
+        inline float qValue() const { return m_qValue; }
+        inline void setQValue(float qValue) { m_qValue = qValue; }
 
         inline quint32 visits() const { return m_visits; }
         inline void setVisits(quint32 v) { m_visits = v; }
@@ -188,7 +188,7 @@ public:
     private:
         Game::Position m_position;          // 72
         QVector<Potential> m_potentials;    // 8
-        float m_rawQValue;                  // 4
+        float m_qValue;                     // 4
         quint32 m_visits;                   // 4
         quint32 m_refs;                     // 4
         bool m_isUnique : 1;                // 1
@@ -316,11 +316,11 @@ public:
     float qValueDefault() const;
     float qValue() const;
     void setQValue(float qValue);
-    void setQValueFromRaw();
+    void setInitialQValueFromPosition();
 
-    bool hasRawQValue() const;
-    float rawQValue() const;
-    void setRawQValue(float qValue);
+    bool positionHasQValue() const;
+    float positionQValue() const;
+    void setPositionQValue(float qValue);
 
     bool hasPValue() const;
     float pValue() const;
@@ -518,31 +518,36 @@ inline void Node::setQValue(float qValue)
     m_qValue = qValue;
 }
 
-inline void Node::setQValueFromRaw()
+inline void Node::setInitialQValueFromPosition()
 {
-    Q_ASSERT(hasRawQValue());
-    if (!m_visited)
-        m_qValue = rawQValue();
+    Q_ASSERT(!m_visited);
+    m_qValue = m_position->qValue();
+    if (Node *parent = this->parent())
+        parent->m_policySum += pValue();
+    if (!m_position->visits()) {
+        Q_ASSERT(m_position->refs() == 1);
+        m_position->setVisits(1);
+    }
 }
 
-inline bool Node::hasRawQValue() const
+inline bool Node::positionHasQValue() const
 {
     Q_ASSERT(m_position);
-    return m_position->hasRawQValue();
+    return m_position->hasQValue();
 }
 
-inline float Node::rawQValue() const
+inline float Node::positionQValue() const
 {
     Q_ASSERT(m_position);
-    return m_position->rawQValue();
+    return m_position->qValue();
 }
 
-inline void Node::setRawQValue(float rawQValue)
+inline void Node::setPositionQValue(float qValue)
 {
     Q_ASSERT(m_position);
-    m_position->setRawQValue(rawQValue);
+    m_position->setQValue(qValue);
 #if defined(DEBUG_FETCHANDBP)
-    qDebug() << "sq " << toString() << " v:" << rawQValue;
+    qDebug() << "sq " << toString() << " v:" << qValue;
 #endif
 }
 
@@ -612,9 +617,9 @@ inline bool shouldMakeUnique(const Node::Position &position)
     // This function determines whether a position should be made unique when transpositions
     // request this position from the cache. When the position has a reference, but no visits this
     // means it has not been fully scored by the main search thread, and is thus made unique to
-    // avoid races by the GPU threads. Another possibility, this positin has no refs which means it
-    // was a fully scored position from a previous search in which case it should have a raw qvalue
-    Q_ASSERT(position.refs() || position.hasRawQValue());
+    // avoid races by the GPU threads. Another possibility, this position has no refs which means it
+    // was a fully scored position from a previous search in which case it should have a qvalue
+    Q_ASSERT(position.refs() || position.hasQValue());
     return position.refs() && !position.visits();
 }
 

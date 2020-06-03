@@ -47,7 +47,7 @@ float cpToScore(int cp)
 
 Node::Position::Position()
 {
-    m_rawQValue = -2.0f;
+    m_qValue = -2.0f;
     m_visits = 0;
     m_refs = 0;
     m_isUnique = false;
@@ -77,7 +77,7 @@ void Node::Position::deinitialize(bool forcedFree)
     Q_UNUSED(forcedFree)
     m_position = Game::Position();
     m_potentials.clear();
-    m_rawQValue = -2.0f;
+    m_qValue = -2.0f;
     m_visits = 0;
     m_refs = 0;
     m_isUnique = false;
@@ -279,11 +279,11 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
     if (isExact) {
         m_qValue = score;
         const NodeType exactType = score > 0 ? PropagateWin : score < 0 ? PropagateLoss : PropagateDraw;
-        // Iff it is a proven win or loss, then we can go ahead and update the rawQValue which will
+        // Iff it is a proven win or loss, then we can go ahead and update the position which will
         // be passed along to transpositions, but not for draws as they could have been threefold or
         // 50 move rule which does not pertain to a transposition with different move history
         if (!hasGameContext() || exactType != PropagateDraw)
-            setRawQValue(score);
+            setPositionQValue(score);
         setNodeType(exactType);
     } else {
         if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
@@ -291,10 +291,10 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
         else
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + newScores) / float(m_visited + newVisits), 1.f);
 
-        // Update the raw qvalue for any new transpositions to use the best score available which
+        // Update the position for any new transpositions to use the best score available which
         // includes the subtree if it has no game context
         if (!hasGameContext())
-            setRawQValue(m_qValue);
+            setPositionQValue(m_qValue);
     }
     incrementVisited(newVisits);
 }
@@ -302,8 +302,6 @@ void Node::scoreMiniMax(float score, bool isExact, double newScores, quint32 new
 void Node::incrementVisited(quint32 increment)
 {
     m_visited += increment;
-    if (!m_position->visits())
-        m_position->setVisits(m_visited);
     const quint32 N = qMax(quint32(1), m_visited);
 #if defined(USE_CPUCT_SCALING)
     // From Deepmind's A0 paper
@@ -319,22 +317,20 @@ void Node::incrementVisited(quint32 increment)
 
 void Node::setQValueAndVisit()
 {
-    Q_ASSERT(hasRawQValue());
-    Node *parent = this->parent();
-    if (parent && !m_visited)
-        parent->m_policySum += pValue();
-    setQValueFromRaw();
+    Q_ASSERT(positionHasQValue());
+    if (!m_visited)
+        setInitialQValueFromPosition();
     incrementVisited(1);
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "bp " << toString() << " n:" << m_visited
-        << "v:" << rawQValue() << "oq:" << 0.0 << "fq:" << m_qValue;
+        << "v:" << positionQValue() << "oq:" << 0.0 << "fq:" << m_qValue;
 #endif
 }
 
 void Node::backPropagateDirty()
 {
     Q_ASSERT(!m_isDirty);
-    Q_ASSERT(hasRawQValue());
+    Q_ASSERT(positionHasQValue());
     Q_ASSERT(!m_visited || isExact());
     m_isDirty = true;
 
@@ -349,7 +345,7 @@ void Node::backPropagateGameContextAndDirty()
 {
     Q_ASSERT(m_hasGameContext);
     Q_ASSERT(!m_isDirty);
-    Q_ASSERT(hasRawQValue());
+    Q_ASSERT(positionHasQValue());
     Q_ASSERT(!m_visited || isExact());
     m_isDirty = true;
     Node *parent = this->parent();
@@ -438,7 +434,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
     double *newScores, quint32 *newVisits)
 {
     Q_ASSERT(node);
-    Q_ASSERT(node->hasRawQValue());
+    Q_ASSERT(node->positionHasQValue());
 
     // First we look to see if this node has been scored
     if (!node->m_visited) {
@@ -452,7 +448,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
             ++(info->nodesTBHits);
         *isExact = node->isExact();
         node->setQValueAndVisit();
-        *newScores += node->rawQValue();
+        *newScores += node->positionQValue();
         ++(*newVisits);
         return node->m_qValue;
     }
@@ -469,7 +465,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
         // recently leafs have been made to we must trim the tree of any leafs
         trimUnscoredFromTree(node);
         node->setQValueAndVisit();
-        *newScores += node->rawQValue();
+        *newScores += node->positionQValue();
         ++(*newVisits);
         return node->m_qValue;
     }
@@ -507,7 +503,7 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, WorkerInfo *info,
             continue;
         }
 
-        Q_ASSERT(child->hasRawQValue());
+        Q_ASSERT(child->positionHasQValue());
 
         bool subtreeIsExact = false;
         float score = minimax(child, depth + 1, &subtreeIsExact, info,
@@ -546,7 +542,7 @@ void Node::validateTree(const Node *node)
     // Goes through the entire tree and verifies that everything that should have a score has one
     // and that nothing is marked as dirty that shouldn't be
     Q_ASSERT(node);
-    Q_ASSERT(node->hasRawQValue());
+    Q_ASSERT(node->positionHasQValue());
     Q_ASSERT(!node->m_isDirty);
     Q_ASSERT(node->visits());
     Q_ASSERT(node->position()->refs());
@@ -760,15 +756,15 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->setRawQValue(1.0f);
+        child->setPositionQValue(1.0f);
         child->setNodeType(TBWin);
         break;
     case TB::Loss:
-        child->setRawQValue(-1.0f);
+        child->setPositionQValue(-1.0f);
         child->setNodeType(TBLoss);
         break;
     case TB::Draw:
-        child->setRawQValue(0.0f);
+        child->setPositionQValue(0.0f);
         child->setNodeType(TBDraw);
         break;
     default:
@@ -778,9 +774,9 @@ bool Node::checkAndGenerateDTZ(int *dtz)
 
     // If this root has never been scored, then do so now to prevent asserts in back propagation
     if (!m_visited) {
-        setRawQValue(0.0f);
+        setPositionQValue(0.0f);
         backPropagateDirty();
-        setQValueFromRaw();
+        setInitialQValueFromPosition();
         ++m_visited;
     }
 
@@ -800,7 +796,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
         else if (!m_position->isUnique())
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
-        setRawQValue(0.0f);
+        setPositionQValue(0.0f);
         setNodeType(FiftyMoveRuleDraw);
         setHasGameContext(true);
         return true;
@@ -812,7 +808,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
         else if (!m_position->isUnique())
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
-        setRawQValue(0.0f);
+        setPositionQValue(0.0f);
         setNodeType(ThreeFoldDraw);
         setHasGameContext(true);
         return true;
@@ -826,7 +822,7 @@ void Node::generatePotentials()
 
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
-        setRawQValue(0.0f);
+        setPositionQValue(0.0f);
         setNodeType(Draw);
         return;
     }
@@ -837,15 +833,15 @@ void Node::generatePotentials()
     case TB::NotFound:
         break;
     case TB::Win:
-        setRawQValue(1.0f);
+        setPositionQValue(1.0f);
         setNodeType(TBWin);
         return;
     case TB::Loss:
-        setRawQValue(-1.0f);
+        setPositionQValue(-1.0f);
         setNodeType(TBLoss);
         return;
     case TB::Draw:
-        setRawQValue(0.0f);
+        setPositionQValue(0.0f);
         setNodeType(TBDraw);
         return;
     }
@@ -864,11 +860,11 @@ void Node::generatePotentials()
 
         if (isChecked) {
             m_game.setCheckMate(true);
-            setRawQValue(1.0f);
+            setPositionQValue(1.0f);
             setNodeType(Win);
         } else {
             m_game.setStaleMate(true);
-            setRawQValue(0.0f);
+            setPositionQValue(0.0f);
             setNodeType(Draw);
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
@@ -997,7 +993,7 @@ QString Node::printTree(int topDepth, int depth, bool printPotentials) const
         << qSetFieldWidth(4) << left << " q: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << qValue()
         << qSetFieldWidth(4) << " u: " << qSetFieldWidth(6) << qSetRealNumberPrecision(5) << right << uValue(uCoeff)
         << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : Node::uctFormula(qValue(), uValue(uCoeff)))
-        << qSetFieldWidth(4) << " v: " << qSetFieldWidth(7) << qSetRealNumberPrecision(4) << right << rawQValue()
+        << qSetFieldWidth(4) << " v: " << qSetFieldWidth(7) << qSetRealNumberPrecision(4) << right << positionQValue()
         << qSetFieldWidth(4) << " h: " << qSetFieldWidth(2) << right << qMax(1, treeDepth() - d)
         << qSetFieldWidth(4) << " cp: " << qSetFieldWidth(2) << right << scoreToCP(qValue());
 

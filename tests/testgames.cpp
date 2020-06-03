@@ -773,7 +773,7 @@ void Tests::testDoNotPropagateDrawnAsExact()
 
     Tree tree;
     Node *root = tree.embodiedRoot();
-    root->setRawQValue(0.0f);
+    root->setPositionQValue(0.0f);
     root->setQValueAndVisit();
     QVERIFY(root);
 
@@ -782,7 +782,7 @@ void Tests::testDoNotPropagateDrawnAsExact()
     QVERIFY(b7b8);
     QCOMPARE(Node::NoError, error);
     b7b8->initializePosition(Cache::globalInstance());
-    b7b8->setRawQValue(0.0f);
+    b7b8->setPositionQValue(0.0f);
     b7b8->setQValueAndVisit();
     b7b8->generatePotentials();
 
@@ -800,13 +800,13 @@ void Tests::testDoNotPropagateDrawnAsExact()
             a8a7 = child;
             QVERIFY(child->checkMoveClockOrThreefold(child->position()->positionHash(), Cache::globalInstance()));
             QVERIFY(child->isExact());
-            QVERIFY(qFuzzyCompare(child->rawQValue(), 0.0f));
+            QVERIFY(qFuzzyCompare(child->positionQValue(), 0.0f));
         } else {
             if (move == QLatin1String("a8b8"))
                 a8b8 = child;
 
             // Initially score all the children except for a8a7 as losing
-            child->setRawQValue(-0.1f);
+            child->setPositionQValue(-0.1f);
         }
 
         child->backPropagateDirty();
