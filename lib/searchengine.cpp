@@ -567,7 +567,7 @@ void SearchWorker::processWorkerInfo()
     bool shouldEarlyExit = false;
     Q_ASSERT(root->hasChildren());
     const bool onlyOneLegalMove = (!root->hasPotentials() && root->children()->count() == 1);
-    if (onlyOneLegalMove) {
+    if (onlyOneLegalMove && m_search.searchMoves.count() != 1) {
         shouldEarlyExit = true;
         m_currentInfo.bestIsMostVisited = true;
     } else {
