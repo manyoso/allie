@@ -299,6 +299,8 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
         if (isMinimaxExact) {
             const NodeType minimaxType = score > 0 ? MinimaxWin : score < 0 ? MinimaxLoss : MinimaxDraw;
             setNodeType(minimaxType);
+        } else {
+            setNodeType(NonTerminal);
         }
     }
     incrementVisited(newVisits);
