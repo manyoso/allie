@@ -816,10 +816,11 @@ void Tests::testDoNotPropagateDrawnAsExact()
     QVERIFY(a8b8);
 
     bool isExact = false;
+    bool isMinimaxExact = false;
     WorkerInfo info;
     double newScores = 0;
     quint32 newVisits = 0;
-    Node::minimax(b7b8, 0, &isExact, &info, &newScores, &newVisits);
+    Node::minimax(b7b8, 0, &isExact, &isMinimaxExact, &info, &newScores, &newVisits);
 
     // This is the whole point. We do not want to propagate a draw here as it is possible that upon
     // further playouts of other siblings that they will no longer be losing and could be winning.

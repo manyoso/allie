@@ -117,7 +117,7 @@ public:
         {
             if (m_isPotential)
                 return parentQValueDefault;
-            return m_node->m_qValue;
+            return m_node->qValue();
         }
 
         inline quint32 visits() const
@@ -198,6 +198,9 @@ public:
 
     enum NodeType : quint8 {
         NonTerminal,
+        MinimaxWin,
+        MinimaxLoss,
+        MinimaxDraw,
         Win,
         Loss,
         Draw,
@@ -216,7 +219,7 @@ public:
     ~Node();
 
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
-    static float minimax(Node *, quint32 depth, bool *isExact, WorkerInfo *info,
+    static float minimax(Node *, quint32 depth, bool *isExact, bool *isMinimaxExact, WorkerInfo *info,
         double *newScores, quint32 *newVisits);
     static void validateTree(const Node *);
     static void trimUnscoredFromTree(Node *);
@@ -231,6 +234,7 @@ public:
 
     int treeDepth() const;
     bool isExact() const;
+    bool isMinimaxExact() const;
     void setNodeType(NodeType type);
     bool hasGameContext() const;
     void setHasGameContext(bool);
@@ -250,7 +254,7 @@ public:
     inline QVector<Node*> *children() { return &m_children; }
     inline const QVector<Node*> *children() const { return &m_children; }
 
-    void scoreMiniMax(float score, bool isExact, double newScores, quint32 increment);
+    void scoreMiniMax(float score, bool shouldMinimaxExact, bool isExact, double newScores, quint32 increment);
     bool isAlreadyPlayingOut() const;
 
     int count() const;
@@ -364,7 +368,12 @@ inline int Node::treeDepth() const
 
 inline bool Node::isExact() const
 {
-    return m_nodeType != NonTerminal;
+    return m_nodeType != NonTerminal && m_nodeType != MinimaxWin && m_nodeType != MinimaxLoss && m_nodeType != MinimaxDraw;
+}
+
+inline bool Node::isMinimaxExact() const
+{
+    return m_nodeType != NonTerminal || m_nodeType == MinimaxWin || m_nodeType == MinimaxLoss || m_nodeType == MinimaxDraw;
 }
 
 inline void Node::setNodeType(NodeType type)
@@ -502,7 +511,7 @@ inline Node::Position *Node::position() const
 inline float Node::qValueDefault() const
 {
 #if defined(USE_PARENT_QVALUE)
-    return -m_qValue - SearchSettings::fpuReduction * float(qSqrt(qreal(m_policySum)));
+    return -qValue() - SearchSettings::fpuReduction * float(qSqrt(qreal(m_policySum)));
 #else
     return -1.0f;
 #endif
@@ -510,6 +519,12 @@ inline float Node::qValueDefault() const
 
 inline float Node::qValue() const
 {
+    if (m_nodeType == MinimaxWin)
+        return 1.0f;
+    else if (m_nodeType == MinimaxDraw)
+        return 0.0f;
+    else if (m_nodeType == MinimaxLoss)
+        return -1.0f;
     return m_qValue;
 }
 

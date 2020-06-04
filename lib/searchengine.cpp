@@ -73,9 +73,10 @@ void actualMinimaxTree(Tree *tree, quint32 evaluatedCount, WorkerInfo *info)
 {
     // Gather minimax scores;
     bool isExact = false;
+    bool isMinimaxExact = false;
     double newScores = 0;
     quint32 newVisits = 0;
-    Node::minimax(tree->embodiedRoot(), 0 /*depth*/, &isExact, info, &newScores, &newVisits);
+    Node::minimax(tree->embodiedRoot(), 0 /*depth*/, &isExact, &isMinimaxExact, info, &newScores, &newVisits);
 #if defined(DEBUG_VALIDATE_TREE)
     Node::validateTree(tree->embodiedRoot());
 #endif
