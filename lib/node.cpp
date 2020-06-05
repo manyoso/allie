@@ -285,10 +285,14 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
         if (!hasGameContext() || exactType != PropagateDraw)
             setPositionQValue(score);
         setNodeType(exactType);
+    } else if (isMinimaxExact) {
+        m_qValue = score;
+        const NodeType minimaxType = score > 0 ? MinimaxWin : score < 0 ? MinimaxLoss : MinimaxDraw;
+        setNodeType(minimaxType);
     } else {
-        if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax)))
+        if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax))) {
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
-        else
+        } else
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + newScores) / float(m_visited + newVisits), 1.f);
 
         // Update the position for any new transpositions to use the best score available which
@@ -296,12 +300,7 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
         if (!hasGameContext())
             setPositionQValue(m_qValue);
 
-        if (isMinimaxExact) {
-            const NodeType minimaxType = score > 0 ? MinimaxWin : score < 0 ? MinimaxLoss : MinimaxDraw;
-            setNodeType(minimaxType);
-        } else {
-            setNodeType(NonTerminal);
-        }
+        setNodeType(NonTerminal);
     }
     incrementVisited(newVisits);
 }

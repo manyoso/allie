@@ -519,12 +519,6 @@ inline float Node::qValueDefault() const
 
 inline float Node::qValue() const
 {
-    if (m_nodeType == MinimaxWin)
-        return 1.0f;
-    else if (m_nodeType == MinimaxDraw)
-        return 0.0f;
-    else if (m_nodeType == MinimaxLoss)
-        return -1.0f;
     return m_qValue;
 }
 
