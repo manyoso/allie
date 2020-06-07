@@ -142,6 +142,26 @@ public:
         bool m_isPotential : 1;
     };
 
+    enum Type : quint8 {
+        NonTerminal         = 0,
+        MinimaxWin          = 10, // MinimaxExact
+        MinimaxLoss,
+        MinimaxDraw,
+        GameContextDraw     = 20, // Exact, but cannot be shared
+        FiftyMoveRuleDraw,
+        ThreeFoldDraw,
+        Win                 = 30, // Can be shared by many transpositions
+        Loss,
+        Draw,
+        TBWin,
+        TBLoss,
+        TBDraw,
+        PropagateWin,
+        PropagateLoss,
+        PropagateDraw,
+        ExactFromTransposition
+    };
+
     class Position {
     public:
         Position();
@@ -185,34 +205,25 @@ public:
         inline bool isUnique() const { return m_isUnique; }
         inline void setUnique(bool b) { m_isUnique = b; }
 
+        inline Type type() const { return m_type; }
+        inline void setType(Type type) { m_type = type; }
+
+        inline bool isExact() const { return m_type > 19; }
+        inline bool isTB() const
+        {
+            return m_type == TBWin || m_type == TBLoss || m_type == TBDraw;
+        }
+
     private:
         Game::Position m_position;          // 72
         QVector<Potential> m_potentials;    // 8
         float m_qValue;                     // 4
         quint32 m_visits;                   // 4
         quint32 m_refs;                     // 4
+        Type m_type;                        // 1
         bool m_isUnique : 1;                // 1
         friend class Node;
         friend class Tests;
-    };
-
-    enum Type : quint8 {
-        NonTerminal,
-        MinimaxWin,
-        MinimaxLoss,
-        MinimaxDraw,
-        Win,
-        Loss,
-        Draw,
-        TBWin,
-        TBLoss,
-        TBDraw,
-        PropagateWin,
-        PropagateLoss,
-        PropagateDraw,
-        FiftyMoveRuleDraw,
-        ThreeFoldDraw,
-        ExactFromTransposition
     };
 
     Node();
@@ -234,6 +245,7 @@ public:
     int treeDepth() const;
     bool isExact() const;
     bool isMinimaxExact() const;
+    Type type() const;
     void setType(Type type);
     bool hasGameContext() const;
     void setHasGameContext(bool);
@@ -301,6 +313,7 @@ public:
 
     QString toFen() const;
     QString toString(Chess::NotationType = Chess::Computer) const;
+    QString typeToString() const;
     QString printTree(int topDepth, int depth, bool printPotentials) const; // recursive
 
     bool isCheckMate() const { return m_game.lastMove().isCheckMate(); }
@@ -321,9 +334,12 @@ public:
     void setQValue(float qValue);
     void setInitialQValueFromPosition();
 
+    Type positionType() const;
+    void setPositionType(Type);
     bool positionHasQValue() const;
     float positionQValue() const;
     void setPositionQValue(float qValue);
+    void setTypeAndScore(Type type, float qValue);
 
     bool hasPValue() const;
     float pValue() const;
@@ -367,12 +383,17 @@ inline int Node::treeDepth() const
 
 inline bool Node::isExact() const
 {
-    return m_type != NonTerminal && m_type != MinimaxWin && m_type != MinimaxLoss && m_type != MinimaxDraw;
+    return m_type > 19;
 }
 
 inline bool Node::isMinimaxExact() const
 {
-    return m_type != NonTerminal || m_type == MinimaxWin || m_type == MinimaxLoss || m_type == MinimaxDraw;
+    return m_type > 9;
+}
+
+inline Node::Type Node::type() const
+{
+    return m_type;
 }
 
 inline void Node::setType(Type type)
@@ -463,7 +484,7 @@ inline void Node::setAsRootNode()
 
     // Now we have no parent
     m_parent = nullptr;
-    m_type = NonTerminal;
+    setType(NonTerminal);
 }
 
 inline Node *Node::parent() const
@@ -538,6 +559,18 @@ inline void Node::setInitialQValueFromPosition()
     }
 }
 
+inline Node::Type Node::positionType() const
+{
+    Q_ASSERT(m_position);
+    return m_position->type();
+}
+
+inline void Node::setPositionType(Type type)
+{
+    Q_ASSERT(m_position);
+    m_position->setType(type);
+}
+
 inline bool Node::positionHasQValue() const
 {
     Q_ASSERT(m_position);
@@ -557,6 +590,13 @@ inline void Node::setPositionQValue(float qValue)
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "sq " << toString() << " v:" << qValue;
 #endif
+}
+
+inline void Node::setTypeAndScore(Type type, float qValue)
+{
+    m_type = type;
+    setPositionType(type);
+    setPositionQValue(qValue);
 }
 
 inline bool Node::hasPValue() const
