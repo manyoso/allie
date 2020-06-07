@@ -436,8 +436,8 @@ bool Node::isMoveClock() const
     return m_game.halfMoveClock() >= 100;
 }
 
-float Node::minimax(Node *node, quint32 depth, bool *isExact, bool *isMinimaxExact, WorkerInfo *info,
-    double *newScores, quint32 *newVisits)
+float Node::minimax(Node *node, quint32 depth, WorkerInfo *info, double *newScores,
+    quint32 *newVisits)
 {
     Q_ASSERT(node);
     Q_ASSERT(node->positionHasQValue());
@@ -452,8 +452,6 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, bool *isMinimaxExa
         info->maxDepth = qMax(info->maxDepth, depth);
         if (node->isTB())
             ++(info->nodesTBHits);
-        *isExact = node->isExact();
-        *isMinimaxExact = node->isMinimaxExact();
         node->setQValueAndVisit();
         *newScores += node->positionQValue();
         ++(*newVisits);
@@ -467,8 +465,6 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, bool *isMinimaxExa
         ++(info->nodesVisited);
         if (node->isTB())
             ++(info->nodesTBHits);
-        *isExact = node->isExact();
-        *isMinimaxExact = node->isMinimaxExact();
         // If this node has children and was proven to be an exact node, then it is possible that
         // recently leafs have been made to we must trim the tree of any leafs
         trimUnscoredFromTree(node);
@@ -479,18 +475,12 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, bool *isMinimaxExa
     }
 
     // If we are an exact node, then we are terminal so just return the score
-    if (node->isExact()) {
-        *isExact = node->isExact();
-        *isMinimaxExact = node->isMinimaxExact();
+    if (node->isExact())
         return node->qValue();
-    }
 
     // However, if the subtree is not dirty, then we can just return our score
-    if (!node->m_isDirty) {
-        *isExact = node->isExact();
-        *isMinimaxExact = node->isMinimaxExact();
+    if (!node->m_isDirty)
         return node->qValue();
-    }
 
     // At this point we should have children
     Q_ASSERT(node->hasChildren());
@@ -515,17 +505,13 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, bool *isMinimaxExa
         }
 
         Q_ASSERT(child->positionHasQValue());
-
-        bool subtreeIsExact = false;
-        bool subtreeIsMinimaxExact = false;
-        float score = minimax(child, depth + 1, &subtreeIsExact, &subtreeIsMinimaxExact, info,
-            &newScoresForChildren, &newVisitsForChildren);
-        allAreExact = subtreeIsExact ? allAreExact : false;
+        float score = minimax(child, depth + 1, info, &newScoresForChildren, &newVisitsForChildren);
+        allAreExact = child->isExact() ? allAreExact : false;
 
         // Check if we have a new best child
         if (score > best) {
-            bestIsExact = subtreeIsExact;
-            bestIsMinimaxExact = subtreeIsMinimaxExact;
+            bestIsExact = child->isExact();
+            bestIsMinimaxExact = child->isMinimaxExact();
             best = score;
         }
     }
@@ -545,9 +531,6 @@ float Node::minimax(Node *node, quint32 depth, bool *isExact, bool *isMinimaxExa
 
     // Record info
     ++(info->nodesSearched);
-
-    *isExact = node->isExact();
-    *isMinimaxExact = node->isMinimaxExact();
     return node->qValue();
 }
 
