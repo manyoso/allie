@@ -196,7 +196,7 @@ public:
         friend class Tests;
     };
 
-    enum NodeType : quint8 {
+    enum Type : quint8 {
         NonTerminal,
         MinimaxWin,
         MinimaxLoss,
@@ -234,7 +234,7 @@ public:
     int treeDepth() const;
     bool isExact() const;
     bool isMinimaxExact() const;
-    void setNodeType(NodeType type);
+    void setType(Type type);
     bool hasGameContext() const;
     void setHasGameContext(bool);
     bool isTrueTerminal() const;
@@ -343,7 +343,7 @@ private:
     float m_policySum;                  // 4
     float m_uCoeff;                     // 4
     quint8 m_potentialIndex;            // 1
-    NodeType m_nodeType;                // 1
+    Type m_type;                        // 1
     bool m_isDirty: 1;                  // 1
     bool m_hasGameContext : 1;          // 1
     friend class SearchWorker;
@@ -367,17 +367,17 @@ inline int Node::treeDepth() const
 
 inline bool Node::isExact() const
 {
-    return m_nodeType != NonTerminal && m_nodeType != MinimaxWin && m_nodeType != MinimaxLoss && m_nodeType != MinimaxDraw;
+    return m_type != NonTerminal && m_type != MinimaxWin && m_type != MinimaxLoss && m_type != MinimaxDraw;
 }
 
 inline bool Node::isMinimaxExact() const
 {
-    return m_nodeType != NonTerminal || m_nodeType == MinimaxWin || m_nodeType == MinimaxLoss || m_nodeType == MinimaxDraw;
+    return m_type != NonTerminal || m_type == MinimaxWin || m_type == MinimaxLoss || m_type == MinimaxDraw;
 }
 
-inline void Node::setNodeType(NodeType type)
+inline void Node::setType(Type type)
 {
-    m_nodeType = type;
+    m_type = type;
 }
 
 inline bool Node::hasGameContext() const
@@ -397,7 +397,7 @@ inline bool Node::isTrueTerminal() const
 
 inline bool Node::isTB() const
 {
-    return m_nodeType == TBWin || m_nodeType == TBLoss || m_nodeType == TBDraw;
+    return m_type == TBWin || m_type == TBLoss || m_type == TBDraw;
 }
 
 inline bool Node::isDirty() const
@@ -463,7 +463,7 @@ inline void Node::setAsRootNode()
 
     // Now we have no parent
     m_parent = nullptr;
-    m_nodeType = NonTerminal;
+    m_type = NonTerminal;
 }
 
 inline Node *Node::parent() const

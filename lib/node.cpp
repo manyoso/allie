@@ -139,7 +139,7 @@ void Node::initialize(Node *parent, const Game &game)
     m_pValue = -2.0f;
     m_policySum = 0;
     m_uCoeff = -2.0f;
-    m_nodeType = NonTerminal;
+    m_type = NonTerminal;
     m_isDirty = false;
     m_hasGameContext = false;
 }
@@ -278,17 +278,17 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
     Q_ASSERT(!this->isExact() || isExact);
     if (isExact) {
         m_qValue = score;
-        const NodeType exactType = score > 0 ? PropagateWin : score < 0 ? PropagateLoss : PropagateDraw;
+        const Type exactType = score > 0 ? PropagateWin : score < 0 ? PropagateLoss : PropagateDraw;
         // Iff it is a proven win or loss, then we can go ahead and update the position which will
         // be passed along to transpositions, but not for draws as they could have been threefold or
         // 50 move rule which does not pertain to a transposition with different move history
         if (!hasGameContext() || exactType != PropagateDraw)
             setPositionQValue(score);
-        setNodeType(exactType);
+        setType(exactType);
     } else if (isMinimaxExact) {
         m_qValue = score;
-        const NodeType minimaxType = score > 0 ? MinimaxWin : score < 0 ? MinimaxLoss : MinimaxDraw;
-        setNodeType(minimaxType);
+        const Type minimaxType = score > 0 ? MinimaxWin : score < 0 ? MinimaxLoss : MinimaxDraw;
+        setType(minimaxType);
     } else {
         if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax))) {
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
@@ -300,7 +300,7 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
         if (!hasGameContext())
             setPositionQValue(m_qValue);
 
-        setNodeType(NonTerminal);
+        setType(NonTerminal);
     }
     incrementVisited(newVisits);
 }
@@ -754,15 +754,15 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     switch (result) {
     case TB::Win:
         child->setPositionQValue(1.0f);
-        child->setNodeType(TBWin);
+        child->setType(TBWin);
         break;
     case TB::Loss:
         child->setPositionQValue(-1.0f);
-        child->setNodeType(TBLoss);
+        child->setType(TBLoss);
         break;
     case TB::Draw:
         child->setPositionQValue(0.0f);
-        child->setNodeType(TBDraw);
+        child->setType(TBDraw);
         break;
     default:
         Q_UNREACHABLE();
@@ -794,7 +794,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setPositionQValue(0.0f);
-        setNodeType(FiftyMoveRuleDraw);
+        setType(FiftyMoveRuleDraw);
         setHasGameContext(true);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
@@ -806,7 +806,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setPositionQValue(0.0f);
-        setNodeType(ThreeFoldDraw);
+        setType(ThreeFoldDraw);
         setHasGameContext(true);
         return true;
     }
@@ -820,7 +820,7 @@ void Node::generatePotentials()
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
         setPositionQValue(0.0f);
-        setNodeType(Draw);
+        setType(Draw);
         return;
     }
 
@@ -831,15 +831,15 @@ void Node::generatePotentials()
         break;
     case TB::Win:
         setPositionQValue(1.0f);
-        setNodeType(TBWin);
+        setType(TBWin);
         return;
     case TB::Loss:
         setPositionQValue(-1.0f);
-        setNodeType(TBLoss);
+        setType(TBLoss);
         return;
     case TB::Draw:
         setPositionQValue(0.0f);
-        setNodeType(TBDraw);
+        setType(TBDraw);
         return;
     }
 
@@ -858,11 +858,11 @@ void Node::generatePotentials()
         if (isChecked) {
             m_game.setCheckMate(true);
             setPositionQValue(1.0f);
-            setNodeType(Win);
+            setType(Win);
         } else {
             m_game.setStaleMate(true);
             setPositionQValue(0.0f);
-            setNodeType(Draw);
+            setType(Draw);
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
     }
