@@ -51,6 +51,7 @@ Node::Position::Position()
     m_visits = 0;
     m_refs = 0;
     m_isUnique = false;
+    m_type = NonTerminal;
 }
 
 Node::Position::~Position()
@@ -81,6 +82,7 @@ void Node::Position::deinitialize(bool forcedFree)
     m_visits = 0;
     m_refs = 0;
     m_isUnique = false;
+    m_type = NonTerminal;
 #if defined(DEBUG_CHURN)
     QString string;
     QTextStream stream(&string);
@@ -274,21 +276,36 @@ Node *Node::bestChild() const
 
 void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double newScores, quint32 newVisits)
 {
+    Q_ASSERT(m_position);
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
-    Q_ASSERT(!this->isExact() || isExact);
-    if (isExact) {
+    if (m_position->isExact() && m_type != RootNode) {
+        // This node is already been rendered exact by a transposition proving it so. Therefore, we
+        // should update our score to reflect this
+        m_qValue = m_position->qValue();
+        m_type = m_position->type();
+    } else if (isExact) {
         m_qValue = score;
-        const Type exactType = score > 0 ? PropagateWin : score < 0 ? PropagateLoss : PropagateDraw;
+
+        const Type exactType = score > 0 ? PropagateWin : score < 0 ? PropagateLoss :
+            (hasGameContext() ? GameContextDraw : PropagateDraw);
         // Iff it is a proven win or loss, then we can go ahead and update the position which will
         // be passed along to transpositions, but not for draws as they could have been threefold or
         // 50 move rule which does not pertain to a transposition with different move history
-        if (!hasGameContext() || exactType != PropagateDraw)
-            setPositionQValue(score);
-        setType(exactType);
-    } else if (isMinimaxExact) {
+        if (exactType != GameContextDraw)
+            setTypeAndScore(exactType, score);
+        else
+            setType(GameContextDraw);
+        Q_ASSERT(exactType != PropagateWin || qFuzzyCompare(m_qValue, 1.0f));
+        Q_ASSERT(exactType != PropagateLoss || qFuzzyCompare(m_qValue, -1.0f));
+        Q_ASSERT(exactType != PropagateDraw || exactType != GameContextDraw ||
+            qFuzzyCompare(m_qValue, 0.0f));
+    } else if (isMinimaxExact && m_type != RootNode) {
         m_qValue = score;
         const Type minimaxType = score > 0 ? MinimaxWin : score < 0 ? MinimaxLoss : MinimaxDraw;
         setType(minimaxType);
+        Q_ASSERT(minimaxType != MinimaxWin || qFuzzyCompare(m_qValue, 1.0f));
+        Q_ASSERT(minimaxType != MinimaxLoss || qFuzzyCompare(m_qValue, -1.0f));
+        Q_ASSERT(minimaxType != MinimaxDraw || qFuzzyCompare(m_qValue, 0.0f));
     } else {
         if (Q_LIKELY(!SearchSettings::featuresOff.testFlag(SearchSettings::Minimax))) {
             m_qValue = qBound(-1.f, float(m_visited * m_qValue + score + newScores) / float(m_visited + newVisits + 1), 1.f);
@@ -297,10 +314,14 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
 
         // Update the position for any new transpositions to use the best score available which
         // includes the subtree if it has no game context
-        if (!hasGameContext())
+        if (!hasGameContext() && m_type != RootNode) {
+            Q_ASSERT(!m_position->isExact());
             setPositionQValue(m_qValue);
+        }
 
-        setType(NonTerminal);
+        // Change back to regular position if we've switched away from minimax exact
+        if (this->isMinimaxExact())
+            setType(NonTerminal);
     }
     incrementVisited(newVisits);
 }
@@ -753,16 +774,13 @@ bool Node::checkAndGenerateDTZ(int *dtz)
     // This is inverted because the probe reports from parent's perspective
     switch (result) {
     case TB::Win:
-        child->setPositionQValue(1.0f);
-        child->setType(TBWin);
+        child->setTypeAndScore(TBWin, 1.0f);
         break;
     case TB::Loss:
-        child->setPositionQValue(-1.0f);
-        child->setType(TBLoss);
+        child->setTypeAndScore(TBLoss, -1.0f);
         break;
     case TB::Draw:
-        child->setPositionQValue(0.0f);
-        child->setType(TBDraw);
+        child->setTypeAndScore(TBDraw, 0.0f);
         break;
     default:
         Q_UNREACHABLE();
@@ -793,8 +811,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
         else if (!m_position->isUnique())
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
-        setPositionQValue(0.0f);
-        setType(FiftyMoveRuleDraw);
+        setTypeAndScore(FiftyMoveRuleDraw, 0.0f);
         setHasGameContext(true);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
@@ -805,8 +822,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
         else if (!m_position->isUnique())
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
-        setPositionQValue(0.0f);
-        setType(ThreeFoldDraw);
+        setTypeAndScore(ThreeFoldDraw, 0.0f);
         setHasGameContext(true);
         return true;
     }
@@ -819,8 +835,7 @@ void Node::generatePotentials()
 
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
-        setPositionQValue(0.0f);
-        setType(Draw);
+        setTypeAndScore(Draw, 0.0f);
         return;
     }
 
@@ -830,16 +845,13 @@ void Node::generatePotentials()
     case TB::NotFound:
         break;
     case TB::Win:
-        setPositionQValue(1.0f);
-        setType(TBWin);
+        setTypeAndScore(TBWin, 1.0f);
         return;
     case TB::Loss:
-        setPositionQValue(-1.0f);
-        setType(TBLoss);
+        setTypeAndScore(TBLoss, -1.0f);
         return;
     case TB::Draw:
-        setPositionQValue(0.0f);
-        setType(TBDraw);
+        setTypeAndScore(TBDraw, 0.0f);
         return;
     }
 
@@ -857,12 +869,10 @@ void Node::generatePotentials()
 
         if (isChecked) {
             m_game.setCheckMate(true);
-            setPositionQValue(1.0f);
-            setType(Win);
+            setTypeAndScore(Win, 1.0f);
         } else {
             m_game.setStaleMate(true);
-            setPositionQValue(0.0f);
-            setType(Draw);
+            setTypeAndScore(Draw, 0.0f);
         }
         Q_ASSERT(isCheckMate() || isStaleMate());
     }
@@ -964,6 +974,31 @@ QString Node::toString(Chess::NotationType notation) const
     return string;
 }
 
+QString Node::typeToString() const
+{
+    switch (m_type) {
+    case NonTerminal:       return QStringLiteral("NT");
+    case RootNode:          return QStringLiteral("R");
+    case MinimaxWin:        return QStringLiteral("MW");
+    case MinimaxLoss:       return QStringLiteral("ML");
+    case MinimaxDraw:       return QStringLiteral("MD");
+    case FiftyMoveRuleDraw: return QStringLiteral("FD");
+    case ThreeFoldDraw:     return QStringLiteral("TD");
+    case GameContextDraw:   return QStringLiteral("GD");
+    case Win:               return QStringLiteral("W");
+    case Loss:              return QStringLiteral("L");
+    case Draw:              return QStringLiteral("D");
+    case TBWin:             return QStringLiteral("TW");
+    case TBLoss:            return QStringLiteral("TL");
+    case TBDraw:            return QStringLiteral("TD");
+    case PropagateWin:      return QStringLiteral("PW");
+    case PropagateLoss:     return QStringLiteral("PL");
+    case PropagateDraw:     return QStringLiteral("PD");
+    default:
+        Q_UNREACHABLE();
+    }
+}
+
 QString Node::printTree(int topDepth, int depth, bool printPotentials) const
 {
     QString tree;
@@ -992,6 +1027,7 @@ QString Node::printTree(int topDepth, int depth, bool printPotentials) const
         << qSetFieldWidth(4) << " q+u: " << qSetFieldWidth(8) << qSetRealNumberPrecision(5) << right << (isRootNode() ? 0.0f : Node::uctFormula(qValue(), uValue(uCoeff)))
         << qSetFieldWidth(4) << " v: " << qSetFieldWidth(7) << qSetRealNumberPrecision(4) << right << positionQValue()
         << qSetFieldWidth(4) << " h: " << qSetFieldWidth(2) << right << qMax(1, treeDepth() - d)
+        << qSetFieldWidth(4) << " t: " << qSetFieldWidth(2) << right << typeToString()
         << qSetFieldWidth(4) << " cp: " << qSetFieldWidth(2) << right << scoreToCP(qValue());
 
     if (d < depth) {

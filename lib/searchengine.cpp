@@ -340,15 +340,13 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
     // will have been made unique by the cache
     if (playout->position()->hasQValue()) {
         Q_ASSERT(!playout->position()->isUnique());
+        playout->setType(playout->positionType());
+        if (playout->type() == Node::Win)
+            playout->m_game.setCheckMate(true);
+        Q_ASSERT(playout->hasPotentials() || playout->isExact());
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "found cached playout" << playout->toString();
 #endif
-        // It is possible this is a transposition of a terminal node, but we only know that
-        // if the position has no potentials, but we don't mark whether this is a stalemate
-        // or TB drawn or deadPosition
-        if (!playout->hasPotentials())
-            playout->setType(Node::ExactFromTransposition);
-
         playout->backPropagateDirty();
         return false;
     }

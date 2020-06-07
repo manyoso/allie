@@ -144,6 +144,7 @@ inline Node *Tree::embodiedRoot()
     m_root->initialize(nullptr, rootGame);
     m_root->setPosition(rootPosition);
     rootPosition->initialize(rootGame.position());
+    m_root->setAsRootNode();
 
     return m_root;
 }
