@@ -276,9 +276,15 @@ Node *Node::bestChild() const
 
 void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double newScores, quint32 newVisits)
 {
+    Q_ASSERT(m_position);
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
     Q_ASSERT(!this->isExact() || isExact);
-    if (isExact) {
+    if (m_position->isExact() && !isRootNode()) {
+        // This node is already been rendered exact by a transposition proving it so. Therefore, we
+        // should update our score to reflect this
+        m_qValue = m_position->qValue();
+        m_type = m_position->type();
+    } else if (isExact) {
         m_qValue = score;
         const Type exactType = score > 0 ? PropagateWin : score < 0 ? PropagateLoss :
             (hasGameContext() ? GameContextDraw : PropagateDraw);
@@ -308,8 +314,10 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
 
         // Update the position for any new transpositions to use the best score available which
         // includes the subtree if it has no game context
-        if (!hasGameContext())
+        if (!hasGameContext() && !isRootNode()) {
+            Q_ASSERT(!m_position->isExact());
             setPositionQValue(m_qValue);
+        }
 
         // Change back to regular position if we've switched away from minimax exact
         Q_ASSERT(m_type == NonTerminal || this->isMinimaxExact());

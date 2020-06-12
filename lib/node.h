@@ -158,8 +158,7 @@ public:
         TBDraw,
         PropagateWin,
         PropagateLoss,
-        PropagateDraw,
-        ExactFromTransposition
+        PropagateDraw
     };
 
     class Position {
