@@ -139,7 +139,6 @@ void Node::initialize(Node *parent, const Game &game)
     m_virtualLoss = 0;
     m_qValue = -2.0f;
     m_pValue = -2.0f;
-    m_policySum = 0;
     m_uCoeff = -2.0f;
     m_type = NonTerminal;
     m_isDirty = false;
@@ -628,7 +627,9 @@ start_playout:
         // First look at the actual children
         for (int i = 0; i < n->m_children.count(); ++i) {
             Node *child = n->m_children.at(i);
-            float score = Node::uctFormula(child->qValue(), child->uValue(uCoeff));
+            const float qValue = child->qValue();
+            parentQValueDefault = qMin(parentQValueDefault, qValue);
+            float score = Node::uctFormula(qValue, child->uValue(uCoeff));
             Q_ASSERT(score > -std::numeric_limits<float>::max());
             if (score > bestScore) {
                 secondPlayout = firstPlayout;

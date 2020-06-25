@@ -355,7 +355,6 @@ private:
     quint32 m_virtualLoss;              // 4
     float m_qValue;                     // 4
     float m_pValue;                     // 4
-    float m_policySum;                  // 4
     float m_uCoeff;                     // 4
     quint8 m_potentialIndex;            // 1
     Type m_type;                        // 1
@@ -530,7 +529,7 @@ inline Node::Position *Node::position() const
 inline float Node::qValueDefault() const
 {
 #if defined(USE_PARENT_QVALUE)
-    return -qValue() - SearchSettings::fpuReduction * float(qSqrt(qreal(m_policySum)));
+    return -qValue();
 #else
     return -1.0f;
 #endif
@@ -550,8 +549,6 @@ inline void Node::setInitialQValueFromPosition()
 {
     Q_ASSERT(!m_visited);
     m_qValue = m_position->qValue();
-    if (Node *parent = this->parent())
-        parent->m_policySum += pValue();
     if (!m_position->visits()) {
         Q_ASSERT(m_position->refs() == 1);
         m_position->setVisits(1);
