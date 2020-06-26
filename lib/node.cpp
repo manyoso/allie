@@ -142,7 +142,7 @@ void Node::initialize(Node *parent, const Game &game)
     m_policySum = 0;
     m_uCoeff = -2.0f;
     m_type = NonTerminal;
-    m_isDirty = false;
+    m_dirty = 0;
     m_hasGameContext = false;
 }
 
@@ -244,7 +244,7 @@ void Node::deinitialize(bool forcedFree)
 
     m_parent = nullptr;
     m_position = nullptr;
-    m_isDirty = false;
+    m_dirty = 0;
     m_hasGameContext = false;
     m_children.clear();
 }
@@ -274,7 +274,8 @@ Node *Node::bestChild() const
     return children.first();
 }
 
-void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double newScores, quint32 newVisits)
+void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double newScores,
+    quint16 newVisits)
 {
     Q_ASSERT(m_position);
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
@@ -326,7 +327,7 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
     incrementVisited(newVisits);
 }
 
-void Node::incrementVisited(quint32 increment)
+void Node::incrementVisited(quint16 increment)
 {
     m_visited += increment;
     const quint32 N = qMax(quint32(1), m_visited);
@@ -339,7 +340,8 @@ void Node::incrementVisited(quint32 increment)
 #endif
     m_uCoeff = (SearchSettings::cpuctInit + growth) * float(qSqrt(N));
     m_virtualLoss = 0;
-    m_isDirty = false;
+    Q_ASSERT(m_dirty >= increment);
+    m_dirty -= increment;
 }
 
 void Node::setQValueAndVisit()
@@ -356,14 +358,15 @@ void Node::setQValueAndVisit()
 
 void Node::backPropagateDirty()
 {
-    Q_ASSERT(!m_isDirty);
+    Q_ASSERT(!m_dirty || isProvenExact());
     Q_ASSERT(positionHasQValue());
     Q_ASSERT(!m_visited || isExact());
-    m_isDirty = true;
-
+    Q_ASSERT(m_dirty < 65535);
+    ++m_dirty;
     Node *parent = this->parent();
     while (parent) {
-        parent->m_isDirty = true;
+        Q_ASSERT(m_dirty < 65535);
+        ++(parent->m_dirty);
         parent = parent->parent();
     }
 }
@@ -371,13 +374,15 @@ void Node::backPropagateDirty()
 void Node::backPropagateGameContextAndDirty()
 {
     Q_ASSERT(m_hasGameContext);
-    Q_ASSERT(!m_isDirty);
+    Q_ASSERT(!m_dirty);
     Q_ASSERT(positionHasQValue());
     Q_ASSERT(!m_visited || isExact());
-    m_isDirty = true;
+    Q_ASSERT(m_dirty < 65535);
+    ++m_dirty;
     Node *parent = this->parent();
     while (parent) {
-        parent->m_isDirty = true;
+        Q_ASSERT(m_dirty < 65535);
+        ++(parent->m_dirty);
         parent->m_hasGameContext = true;
         parent = parent->parent();
     }
@@ -457,16 +462,23 @@ bool Node::isMoveClock() const
     return m_game.halfMoveClock() >= 100;
 }
 
-float Node::minimax(Node *node, quint32 depth, WorkerInfo *info, double *newScores,
-    quint32 *newVisits)
+float Node::minimax(Node *node, quint32 depth, quint16 maxVisits, WorkerInfo *info,
+    double *newScores, quint16 *newVisits)
 {
     Q_ASSERT(node);
     Q_ASSERT(node->positionHasQValue());
 
+    // If we have already reached our max visits, then all we can do is return qValue, but at this
+    // point we should already be visited once
+    if (!maxVisits) {
+        Q_ASSERT(node->m_visited);
+        return node->qValue();
+    }
+
     // First we look to see if this node has been scored
     if (!node->m_visited) {
         // Record info
-        Q_ASSERT(node->m_isDirty);
+        Q_ASSERT(node->m_dirty);
         ++(info->nodesSearched);
         ++(info->nodesVisited);
         info->sumDepths += depth;
@@ -480,18 +492,29 @@ float Node::minimax(Node *node, quint32 depth, WorkerInfo *info, double *newScor
     }
 
     // Next look if it is a dirty terminal
-    if (node->isExact() && node->m_isDirty) {
-        // Record info
-        ++(info->nodesSearched);
-        ++(info->nodesVisited);
-        if (node->isTB())
-            ++(info->nodesTBHits);
+    if (node->isExact() && node->m_dirty) {
         // If this node has children and was proven to be an exact node, then it is possible that
-        // recently leafs have been made to we must trim the tree of any leafs
-        trimUnscoredFromTree(node);
-        node->setQValueAndVisit();
-        *newScores += node->positionQValue();
-        ++(*newVisits);
+        // recently leafs have been made too so we must trim the tree of any such leafs
+        maxVisits = qMin(maxVisits, quint16(node->m_dirty));
+        Q_ASSERT(maxVisits);
+        quint16 trimmed = trimUnscoredFromTree(node, maxVisits);
+        Q_ASSERT(maxVisits < 2 || trimmed);
+        if (trimmed) {
+            info->nodesSearched += maxVisits;
+            info->nodesVisited += maxVisits;
+            Q_ASSERT(!node->isTB());
+            node->incrementVisited(maxVisits);
+            *newScores += (maxVisits * node->positionQValue());
+            *newVisits += maxVisits;
+        } else {
+            ++(info->nodesSearched);
+            ++(info->nodesVisited);
+            if (node->isTB())
+                ++(info->nodesTBHits);
+            node->setQValueAndVisit();
+            *newScores += node->positionQValue();
+            ++(*newVisits);
+        }
         return node->qValue();
     }
 
@@ -500,8 +523,13 @@ float Node::minimax(Node *node, quint32 depth, WorkerInfo *info, double *newScor
         return node->qValue();
 
     // However, if the subtree is not dirty, then we can just return our score
-    if (!node->m_isDirty)
+    if (!node->m_dirty)
         return node->qValue();
+
+    // This child can only visit at most the minimum of how many are dirty and the parent minimum
+    // of the same
+    maxVisits = qMin(maxVisits, quint16(node->m_dirty));
+    Q_ASSERT(maxVisits);
 
     // At this point we should have children
     Q_ASSERT(node->hasChildren());
@@ -513,20 +541,26 @@ float Node::minimax(Node *node, quint32 depth, WorkerInfo *info, double *newScor
     bool bestIsMinimaxExact = false;
     bool allChildrenAreScored = true;
     double newScoresForChildren = 0;
-    quint32 newVisitsForChildren = 0;
+    quint16 newVisitsForChildren = 0;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
         Q_ASSERT(child);
 
         // If the child is not visited and is not marked dirty then it has not been scored yet, so
         // just continue
-        if (!child->m_visited && !child->m_isDirty) {
+        if (!child->m_visited && (!child->m_dirty || !maxVisits)) {
             allChildrenAreScored = false;
             continue;
         }
 
         Q_ASSERT(child->positionHasQValue());
-        float score = minimax(child, depth + 1, info, &newScoresForChildren, &newVisitsForChildren);
+        quint16 visitsForChild = 0;
+        float score = minimax(child, depth + 1, maxVisits, info, &newScoresForChildren,
+            &visitsForChild);
+        Q_ASSERT(maxVisits || !visitsForChild);
+        Q_ASSERT(visitsForChild <= maxVisits);
+        maxVisits -= visitsForChild;
+        newVisitsForChildren += visitsForChild;
         allAreExact = child->isExact() ? allAreExact : false;
 
         // Check if we have a new best child
@@ -561,7 +595,7 @@ void Node::validateTree(const Node *node)
     // and that nothing is marked as dirty that shouldn't be
     Q_ASSERT(node);
     Q_ASSERT(node->positionHasQValue());
-    Q_ASSERT(!node->m_isDirty);
+    Q_ASSERT(!node->m_dirty);
     Q_ASSERT(node->visits());
     Q_ASSERT(node->position()->refs());
     Q_ASSERT(node->position()->visits());
@@ -573,7 +607,7 @@ void Node::validateTree(const Node *node)
 
         // If the child is not visited and is not marked dirty then it has not been scored yet, so
         // just continue
-        if (!child->m_visited && !child->m_isDirty)
+        if (!child->m_visited && !child->m_dirty)
             continue;
 
         validateTree(child);
@@ -583,14 +617,19 @@ void Node::validateTree(const Node *node)
     Q_ASSERT(node->isRootNode() || node->isExact() || node->m_visited == childVisits + 1);
 }
 
-void Node::trimUnscoredFromTree(Node *node)
+quint16 Node::trimUnscoredFromTree(Node *node, quint16 maxVisits)
 {
     // If this is not dirty, then we don't need to trim
     if (!node->isDirty())
-        return;
+        return 0;
 
+    maxVisits = qMin(maxVisits, quint16(node->m_dirty));
+    Q_ASSERT(maxVisits);
+
+    quint16 trimmed = 0;
+    quint16 maxTrimmed = maxVisits;
     QMutableVectorIterator<Node*> it(node->m_children);
-    while (it.hasNext()) {
+    while (it.hasNext() && maxTrimmed) {
         Node *child = it.next();
         // If this child has not been scored and dirty, then it should be trimmed
         if (!child->m_visited && child->isDirty()) {
@@ -601,12 +640,21 @@ void Node::trimUnscoredFromTree(Node *node)
             it.remove();                    // deletes ourself from our parent
             child->m_position = nullptr;    // unpins the node
             child->m_parent = nullptr;      // make sure to nullify our parent
+            child->m_dirty = 0;
+            ++trimmed;
+            Q_ASSERT(maxTrimmed >= 1);
+            --maxTrimmed;
         } else {
-            trimUnscoredFromTree(child);
+            quint16 subTrimmed = trimUnscoredFromTree(child, maxTrimmed);
+            Q_ASSERT(child->m_dirty >= subTrimmed);
+            child->m_dirty -= subTrimmed;
+            trimmed += subTrimmed;
+            Q_ASSERT(maxTrimmed >= subTrimmed);
+            maxTrimmed -= subTrimmed;
         }
     }
-
-    node->m_isDirty = false;
+    Q_ASSERT(trimmed <= maxVisits);
+    return trimmed;
 }
 
 Node *Node::playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *cache)
