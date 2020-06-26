@@ -69,36 +69,29 @@ void actualFetchFromNN(Batch *batch)
     NeuralNet::globalInstance()->releaseNetwork(computation);
 }
 
-void actualMinimaxTree(Tree *tree, quint32 evaluatedCount, WorkerInfo *info)
+void actualMinimaxTree(Tree *tree, WorkerInfo *info)
 {
     // Gather minimax scores;
     double newScores = 0;
     quint32 newVisits = 0;
+    const quint64 originalEvaluated = info->nodesEvaluated;
     Node::minimax(tree->embodiedRoot(), 0 /*depth*/, info, &newScores, &newVisits);
 #if defined(DEBUG_VALIDATE_TREE)
     Node::validateTree(tree->embodiedRoot());
 #endif
-
-    // New visits can be less than what was evaluated due to trimming of unscored nodes if a parent
-    // was propagated exact in a minimax before the evaluation
-    info->nodesCacheHits += newVisits <= evaluatedCount ? 0 : newVisits - evaluatedCount;
-    info->nodesEvaluated += evaluatedCount;
-    info->numberOfBatches += evaluatedCount ? 1 : 0;
+    info->numberOfBatches += info->nodesEvaluated > originalEvaluated ? 1 : 0;
 }
 
 void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
 {
-    quint32 countNonExact = 0;
     for (int index = 0; index < batch->count(); ++index) {
         Node *node = batch->at(index);
-        if (!node->isExact()) {
+        if (!node->isExact())
             Node::sortByPVals(*node->position()->potentials());
-            ++countNonExact;
-        }
         node->backPropagateDirty();
     }
 
-    actualMinimaxTree(tree, countNonExact, info);
+    actualMinimaxTree(tree, info);
 }
 
 Batch *GuardedBatchQueue::acquireIn()
@@ -301,7 +294,7 @@ void SearchWorker::fetchAndMinimax(Batch *batch, bool sync)
     if (!batch->isEmpty()) {
         fetchFromNN(batch, sync);
     } else {
-        actualMinimaxTree(m_tree, 0 /*evaluatedCount*/, &m_currentInfo.workerInfo);
+        actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
         processWorkerInfo();
     }
 }
@@ -374,7 +367,7 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
         }
 
         if (exactOrCached >= m_currentBatchSize) {
-            actualMinimaxTree(m_tree, 0 /*evaluatedCount*/, &m_currentInfo.workerInfo);
+            actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
             processWorkerInfo();
             exactOrCached = 0;
             // I have not seen an infinite loop here, but I guess it is theoretically possible for

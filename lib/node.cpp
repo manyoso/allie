@@ -491,6 +491,10 @@ float Node::minimax(Node *node, quint32 depth, WorkerInfo *info, double *newScor
         info->maxDepth = qMax(info->maxDepth, depth);
         if (node->isTB())
             ++(info->nodesTBHits);
+        if (node->m_position->refs() > 1)
+            ++(info->nodesCacheHits);
+        else if (!node->isExact())
+            ++(info->nodesEvaluated);
         node->setQValueAndVisit();
         *newScores += node->positionQValue();
         ++(*newVisits);
