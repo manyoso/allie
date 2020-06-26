@@ -77,23 +77,7 @@ void actualMinimaxTree(Tree *tree, WorkerInfo *info)
     const quint64 originalEvaluated = info->nodesEvaluated;
     Node::minimax(tree->embodiedRoot(), 0 /*depth*/,
         std::numeric_limits<quint16>::max() /*maxVisits*/, info, &newScores, &newVisits);
-#if defined(DEBUG_VALIDATE_TREE)
-    Node::validateTree(tree->embodiedRoot());
-#endif
     info->numberOfBatches += info->nodesEvaluated > originalEvaluated ? 1 : 0;
-}
-
-void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
-{
-    for (int index = 0; index < batch->count(); ++index) {
-        Node *node = batch->at(index);
-        if (!node->isExact()) {
-            Node::sortByPVals(*node->position()->potentials());
-            node->backPropagateDirty();
-        }
-    }
-
-    actualMinimaxTree(tree, info);
 }
 
 Batch *GuardedBatchQueue::acquireIn()
@@ -168,6 +152,13 @@ void GPUWorker::run()
         }
 
         actualFetchFromNN(&m_batchForEvaluating);
+
+        for (int index = 0; index < m_batchForEvaluating.count(); ++index) {
+            Node *node = m_batchForEvaluating.at(index);
+            Node::sortByPVals(*node->position()->potentials());
+            node->backPropagateDirty();
+        }
+
         m_queue->releaseOut(batch);
     }
 }
@@ -242,10 +233,10 @@ void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const 
     search();
 }
 
-void SearchWorker::minimaxBatch(Batch *batch, Tree *tree)
+void SearchWorker::minimaxTree()
 {
-    actualMinimaxBatch(batch, tree, &m_currentInfo.workerInfo);
-    m_totalPlayouts = qMin(m_totalPlayouts, qint64(tree->embodiedRoot()->visits() - m_resumedPlayouts));
+    actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
+    m_totalPlayouts = qMin(m_totalPlayouts, qint64(m_tree->embodiedRoot()->visits() - m_resumedPlayouts));
     processWorkerInfo();
 }
 
@@ -254,7 +245,7 @@ void SearchWorker::waitForFetched()
     Q_ASSERT(m_batchPool.count() != m_gpuWorkers.count());
     Batch *batch = m_queue.acquireOut(); // blocks
     Q_ASSERT(batch);
-    minimaxBatch(batch, m_tree);
+    minimaxTree();
     m_batchPool.append(batch);
     Q_ASSERT(!m_batchPool.isEmpty());
 }
@@ -273,8 +264,19 @@ void SearchWorker::fetchFromNN(Batch *batch, bool sync)
             else
                 batchForEvaluating.append(node);
         }
+
         actualFetchFromNN(&batchForEvaluating);
-        minimaxBatch(batch, m_tree);
+
+        for (int index = 0; index < batchForEvaluating.count(); ++index) {
+            Node *node = batchForEvaluating.at(index);
+            Node::sortByPVals(*node->position()->potentials());
+            node->backPropagateDirty();
+        }
+
+        minimaxTree();
+#if defined(DEBUG_VALIDATE_TREE)
+        Node::validateTree(m_tree->embodiedRoot());
+#endif
     } else {
         m_queue.releaseIn(batch);
         if (m_batchPool.isEmpty())
@@ -499,7 +501,7 @@ void SearchWorker::search()
         waitForFetched();
 
 #if defined(DEBUG_VALIDATE_TREE)
-    Tree::validateTree(m_tree->embodiedRoot(), nullptr);
+    Node::validateTree(m_tree->embodiedRoot());
 #endif
 
     emit searchWorkerStopped();
