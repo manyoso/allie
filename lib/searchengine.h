@@ -98,7 +98,7 @@ private Q_SLOTS:
     void search();
 
 private:
-    void minimaxBatch(Batch *batch, Tree *tree);
+    void minimaxTree();
     void waitForFetched();
     void fetchFromNN(Batch *batch, bool sync);
     void fetchAndMinimax(Batch *batch, bool sync);
