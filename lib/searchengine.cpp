@@ -94,8 +94,8 @@ void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
         if (!node->isExact()) {
             Node::sortByPVals(*node->position()->potentials());
             ++countNonExact;
+            node->backPropagateDirty();
         }
-        node->backPropagateDirty();
     }
 
     actualMinimaxTree(tree, countNonExact, info);
@@ -166,7 +166,9 @@ void GPUWorker::run()
         for (int index = 0; index < batch->count(); ++index) {
             Node *node = batch->at(index);
             node->generatePotentials();
-            if (!node->isExact())
+            if (node->isExact())
+                node->backPropagateDirty();
+            else
                 m_batchForEvaluating.append(node);
         }
 
@@ -271,7 +273,9 @@ void SearchWorker::fetchFromNN(Batch *batch, bool sync)
         for (int index = 0; index < batch->count(); ++index) {
             Node *node = batch->at(index);
             node->generatePotentials();
-            if (!node->isExact())
+            if (node->isExact())
+                node->backPropagateDirty();
+            else
                 batchForEvaluating.append(node);
         }
         actualFetchFromNN(&batchForEvaluating);
