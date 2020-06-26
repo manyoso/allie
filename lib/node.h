@@ -156,7 +156,7 @@ public:
         TBWin,
         TBLoss,
         TBDraw,
-        PropagateWin,
+        PropagateWin        = 50, // Proven
         PropagateLoss,
         PropagateDraw
     };
@@ -208,6 +208,7 @@ public:
         inline void setType(Type type) { m_type = type; }
 
         inline bool isExact() const { return m_type > 19; }
+        inline bool isProvenExact() const { return m_type > 49; }
         inline bool isTB() const
         {
             return m_type == TBWin || m_type == TBLoss || m_type == TBDraw;
@@ -229,9 +230,10 @@ public:
     ~Node();
 
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
-    static float minimax(Node *, quint32 depth, WorkerInfo *info, double *newScores, quint32 *newVisits);
+    static float minimax(Node *, quint32 depth, quint16 maxVisits, WorkerInfo *info,
+        double *newScores, quint16 *newVisits);
     static void validateTree(const Node *);
-    static void trimUnscoredFromTree(Node *);
+    static quint16 trimUnscoredFromTree(Node *, quint16);
     static float uctFormula(float qValue, float uValue);
     static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
 
@@ -243,6 +245,7 @@ public:
 
     int treeDepth() const;
     bool isExact() const;
+    bool isProvenExact() const;
     bool isMinimaxExact() const;
     Type type() const;
     void setType(Type type);
@@ -264,12 +267,12 @@ public:
     inline QVector<Node*> *children() { return &m_children; }
     inline const QVector<Node*> *children() const { return &m_children; }
 
-    void scoreMiniMax(float score, bool shouldMinimaxExact, bool isExact, double newScores, quint32 increment);
+    void scoreMiniMax(float score, bool shouldMinimaxExact, bool isExact, double newScores, quint16 increment);
     bool isAlreadyPlayingOut() const;
 
     int count() const;
 
-    void incrementVisited(quint32 increment);
+    void incrementVisited(quint16 increment);
 
     // child generation
     enum NodeGenerationError {
@@ -357,9 +360,9 @@ private:
     float m_pValue;                     // 4
     float m_policySum;                  // 4
     float m_uCoeff;                     // 4
+    std::atomic<quint16> m_dirty;       // 2
     quint8 m_potentialIndex;            // 1
     Type m_type;                        // 1
-    bool m_isDirty: 1;                  // 1
     bool m_hasGameContext : 1;          // 1
     friend class SearchWorker;
     friend class SearchEngine;
@@ -383,6 +386,11 @@ inline int Node::treeDepth() const
 inline bool Node::isExact() const
 {
     return m_type > 19;
+}
+
+inline bool Node::isProvenExact() const
+{
+    return m_type > 49;
 }
 
 inline bool Node::isMinimaxExact() const
@@ -422,7 +430,7 @@ inline bool Node::isTB() const
 
 inline bool Node::isDirty() const
 {
-    return m_isDirty;
+    return m_dirty;
 }
 
 inline int Node::count() const

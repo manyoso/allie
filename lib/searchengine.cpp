@@ -73,8 +73,9 @@ void actualMinimaxTree(Tree *tree, quint32 evaluatedCount, WorkerInfo *info)
 {
     // Gather minimax scores;
     double newScores = 0;
-    quint32 newVisits = 0;
-    Node::minimax(tree->embodiedRoot(), 0 /*depth*/, info, &newScores, &newVisits);
+    quint16 newVisits = 0;
+    Node::minimax(tree->embodiedRoot(), 0 /*depth*/,
+        std::numeric_limits<quint16>::max() /*maxVisits*/, info, &newScores, &newVisits);
 #if defined(DEBUG_VALIDATE_TREE)
     Node::validateTree(tree->embodiedRoot());
 #endif
@@ -94,8 +95,8 @@ void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
         if (!node->isExact()) {
             Node::sortByPVals(*node->position()->potentials());
             ++countNonExact;
+            node->backPropagateDirty();
         }
-        node->backPropagateDirty();
     }
 
     actualMinimaxTree(tree, countNonExact, info);
@@ -166,7 +167,9 @@ void GPUWorker::run()
         for (int index = 0; index < batch->count(); ++index) {
             Node *node = batch->at(index);
             node->generatePotentials();
-            if (!node->isExact())
+            if (node->isExact())
+                node->backPropagateDirty();
+            else
                 m_batchForEvaluating.append(node);
         }
 
@@ -271,7 +274,9 @@ void SearchWorker::fetchFromNN(Batch *batch, bool sync)
         for (int index = 0; index < batch->count(); ++index) {
             Node *node = batch->at(index);
             node->generatePotentials();
-            if (!node->isExact())
+            if (node->isExact())
+                node->backPropagateDirty();
+            else
                 batchForEvaluating.append(node);
         }
         actualFetchFromNN(&batchForEvaluating);
