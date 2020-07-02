@@ -231,7 +231,7 @@ public:
 
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
     static float minimax(Node *, quint32 depth, quint16 maxVisits, WorkerInfo *info,
-        double *newScores, quint16 *newVisits);
+        double *newScores, quint16 *newVisits, quint16 *trimmed);
     static void validateTree(const Node *);
     static quint16 trimUnscoredFromTree(Node *, quint16);
     static float uctFormula(float qValue, float uValue);
@@ -267,12 +267,13 @@ public:
     inline QVector<Node*> *children() { return &m_children; }
     inline const QVector<Node*> *children() const { return &m_children; }
 
-    void scoreMiniMax(float score, bool shouldMinimaxExact, bool isExact, double newScores, quint16 increment);
+    void scoreMiniMax(float score, bool shouldMinimaxExact, bool isExact, double newScores,
+        quint16 increment, quint16 trimmed);
     bool isAlreadyPlayingOut() const;
 
     int count() const;
 
-    void incrementVisited(quint16 increment);
+    void incrementVisited(quint16 increment, quint16 trimmed);
 
     // child generation
     enum NodeGenerationError {
