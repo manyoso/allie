@@ -275,7 +275,7 @@ Node *Node::bestChild() const
 }
 
 void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double newScores,
-    quint16 newVisits)
+    quint16 newVisits, quint16 trimmed)
 {
     Q_ASSERT(m_position);
     Q_ASSERT(!qFuzzyCompare(qAbs(score), 2.f));
@@ -324,10 +324,10 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
         Q_ASSERT(m_type == NonTerminal || this->isMinimaxExact());
         setType(NonTerminal);
     }
-    incrementVisited(newVisits);
+    incrementVisited(newVisits, trimmed);
 }
 
-void Node::incrementVisited(quint16 increment)
+void Node::incrementVisited(quint16 increment, quint16 trimmed)
 {
     m_visited += increment;
     const quint32 N = qMax(quint32(1), m_visited);
@@ -340,8 +340,8 @@ void Node::incrementVisited(quint16 increment)
 #endif
     m_uCoeff = (SearchSettings::cpuctInit + growth) * float(qSqrt(N));
     m_virtualLoss = 0;
-    Q_ASSERT(m_dirty >= increment);
-    m_dirty -= increment;
+    Q_ASSERT(m_dirty >= increment + trimmed);
+    m_dirty -= increment + trimmed;
 }
 
 void Node::setQValueAndVisit()
@@ -349,7 +349,7 @@ void Node::setQValueAndVisit()
     Q_ASSERT(positionHasQValue());
     if (!m_visited)
         setInitialQValueFromPosition();
-    incrementVisited(1);
+    incrementVisited(1 /*increment*/, 0 /*trimmed*/);
 #if defined(DEBUG_FETCHANDBP)
     qDebug() << "bp " << toString() << " n:" << m_visited
         << "v:" << positionQValue() << "oq:" << 0.0 << "fq:" << qValue();
@@ -463,7 +463,7 @@ bool Node::isMoveClock() const
 }
 
 float Node::minimax(Node *node, quint32 depth, quint16 maxVisits, WorkerInfo *info,
-    double *newScores, quint16 *newVisits)
+    double *newScores, quint16 *newVisits, quint16 *trimmed)
 {
     Q_ASSERT(node);
     Q_ASSERT(node->positionHasQValue());
@@ -501,15 +501,17 @@ float Node::minimax(Node *node, quint32 depth, quint16 maxVisits, WorkerInfo *in
         // recently leafs have been made too so we must trim the tree of any such leafs
         maxVisits = qMin(maxVisits, quint16(node->m_dirty));
         Q_ASSERT(maxVisits);
-        quint16 trimmed = trimUnscoredFromTree(node, maxVisits);
-        Q_ASSERT(maxVisits < 2 || trimmed);
-        if (trimmed) {
-            info->nodesSearched += maxVisits;
-            info->nodesVisited += maxVisits;
+        quint16 t = trimUnscoredFromTree(node, maxVisits);
+        Q_ASSERT(maxVisits < 2 || t);
+        if (t) {
+            const quint16 newlyTrimmed = maxVisits - 1;
+            ++(info->nodesSearched);
+            ++(info->nodesVisited);
             Q_ASSERT(!node->isTB());
-            node->incrementVisited(maxVisits);
-            *newScores += (maxVisits * node->positionQValue());
-            *newVisits += maxVisits;
+            node->incrementVisited(1 /*increment*/, newlyTrimmed /*trimmed*/);
+            *newScores += node->positionQValue();
+            ++(*newVisits);
+            *trimmed += newlyTrimmed;
         } else {
             ++(info->nodesSearched);
             ++(info->nodesVisited);
@@ -546,6 +548,7 @@ float Node::minimax(Node *node, quint32 depth, quint16 maxVisits, WorkerInfo *in
     bool allChildrenAreScored = true;
     double newScoresForChildren = 0;
     quint16 newVisitsForChildren = 0;
+    quint16 trimmedForChildren = 0;
     for (int index = 0; index < node->m_children.count(); ++index) {
         Node *child = node->m_children.at(index);
         Q_ASSERT(child);
@@ -560,7 +563,7 @@ float Node::minimax(Node *node, quint32 depth, quint16 maxVisits, WorkerInfo *in
         Q_ASSERT(child->positionHasQValue());
         quint16 visitsForChild = 0;
         float score = minimax(child, depth + 1, maxVisits, info, &newScoresForChildren,
-            &visitsForChild);
+            &visitsForChild, &trimmedForChildren);
         Q_ASSERT(maxVisits || !visitsForChild);
         Q_ASSERT(visitsForChild <= maxVisits);
         maxVisits -= visitsForChild;
@@ -586,7 +589,9 @@ float Node::minimax(Node *node, quint32 depth, quint16 maxVisits, WorkerInfo *in
     // Score the node based on minimax of children
     *newVisits += newVisitsForChildren;
     *newScores += -newScoresForChildren;
-    node->scoreMiniMax(-best, bestIsMinimaxExact, shouldPropagateExact, -newScoresForChildren, newVisitsForChildren);
+    *trimmed += trimmedForChildren;
+    node->scoreMiniMax(-best, bestIsMinimaxExact, shouldPropagateExact,
+        -newScoresForChildren, newVisitsForChildren, trimmedForChildren);
 
     // Record info
     ++(info->nodesSearched);

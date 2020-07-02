@@ -74,9 +74,10 @@ void actualMinimaxTree(Tree *tree, WorkerInfo *info)
     // Gather minimax scores;
     double newScores = 0;
     quint16 newVisits = 0;
+    quint16 trimmed = 0;
     const quint64 originalEvaluated = info->nodesEvaluated;
     Node::minimax(tree->embodiedRoot(), 0 /*depth*/,
-        std::numeric_limits<quint16>::max() /*maxVisits*/, info, &newScores, &newVisits);
+        std::numeric_limits<quint16>::max() /*maxVisits*/, info, &newScores, &newVisits, &trimmed);
     info->numberOfBatches += info->nodesEvaluated > originalEvaluated ? 1 : 0;
 }
 
