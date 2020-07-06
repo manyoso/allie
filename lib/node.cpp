@@ -361,11 +361,11 @@ void Node::backPropagateDirty()
     Q_ASSERT(!m_dirty || isProvenExact());
     Q_ASSERT(positionHasQValue());
     Q_ASSERT(!m_visited || isExact());
-    Q_ASSERT(m_dirty < 65535);
+    Q_ASSERT(m_dirty < std::numeric_limits<quint16>::max());
     ++m_dirty;
     Node *parent = this->parent();
     while (parent) {
-        Q_ASSERT(m_dirty < 65535);
+        Q_ASSERT(parent->m_dirty < std::numeric_limits<quint16>::max());
         ++(parent->m_dirty);
         parent = parent->parent();
     }
@@ -377,11 +377,11 @@ void Node::backPropagateGameContextAndDirty()
     Q_ASSERT(!m_dirty);
     Q_ASSERT(positionHasQValue());
     Q_ASSERT(!m_visited || isExact());
-    Q_ASSERT(m_dirty < 65535);
+    Q_ASSERT(m_dirty < std::numeric_limits<quint16>::max());
     ++m_dirty;
     Node *parent = this->parent();
     while (parent) {
-        Q_ASSERT(m_dirty < 65535);
+        Q_ASSERT(parent->m_dirty < std::numeric_limits<quint16>::max());
         ++(parent->m_dirty);
         parent->m_hasGameContext = true;
         parent = parent->parent();
