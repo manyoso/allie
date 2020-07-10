@@ -168,6 +168,8 @@ SearchWorker::SearchWorker(QObject *parent)
     : QObject(parent),
       m_totalPlayouts(0),
       m_resumedPlayouts(0),
+      m_playoutsSinceMinimax(0),
+      m_maxPlayoutsSinceMinimax(std::numeric_limits<quint16>::max()),
       m_moveNode(nullptr),
       m_searchId(0),
       m_maximumBatchSize(0),
@@ -207,6 +209,8 @@ void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const 
     m_currentInfo.workerInfo.searchId = searchId;
     Node *root = m_tree->embodiedRoot();
     m_resumedPlayouts = root->visits();
+    m_playoutsSinceMinimax = 0;
+    m_maxPlayoutsSinceMinimax = std::numeric_limits<quint16>::max();
     const Node *best = root->bestChild();
     m_moveNode = best;
     m_estimatedNodes = std::numeric_limits<quint32>::max();
@@ -238,6 +242,7 @@ void SearchWorker::minimaxTree()
 {
     actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
     m_totalPlayouts = qMin(m_totalPlayouts, qint64(m_tree->embodiedRoot()->visits() - m_resumedPlayouts));
+    m_playoutsSinceMinimax = 0;
     processWorkerInfo();
 }
 
@@ -374,7 +379,8 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
             break;
         }
 
-        if (exactOrCached >= m_currentBatchSize) {
+        if (exactOrCached >= m_currentBatchSize ||
+            m_playoutsSinceMinimax == m_maxPlayoutsSinceMinimax) {
             actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
             processWorkerInfo();
             exactOrCached = 0;
@@ -391,6 +397,7 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
 
         didWork = true;
         ++m_totalPlayouts;
+        ++m_playoutsSinceMinimax;
 
         bool shouldFetchFromNN = handlePlayout(playout, hash);
         if (!shouldFetchFromNN) {
@@ -428,6 +435,7 @@ void SearchWorker::ensureRootAndChildrenScored()
             if (shouldFetchFromNN)
                 nodes.append(root);
             ++m_totalPlayouts;
+            ++m_playoutsSinceMinimax;
         }
         fetchAndMinimax(&nodes, true /*sync*/);
     }
@@ -478,6 +486,7 @@ void SearchWorker::ensureRootAndChildrenScored()
             if (shouldFetchFromNN)
                 nodes.append(child);
             ++m_totalPlayouts;
+            ++m_playoutsSinceMinimax;
         }
 
         if (didWork)

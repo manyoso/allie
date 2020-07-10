@@ -115,6 +115,8 @@ private:
     Search m_search;
     qint64 m_totalPlayouts;
     qint64 m_resumedPlayouts;
+    qint64 m_playoutsSinceMinimax;
+    qint64 m_maxPlayoutsSinceMinimax;
     const Node *m_moveNode;
     QElapsedTimer m_timer;
     int m_searchId;
