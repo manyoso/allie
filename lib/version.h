@@ -27,8 +27,8 @@
 #endif
 
 static int s_majorVersion = 0;
-static int s_minorVersion = 7;
-static bool s_isDev = false;
+static int s_minorVersion = 8;
+static bool s_isDev = true;
 
 static QString versionString()
 {
