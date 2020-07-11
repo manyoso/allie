@@ -834,7 +834,7 @@ void Node::generatePotentials()
     Q_ASSERT(m_children.isEmpty());
 
     // Check if this is drawn by rules
-    if (Q_UNLIKELY(m_position->position().isDeadPosition())) {
+    if (Q_UNLIKELY(m_position->position().isDeadPosition()) && !isRootNode()) {
         setTypeAndScore(Draw, 0.0f);
         return;
     }
