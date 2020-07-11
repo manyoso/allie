@@ -69,7 +69,7 @@ void actualFetchFromNN(Batch *batch)
     NeuralNet::globalInstance()->releaseNetwork(computation);
 }
 
-void actualMinimaxTree(Tree *tree, WorkerInfo *info)
+bool actualMinimaxTree(Tree *tree, WorkerInfo *info)
 {
     // Gather minimax scores;
     double newScores = 0;
@@ -79,6 +79,7 @@ void actualMinimaxTree(Tree *tree, WorkerInfo *info)
     Node::minimax(tree->embodiedRoot(), 0 /*depth*/,
         std::numeric_limits<quint16>::max() /*maxVisits*/, info, &newScores, &newVisits, &trimmed);
     info->numberOfBatches += info->nodesEvaluated > originalEvaluated ? 1 : 0;
+    return newVisits > 0;
 }
 
 Batch *GuardedBatchQueue::acquireIn()
@@ -238,22 +239,24 @@ void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const 
     search();
 }
 
-void SearchWorker::minimaxTree()
+bool SearchWorker::minimaxTree()
 {
-    actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
+    bool didWork = actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
     m_totalPlayouts = qMin(m_totalPlayouts, qint64(m_tree->embodiedRoot()->visits() - m_resumedPlayouts));
     m_playoutsSinceMinimax = 0;
     processWorkerInfo();
+    return didWork;
 }
 
-void SearchWorker::waitForFetched()
+bool SearchWorker::waitForFetched()
 {
     Q_ASSERT(m_batchPool.count() != m_gpuWorkers.count());
     Batch *batch = m_queue.acquireOut(); // blocks
     Q_ASSERT(batch);
-    minimaxTree();
+    bool didWork = minimaxTree();
     m_batchPool.append(batch);
     Q_ASSERT(!m_batchPool.isEmpty());
+    return didWork;
 }
 
 void SearchWorker::fetchFromNN(Batch *batch, bool sync)
@@ -279,7 +282,8 @@ void SearchWorker::fetchFromNN(Batch *batch, bool sync)
             node->backPropagateDirty();
         }
 
-        minimaxTree();
+        bool didWork = minimaxTree();
+        Q_ASSERT(didWork);
 #if defined(DEBUG_VALIDATE_TREE)
         Node::validateTree(m_tree->embodiedRoot());
 #endif
@@ -292,17 +296,34 @@ void SearchWorker::fetchFromNN(Batch *batch, bool sync)
 
 bool SearchWorker::fillOutTree()
 {
+    // Get a new batch from the pool
     Q_ASSERT(!m_batchPool.isEmpty());
     Batch *batch = m_batchPool.takeFirst();
     batch->clear();
+
+    // Playout nodes
     bool hardExit = false;
     bool didWork = playoutNodes(batch, &hardExit);
+
+    // If we didn't manage to actually gather a batch, then just re-add the batch to the pool
     if (batch->isEmpty() || SearchSettings::featuresOff.testFlag(SearchSettings::Threading))
         m_batchPool.append(batch);
-    if (!batch->isEmpty() || didWork)
+
+    // If we did do some work, then fetch it and *possibly* minimax
+    if (!batch->isEmpty() || didWork) {
         fetchAndMinimax(batch, false /*sync*/);
-    else if (!hardExit)
-        waitForFetched();
+
+    // Otherwise we need to minimax or wait for a batch to be processed
+    } else if (!hardExit) {
+        bool didMinimaxWork = actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
+        if (didMinimaxWork)
+            processWorkerInfo();
+        else
+            didMinimaxWork = waitForFetched();
+        Q_ASSERT(didMinimaxWork);
+    }
+
+    // Return whether we are done or not
     return hardExit;
 }
 
@@ -381,7 +402,8 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
 
         if (exactOrCached >= m_currentBatchSize ||
             m_playoutsSinceMinimax == m_maxPlayoutsSinceMinimax) {
-            actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
+            bool didMinimaxWork = actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
+            Q_ASSERT(didMinimaxWork);
             processWorkerInfo();
             exactOrCached = 0;
             // I have not seen an infinite loop here, but I guess it is theoretically possible for

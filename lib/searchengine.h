@@ -98,8 +98,8 @@ private Q_SLOTS:
     void search();
 
 private:
-    void minimaxTree();
-    void waitForFetched();
+    bool minimaxTree();
+    bool waitForFetched();
     void fetchFromNN(Batch *batch, bool sync);
     void fetchAndMinimax(Batch *batch, bool sync);
     bool fillOutTree();
