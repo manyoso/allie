@@ -774,6 +774,7 @@ void Tests::testDoNotPropagateDrawnAsExact()
     Tree tree;
     Node *root = tree.embodiedRoot();
     root->setPositionQValue(0.0f);
+    ++root->m_dirty;
     root->setQValueAndVisit();
     QVERIFY(root);
 
@@ -783,6 +784,7 @@ void Tests::testDoNotPropagateDrawnAsExact()
     QCOMPARE(Node::NoError, error);
     b7b8->initializePosition(Cache::globalInstance());
     b7b8->setPositionQValue(0.0f);
+    ++b7b8->m_dirty;
     b7b8->setQValueAndVisit();
     b7b8->generatePotentials();
 

@@ -813,6 +813,7 @@ bool Node::checkAndGenerateDTZ(int *dtz)
         ++m_visited;
     }
 
+    ++child->m_dirty;
     child->setQValueAndVisit();
     return true;
 }
