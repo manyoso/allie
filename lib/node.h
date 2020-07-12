@@ -147,18 +147,18 @@ public:
         MinimaxWin          = 10, // MinimaxExact
         MinimaxLoss,
         MinimaxDraw,
-        GameContextDraw     = 20, // Exact, but cannot be shared
-        FiftyMoveRuleDraw,
+        FiftyMoveRuleDraw   = 20, // Exact
         ThreeFoldDraw,
-        Win                 = 30, // Can be shared by many transpositions
+        Win,
         Loss,
         Draw,
         TBWin,
         TBLoss,
         TBDraw,
-        PropagateWin        = 50, // Proven
+        PropagateWin        = 50, // Proven exact
         PropagateLoss,
-        PropagateDraw
+        PropagateDraw,
+        GameContextDraw
     };
 
     class Position {
@@ -231,9 +231,8 @@ public:
 
     static Node *playout(Node *root, int *vldMax, int *tryPlayoutLimit, bool *hardExit, Cache *hash);
     static float minimax(Node *, quint32 depth, quint16 maxVisits, WorkerInfo *info,
-        double *newScores, quint16 *newVisits, quint16 *trimmed);
+        double *newScores, quint16 *newVisits);
     static void validateTree(const Node *);
-    static quint16 trimUnscoredFromTree(Node *, quint16);
     static float uctFormula(float qValue, float uValue);
     static int virtualLossDistance(float swec, float uCoeff, float q, float p, int currentVisits);
 
@@ -247,12 +246,14 @@ public:
     bool isExact() const;
     bool isProvenExact() const;
     bool isMinimaxExact() const;
+    bool isTrueTerminal() const;
+    bool isUnexpandedExact() const;
+    bool isTB() const;
     Type type() const;
     void setType(Type type);
     bool hasGameContext() const;
     void setHasGameContext(bool);
-    bool isTrueTerminal() const;
-    bool isTB() const;
+    quint16 dirty() const;
     bool isDirty() const;
     float uCoeff() const;
 
@@ -268,12 +269,12 @@ public:
     inline const QVector<Node*> *children() const { return &m_children; }
 
     void scoreMiniMax(float score, bool shouldMinimaxExact, bool isExact, double newScores,
-        quint16 increment, quint16 trimmed);
+        quint16 increment);
     bool isAlreadyPlayingOut() const;
 
     int count() const;
 
-    void incrementVisited(quint16 increment, quint16 trimmed);
+    void incrementVisited(quint16 increment);
 
     // child generation
     enum NodeGenerationError {
@@ -399,6 +400,22 @@ inline bool Node::isMinimaxExact() const
     return m_type > 9;
 }
 
+inline bool Node::isTrueTerminal() const
+{
+    Q_ASSERT(!(isExact() && !isProvenExact()) || (!hasChildren() && !hasPotentials()));
+    return isExact() && !isProvenExact();
+}
+
+inline bool Node::isUnexpandedExact() const
+{
+    return isExact() && (!isProvenExact() || !hasChildren());
+}
+
+inline bool Node::isTB() const
+{
+    return m_type == TBWin || m_type == TBLoss || m_type == TBDraw;
+}
+
 inline Node::Type Node::type() const
 {
     return m_type;
@@ -419,14 +436,9 @@ inline void Node::setHasGameContext(bool b)
     m_hasGameContext = b;
 }
 
-inline bool Node::isTrueTerminal() const
+inline quint16 Node::dirty() const
 {
-    return isExact() && m_children.isEmpty() && !hasPotentials();
-}
-
-inline bool Node::isTB() const
-{
-    return m_type == TBWin || m_type == TBLoss || m_type == TBDraw;
+    return m_dirty;
 }
 
 inline bool Node::isDirty() const

@@ -71,13 +71,16 @@ void actualFetchFromNN(Batch *batch)
 
 bool actualMinimaxTree(Tree *tree, WorkerInfo *info)
 {
+    Node *root = tree->embodiedRoot();
+    quint16 maxVisits = qMin(std::numeric_limits<quint16>::max(), quint16(root->dirty()));
+    if (!maxVisits)
+        return false;
+
     // Gather minimax scores;
     double newScores = 0;
     quint16 newVisits = 0;
-    quint16 trimmed = 0;
     const quint64 originalEvaluated = info->nodesEvaluated;
-    Node::minimax(tree->embodiedRoot(), 0 /*depth*/,
-        std::numeric_limits<quint16>::max() /*maxVisits*/, info, &newScores, &newVisits, &trimmed);
+    Node::minimax(root, 0 /*depth*/, maxVisits, info, &newScores, &newVisits);
     info->numberOfBatches += info->nodesEvaluated > originalEvaluated ? 1 : 0;
     return newVisits > 0;
 }
