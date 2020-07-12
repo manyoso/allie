@@ -175,6 +175,7 @@ SearchWorker::SearchWorker(QObject *parent)
       m_searchId(0),
       m_maximumBatchSize(0),
       m_currentBatchSize(0),
+      m_batchPoolSize(0),
       m_estimatedNodes(std::numeric_limits<quint32>::max()),
       m_tree(nullptr),
       m_stop(true)
@@ -229,6 +230,7 @@ void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const 
             Batch *batch = new Batch;
             batch->reserve(m_maximumBatchSize);
             m_batchPool.append(batch);
+            ++m_batchPoolSize;
         }
     }
 
@@ -250,7 +252,7 @@ bool SearchWorker::minimaxTree()
 
 bool SearchWorker::waitForFetched()
 {
-    Q_ASSERT(m_batchPool.count() != m_gpuWorkers.count());
+    Q_ASSERT(m_batchPool.count() != m_batchPoolSize);
     Batch *batch = m_queue.acquireOut(); // blocks
     Q_ASSERT(batch);
     bool didWork = minimaxTree();
@@ -529,7 +531,7 @@ void SearchWorker::search()
     }
 
     // Notify stop
-    while (m_batchPool.count() != m_gpuWorkers.count())
+    while (m_batchPool.count() != m_batchPoolSize)
         waitForFetched();
 
 #if defined(DEBUG_VALIDATE_TREE)

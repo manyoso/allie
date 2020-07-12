@@ -122,6 +122,7 @@ private:
     int m_searchId;
     int m_maximumBatchSize;
     int m_currentBatchSize;
+    int m_batchPoolSize;
     std::atomic<quint32> m_estimatedNodes;
     SearchInfo m_currentInfo;
     Tree *m_tree;
