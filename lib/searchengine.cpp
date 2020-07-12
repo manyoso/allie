@@ -311,9 +311,16 @@ bool SearchWorker::fillOutTree()
     if (batch->isEmpty() || SearchSettings::featuresOff.testFlag(SearchSettings::Threading))
         m_batchPool.append(batch);
 
-    // If we did do some work, then fetch it and *possibly* minimax
-    if (!batch->isEmpty() || didWork) {
-        fetchAndMinimax(batch, false /*sync*/);
+    // If we have a batch, then fetch it
+    if (!batch->isEmpty()) {
+        fetchFromNN(batch, false /*sync*/);
+
+    // Else if we did some work, then minimax it if possible although it might not be strictly
+    // necessary since it could have been minimaxed already inside of playoutNodes and then no
+    // subsequent work performed...
+    } else if (didWork) {
+        actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
+        processWorkerInfo();
 
     // Otherwise we need to minimax or wait for a batch to be processed
     } else if (!hardExit) {
@@ -327,16 +334,6 @@ bool SearchWorker::fillOutTree()
 
     // Return whether we are done or not
     return hardExit;
-}
-
-void SearchWorker::fetchAndMinimax(Batch *batch, bool sync)
-{
-    if (!batch->isEmpty()) {
-        fetchFromNN(batch, sync);
-    } else {
-        actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
-        processWorkerInfo();
-    }
 }
 
 bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
@@ -461,7 +458,12 @@ void SearchWorker::ensureRootAndChildrenScored()
             ++m_totalPlayouts;
             ++m_playoutsSinceMinimax;
         }
-        fetchAndMinimax(&nodes, true /*sync*/);
+        if (!nodes.isEmpty()) {
+            fetchFromNN(&nodes, true /*sync*/); // Sync will also minimax
+        } else {
+            actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
+            processWorkerInfo();
+        }
     }
 
     {
@@ -513,8 +515,13 @@ void SearchWorker::ensureRootAndChildrenScored()
             ++m_playoutsSinceMinimax;
         }
 
-        if (didWork)
-            fetchAndMinimax(&nodes, true /*sync*/);
+        if (!nodes.isEmpty()) {
+            fetchFromNN(&nodes, true /*sync*/); // Sync will also minimax
+        } else if (didWork) {
+            bool didWork = actualMinimaxTree(m_tree, &m_currentInfo.workerInfo);
+            Q_ASSERT(didWork);
+            processWorkerInfo();
+        }
     }
 }
 
