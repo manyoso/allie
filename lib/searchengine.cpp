@@ -548,6 +548,10 @@ void SearchWorker::processWorkerInfo()
     m_currentInfo.workerInfo.targetReached = (m_search.depth != -1 && m_currentInfo.depth >= m_search.depth)
         || (m_search.nodes != -1 && qint64(m_currentInfo.workerInfo.nodesVisited) >= m_search.nodes);
 
+#if !defined(NDEBUG)
+    bool rootPlayedOut = false;
+#endif
+
     // If we've set a target, make sure that root is not completely played out, otherwise set
     // target reached flag to true
     if (m_currentInfo.workerInfo.hasTarget && !root->hasPotentials()) {
@@ -555,9 +559,19 @@ void SearchWorker::processWorkerInfo()
         bool allAreExact = true;
         for (Node *node : children)
             allAreExact = node->isExact() ? allAreExact : false;
-        if (allAreExact)
+        if (allAreExact) {
             m_currentInfo.workerInfo.targetReached = true;
+#if !defined(NDEBUG)
+            rootPlayedOut = true;
+#endif
+        }
     }
+
+#if !defined(NDEBUG)
+    // Check that fixed nodes always is exactly equal to the actual number of nodes visited
+    if (m_currentInfo.workerInfo.targetReached && m_search.nodes != -1)
+        Q_ASSERT(rootPlayedOut || qint64(m_currentInfo.workerInfo.nodesVisited) == m_search.nodes);
+#endif
 
     isPartial = m_currentInfo.workerInfo.targetReached ? false : isPartial;
 
