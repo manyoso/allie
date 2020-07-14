@@ -252,7 +252,6 @@ void Node::deinitialize(bool forcedFree)
 void Node::unwindFromPosition(quint64 hash, Cache *cache)
 {
     Q_ASSERT(m_position);
-    Q_ASSERT(m_position->refs() > 1);
     Game::Position gamePosition = m_position->position(); // copy
     m_position->unref(); // unref old position
     m_position = cache->newNodePosition(hash, true /*makeUnique*/);

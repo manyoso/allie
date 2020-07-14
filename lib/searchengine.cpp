@@ -335,6 +335,15 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
         return false;
     }
 
+    // If this playout is a repetition, then we don't want to use the cached value
+    if (playout->repetitions() && !playout->isRootNode()) {
+        if (playout->position()->hasQValue()) {
+            playout->unwindFromPosition(hash, cache);
+            Q_ASSERT(playout->position()->isUnique());
+        }
+        Q_ASSERT(!playout->position()->hasQValue());
+    }
+
     // We can go ahead and use the transposition iff it has already been scored, this is
     // thread safe because the if the position does not have visits at this time, then it
     // will have been made unique by the cache
