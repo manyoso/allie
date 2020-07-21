@@ -118,6 +118,7 @@ private slots:
     void testMateWithKQQvK();
     void testTB();
     void testDoNotPropagateDrawnAsExact();
+    void testContext();
 
     // Placed at the end because this turns off fathom and fathom is bugged
     void testExhaustSearch();

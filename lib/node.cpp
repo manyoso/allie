@@ -141,9 +141,10 @@ void Node::initialize(Node *parent, const Game &game)
     m_pValue = -2.0f;
     m_policySum = 0;
     m_uCoeff = -2.0f;
+    m_gameCycles = 0;
     m_type = NonTerminal;
+    m_context = NoContext;
     m_isDirty = false;
-    m_hasGameContext = false;
 }
 
 quint64 Node::initializePosition(Cache *cache)
@@ -245,7 +246,7 @@ void Node::deinitialize(bool forcedFree)
     m_parent = nullptr;
     m_position = nullptr;
     m_isDirty = false;
-    m_hasGameContext = false;
+    m_context = NoContext;
     m_children.clear();
 }
 
@@ -287,7 +288,7 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
     } else if (isExact) {
         m_qValue = score;
         const Type exactType = score > 0 ? PropagateWin : score < 0 ? PropagateLoss :
-            (hasGameContext() ? GameContextDraw : PropagateDraw);
+            (hasContext(GameContextDrawInTree) ? GameContextDraw : PropagateDraw);
         // Iff it is a proven win or loss, then we can go ahead and update the position which will
         // be passed along to transpositions, but not for draws as they could have been threefold or
         // 50 move rule which does not pertain to a transposition with different move history
@@ -314,7 +315,7 @@ void Node::scoreMiniMax(float score, bool isMinimaxExact, bool isExact, double n
 
         // Update the position for any new transpositions to use the best score available which
         // includes the subtree if it has no game context
-        if (!hasGameContext() && !isRootNode()) {
+        if (m_context == NoContext && !isRootNode()) {
             Q_ASSERT(!m_position->isExact());
             setPositionQValue(m_qValue);
         }
@@ -370,7 +371,7 @@ void Node::backPropagateDirty()
 
 void Node::backPropagateGameContextAndDirty()
 {
-    Q_ASSERT(m_hasGameContext);
+    Q_ASSERT(hasContext(GameContextDrawInTree));
     Q_ASSERT(!m_isDirty);
     Q_ASSERT(positionHasQValue());
     Q_ASSERT(!m_visited || isExact());
@@ -378,7 +379,22 @@ void Node::backPropagateGameContextAndDirty()
     Node *parent = this->parent();
     while (parent) {
         parent->m_isDirty = true;
-        parent->m_hasGameContext = true;
+        parent->setContext(GameContextDrawInTree);
+        parent = parent->parent();
+    }
+}
+
+void Node::backPropagateGameCycleAndDirty()
+{
+    Q_ASSERT(hasContext(GameCycleInTree));
+    Q_ASSERT(!m_isDirty);
+    Q_ASSERT(positionHasQValue());
+    Q_ASSERT(!m_visited || isExact());
+    m_isDirty = true;
+    Node *parent = this->parent();
+    while (parent) {
+        parent->m_isDirty = true;
+        parent->setContext(GameCycleInTree);
         parent = parent->parent();
     }
 }
@@ -441,7 +457,9 @@ int Node::repetitions() const
         if (!it.game().halfMoveClock())
             break;
     }
-    const_cast<Node*>(this)->m_game.setRepetitions(r);
+    Node *thisNode = const_cast<Node*>(this);
+    thisNode->m_game.setRepetitions(r);
+    thisNode->m_gameCycles = r + (m_parent ? m_parent->gameCycles() : 0);
     return m_game.repetitions();
 }
 
@@ -812,7 +830,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setTypeAndScore(FiftyMoveRuleDraw, 0.0f);
-        setHasGameContext(true);
+        setContext(GameContextDrawInTree);
         return true;
     } else if (Q_UNLIKELY(isThreeFold())) {
         // This can never be a transposition as it depends upon information not found in the
@@ -823,7 +841,7 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
             cache->nodePositionMakeUnique(hash);
         Q_ASSERT(m_position->isUnique());
         setTypeAndScore(ThreeFoldDraw, 0.0f);
-        setHasGameContext(true);
+        setContext(GameContextDrawInTree);
         return true;
     }
     return false;

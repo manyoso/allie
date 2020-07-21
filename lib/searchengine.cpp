@@ -347,7 +347,11 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "found cached playout" << playout->toString();
 #endif
-        playout->backPropagateDirty();
+        if (playout->repetitions()) {
+            playout->setContext(Node::GameCycleInTree);
+            playout->backPropagateGameCycleAndDirty();
+        } else
+            playout->backPropagateDirty();
         return false;
     }
 

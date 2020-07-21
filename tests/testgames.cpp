@@ -825,6 +825,31 @@ void Tests::testDoNotPropagateDrawnAsExact()
     QVERIFY(!b7b8->isExact());
 }
 
+void Tests::testContext()
+{
+    {
+        Node node;
+        QVERIFY(node.hasContext(Node::NoContext));
+        node.setContext(Node::GameContextDrawInTree);
+        QVERIFY(!node.hasContext(Node::NoContext));
+        QVERIFY(node.hasContext(Node::GameContextDrawInTree));
+    }
+    {
+        Node node;
+        node.setContext(Node::GameCycleInTree);
+        QVERIFY(!node.hasContext(Node::NoContext));
+        QVERIFY(node.hasContext(Node::GameCycleInTree));
+    }
+    {
+        Node node;
+        node.setContext(Node::GameContextDrawInTree);
+        node.setContext(Node::GameCycleInTree);
+        QVERIFY(!node.hasContext(Node::NoContext));
+        QVERIFY(node.hasContext(Node::GameContextDrawInTree));
+        QVERIFY(node.hasContext(Node::GameCycleInTree));
+    }
+}
+
 void Tests::testExhaustSearch()
 {
     const QLatin1String mateInOne = QLatin1String("position fen 8/8/8/8/6Q1/5K2/7k/8 w - - 49 90");

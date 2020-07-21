@@ -161,6 +161,12 @@ public:
         PropagateDraw
     };
 
+    enum Context : quint8 {
+        NoContext              = 0,
+        GameContextDrawInTree  = 0x1,
+        GameCycleInTree        = 0x2
+    };
+
     class Position {
     public:
         Position();
@@ -246,8 +252,8 @@ public:
     bool isMinimaxExact() const;
     Type type() const;
     void setType(Type type);
-    bool hasGameContext() const;
-    void setHasGameContext(bool);
+    bool hasContext(Context context) const;
+    void setContext(Context context);
     bool isTrueTerminal() const;
     bool isTB() const;
     bool isDirty() const;
@@ -298,6 +304,7 @@ public:
     void setQValueAndVisit();
     void backPropagateDirty();
     void backPropagateGameContextAndDirty();
+    void backPropagateGameCycleAndDirty();
 
     QVector<Game> previousMoves(bool fullHistory) const; // slow
 
@@ -321,6 +328,7 @@ public:
     bool isThreeFold() const;
     bool isMoveClock() const;
     bool isNoisy() const;
+    quint8 gameCycles() const { return m_gameCycles; }
 
     static bool greaterThan(const Node *a, const Node *b);
     static void sortByScore(QVector<Node*> &nodes, bool partialSortFirstOnlyy);
@@ -358,9 +366,10 @@ private:
     float m_policySum;                  // 4
     float m_uCoeff;                     // 4
     quint8 m_potentialIndex;            // 1
+    quint8 m_gameCycles;                // 1
     Type m_type;                        // 1
+    Context m_context;                  // 1
     bool m_isDirty: 1;                  // 1
-    bool m_hasGameContext : 1;          // 1
     friend class SearchWorker;
     friend class SearchEngine;
     friend class Tests;
@@ -400,14 +409,14 @@ inline void Node::setType(Type type)
     m_type = type;
 }
 
-inline bool Node::hasGameContext() const
+inline bool Node::hasContext(Context context) const
 {
-    return m_hasGameContext;
+    return (m_context & context) == context && (context != 0 || m_context == context);
 }
 
-inline void Node::setHasGameContext(bool b)
+inline void Node::setContext(Context context)
 {
-    m_hasGameContext = b;
+    m_context = Context(m_context | context);
 }
 
 inline bool Node::isTrueTerminal() const
@@ -546,10 +555,17 @@ inline void Node::setQValue(float qValue)
     m_qValue = qValue;
 }
 
+inline float qValueWithGameCyclePenalty(float qValue, quint8 gameCycles)
+{
+    return qValue * powf(0.5f, gameCycles);
+}
+
 inline void Node::setInitialQValueFromPosition()
 {
     Q_ASSERT(!m_visited);
     m_qValue = m_position->qValue();
+    if (hasContext(GameCycleInTree))
+        m_qValue = qValueWithGameCyclePenalty(m_qValue, m_gameCycles);
     if (Node *parent = this->parent())
         parent->m_policySum += pValue();
     if (!m_position->visits()) {
