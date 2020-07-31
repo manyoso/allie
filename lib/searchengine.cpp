@@ -178,7 +178,6 @@ void GPUWorker::run()
 SearchWorker::SearchWorker(QObject *parent)
     : QObject(parent),
       m_totalPlayouts(0),
-      m_resumedPlayouts(0),
       m_moveNode(nullptr),
       m_searchId(0),
       m_maximumBatchSize(0),
@@ -217,7 +216,6 @@ void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const 
     m_currentInfo = info;
     m_currentInfo.workerInfo.searchId = searchId;
     Node *root = m_tree->embodiedRoot();
-    m_resumedPlayouts = root->visits();
     const Node *best = root->bestChild();
     m_moveNode = best;
     m_estimatedNodes = std::numeric_limits<quint32>::max();
@@ -248,7 +246,6 @@ void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const 
 void SearchWorker::minimaxBatch(Batch *batch, Tree *tree)
 {
     actualMinimaxBatch(batch, tree, &m_currentInfo.workerInfo);
-    m_totalPlayouts = qMin(m_totalPlayouts, qint64(tree->embodiedRoot()->visits() - m_resumedPlayouts));
     processWorkerInfo();
 }
 
