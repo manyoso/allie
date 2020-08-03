@@ -89,6 +89,7 @@ private Q_SLOTS:
 private:
     int m_nodes;
     int m_movetime;
+    quint32 m_samples;
     UCIIOHandler *m_ioHandler;
     UciEngine *m_engine;
     quint64 m_timeAtLastProgress;

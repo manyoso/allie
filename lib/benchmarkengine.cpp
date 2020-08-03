@@ -64,6 +64,7 @@ QVector<QString> s_positions = {
 
 BenchmarkEngine::BenchmarkEngine(QObject *parent)
     : QObject(parent),
+    m_samples(0),
     m_timeAtLastProgress(0)
 {
     m_engine = new UciEngine(this, QString() /*debugFile*/);
@@ -86,6 +87,13 @@ BenchmarkEngine::~BenchmarkEngine()
 {
 }
 
+static int rollingAverage(int oldAvg, int newNumber, int n)
+{
+    // i.e. to calculate the new average after then nth number,
+    // you multiply the old average by n−1, add the new number, and divide the total by n.
+    return qRound(((float(oldAvg) * (n - 1)) + newNumber) / float(n));
+}
+
 void BenchmarkEngine::reportInfo(bool isPartial)
 {
     if (isPartial)
@@ -99,6 +107,7 @@ void BenchmarkEngine::reportInfo(bool isPartial)
 
     m_timeAtLastProgress = msecs;
 
+    const float efficiency = info.workerInfo.nodesVisited / float(info.workerInfo.nodesEvaluated);
     QString out;
     QTextStream stream(&out);
     stream << "Benchmark \ttime "
@@ -106,16 +115,18 @@ void BenchmarkEngine::reportInfo(bool isPartial)
            << info.nodes << " nodes, \t"
            << info.nps << " nps, \t"
            << info.rawnps << " rawnps, \t"
-           << info.nnnps << " nnnps"
+           << info.nnnps << " nnnps, \t"
+           << info.batchSize << " batch, \t"
+               << efficiency << "% efficiency"
            << endl;
     qCInfo(UciOutput).noquote() << out;
-
 }
 
 void BenchmarkEngine::runNextGame()
 {
     SearchInfo averages = m_ioHandler->averageInfo();
     if (averages.rawnps != 0) {
+        const float efficiency = averages.workerInfo.nodesVisited / float(averages.workerInfo.nodesEvaluated);
         QString out;
         QTextStream stream(&out);
         stream << "Totals \t\ttime "
@@ -123,18 +134,28 @@ void BenchmarkEngine::runNextGame()
                << averages.nodes << " nodes, \t"
                << averages.nps << " nps, \t"
                << averages.rawnps << " rawnps, \t"
-               << averages.nnnps << " nnnps"
+               << averages.nnnps << " nnnps, \t"
+               << averages.batchSize << " batch, \t"
+               << efficiency << "% efficiency"
                << endl << endl;
         qCInfo(UciOutput).noquote() << out;
         m_totalInfo.time += averages.time;
         m_totalInfo.nodes += averages.nodes;
         m_totalInfo.workerInfo.nodesVisited += averages.workerInfo.nodesVisited;
         m_totalInfo.workerInfo.nodesEvaluated += averages.workerInfo.nodesEvaluated;
+        ++m_samples;
+        int n = m_samples;
+        if (n >= 2) {
+            m_totalInfo.batchSize = rollingAverage(m_totalInfo.batchSize, averages.batchSize, m_samples);
+        } else {
+            m_totalInfo.batchSize = averages.batchSize;
+        }
     } else {
         qCInfo(UciOutput).noquote() << endl;
     }
 
     if (s_positions.isEmpty()) {
+        const float efficiency = m_totalInfo.workerInfo.nodesVisited / float(m_totalInfo.workerInfo.nodesEvaluated);
         QString out;
         QTextStream stream(&out);
         m_totalInfo.calculateSpeeds(m_totalInfo.time);
@@ -144,7 +165,9 @@ void BenchmarkEngine::runNextGame()
                << m_totalInfo.nodes << " nodes, \t"
                << m_totalInfo.nps << " nps, \t"
                << m_totalInfo.rawnps << " rawnps, \t"
-               << m_totalInfo.nnnps << " nnnps"
+               << m_totalInfo.nnnps << " nnnps, \t"
+               << m_totalInfo.batchSize << " batch, \t"
+               << efficiency << "% efficiency"
                << endl << endl;
         qCInfo(UciOutput).noquote() << out;
         m_engine->readyRead("quit");
