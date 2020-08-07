@@ -86,8 +86,6 @@ void actualMinimaxBatch(Batch *batch, Tree *tree, WorkerInfo *info)
 {
     for (int index = 0; index < batch->count(); ++index) {
         Node *node = batch->at(index);
-        if (!node->isExact())
-            Node::sortByPVals(*node->position()->potentials());
         node->backPropagateDirty();
     }
 
@@ -164,6 +162,12 @@ void GPUWorker::run()
         }
 
         actualFetchFromNN(&m_batchForEvaluating);
+
+        for (int index = 0; index < m_batchForEvaluating.count(); ++index) {
+            Node *node = m_batchForEvaluating.at(index);
+            Node::sortByPVals(*node->position()->potentials());
+        }
+
         m_queue->releaseOut(batch);
     }
 }
@@ -265,6 +269,12 @@ void SearchWorker::fetchFromNN(Batch *batch, bool sync)
                 batchForEvaluating.append(node);
         }
         actualFetchFromNN(&batchForEvaluating);
+
+        for (int index = 0; index < batchForEvaluating.count(); ++index) {
+            Node *node = batchForEvaluating.at(index);
+            Node::sortByPVals(*node->position()->potentials());
+        }
+
         minimaxBatch(batch, m_tree);
     } else {
         m_queue.releaseIn(batch);
