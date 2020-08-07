@@ -156,7 +156,7 @@ public:
         TBWin,
         TBLoss,
         TBDraw,
-        PropagateWin,
+        PropagateWin        = 50, // Proven exact
         PropagateLoss,
         PropagateDraw
     };
@@ -214,6 +214,7 @@ public:
         inline void setType(Type type) { m_type = type; }
 
         inline bool isExact() const { return m_type > 19; }
+        inline bool isProvenExact() const { return m_type > 49; }
         inline bool isTB() const
         {
             return m_type == TBWin || m_type == TBLoss || m_type == TBDraw;
@@ -249,13 +250,15 @@ public:
 
     int treeDepth() const;
     bool isExact() const;
+    bool isProvenExact() const;
     bool isMinimaxExact() const;
+    bool isTrueTerminal() const;
+    bool isUnexpandedExact() const;
+    bool isTB() const;
     Type type() const;
     void setType(Type type);
     bool hasContext(Context context) const;
     void setContext(Context context);
-    bool isTrueTerminal() const;
-    bool isTB() const;
     bool isDirty() const;
     float uCoeff() const;
 
@@ -394,9 +397,30 @@ inline bool Node::isExact() const
     return m_type > 19;
 }
 
+inline bool Node::isProvenExact() const
+{
+    return m_type > 49;
+}
+
 inline bool Node::isMinimaxExact() const
 {
     return m_type > 9;
+}
+
+inline bool Node::isTrueTerminal() const
+{
+    Q_ASSERT(!(isExact() && !isProvenExact()) || (!hasChildren() && !hasPotentials()));
+    return isExact() && !isProvenExact();
+}
+
+inline bool Node::isUnexpandedExact() const
+{
+    return isExact() && (!isProvenExact() || !hasChildren());
+}
+
+inline bool Node::isTB() const
+{
+    return m_type == TBWin || m_type == TBLoss || m_type == TBDraw;
 }
 
 inline Node::Type Node::type() const
@@ -417,16 +441,6 @@ inline bool Node::hasContext(Context context) const
 inline void Node::setContext(Context context)
 {
     m_context = Context(m_context | context);
-}
-
-inline bool Node::isTrueTerminal() const
-{
-    return isExact() && m_children.isEmpty() && !hasPotentials();
-}
-
-inline bool Node::isTB() const
-{
-    return m_type == TBWin || m_type == TBLoss || m_type == TBDraw;
 }
 
 inline bool Node::isDirty() const
