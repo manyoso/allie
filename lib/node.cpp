@@ -363,7 +363,7 @@ void Node::backPropagateDirty()
     m_isDirty = true;
 
     Node *parent = this->parent();
-    while (parent) {
+    while (parent && !parent->m_isDirty) {
         parent->m_isDirty = true;
         parent = parent->parent();
     }
@@ -377,7 +377,7 @@ void Node::backPropagateGameContextAndDirty()
     Q_ASSERT(!m_visited || isExact());
     m_isDirty = true;
     Node *parent = this->parent();
-    while (parent) {
+    while (parent && (!parent->m_isDirty || !parent->hasContext(GameContextDrawInTree))) {
         parent->m_isDirty = true;
         parent->setContext(GameContextDrawInTree);
         parent = parent->parent();
@@ -392,7 +392,7 @@ void Node::backPropagateGameCycleAndDirty()
     Q_ASSERT(!m_visited || isExact());
     m_isDirty = true;
     Node *parent = this->parent();
-    while (parent) {
+    while (parent && (!parent->m_isDirty || !parent->hasContext(GameCycleInTree))) {
         parent->m_isDirty = true;
         parent->setContext(GameCycleInTree);
         parent = parent->parent();
