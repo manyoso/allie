@@ -177,7 +177,6 @@ SearchWorker::SearchWorker(QObject *parent)
       m_totalPlayouts(0),
       m_moveNode(nullptr),
       m_searchId(0),
-      m_maximumBatchSize(0),
       m_currentBatchSize(0),
       m_estimatedNodes(std::numeric_limits<quint32>::max()),
       m_tree(nullptr),
@@ -206,8 +205,6 @@ void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const 
     // Reset state
     m_tree = tree;
     m_searchId = searchId;
-    m_maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
-    m_currentBatchSize = m_maximumBatchSize;
     m_totalPlayouts = 0;
     m_search = s;
     m_currentInfo = info;
@@ -221,17 +218,21 @@ void SearchWorker::startSearch(Tree *tree, int searchId, const Search &s, const 
     if (m_gpuWorkers.isEmpty()) {
         // Start as many gpu worker threads as we have available networks and create a batch pool
         // to satisfy those workers
+        const int maximumBatchSize = Options::globalInstance()->option("MaxBatchSize").value().toInt();
         const int numberOfGPUCores = Options::globalInstance()->option("GPUCores").value().toInt() * 2;
+        m_queue.setMaximumBatchSize(maximumBatchSize);
         for (int i = 0; i < numberOfGPUCores; ++i) {
-            GPUWorker *worker = new GPUWorker(&m_queue, m_maximumBatchSize);
+            GPUWorker *worker = new GPUWorker(&m_queue, maximumBatchSize);
             worker->setObjectName(QString("gpuworker %0").arg(i));
             worker->start();
             m_gpuWorkers.append(worker);
             Batch *batch = new Batch;
-            batch->reserve(m_maximumBatchSize);
+            batch->reserve(maximumBatchSize);
             m_batchPool.append(batch);
         }
     }
+
+    m_currentBatchSize = m_queue.maximumBatchSize();
 
     // Start the info timer
     m_timer.restart();
@@ -412,7 +413,7 @@ bool SearchWorker::playoutNodes(Batch *batch, bool *hardExit)
     if (batch->count() < m_currentBatchSize)
         m_currentBatchSize = qMax(1, m_currentBatchSize - 1);
     else if (batch->count() == m_currentBatchSize)
-        m_currentBatchSize = qMin(m_maximumBatchSize, m_currentBatchSize + 1);
+        m_currentBatchSize = qMin(m_queue.maximumBatchSize(), m_currentBatchSize + 1);
     return didWork;
 }
 

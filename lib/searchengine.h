@@ -49,7 +49,11 @@ public:
     void releaseOut(Batch *batch);
     void stop();
 
+    int maximumBatchSize() const { return m_maximumBatchSize; }
+    void setMaximumBatchSize(int maximumBatchSize) { m_maximumBatchSize = maximumBatchSize; }
+
 private:
+    int m_maximumBatchSize = 0;
     bool m_stop = false;
     BatchQueue m_inQueue;
     BatchQueue m_outQueue;
@@ -117,7 +121,6 @@ private:
     const Node *m_moveNode;
     QElapsedTimer m_timer;
     int m_searchId;
-    int m_maximumBatchSize;
     int m_currentBatchSize;
     std::atomic<quint32> m_estimatedNodes;
     SearchInfo m_currentInfo;
