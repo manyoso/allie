@@ -348,7 +348,7 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
 #if defined(DEBUG_PLAYOUT)
         qDebug() << "found cached playout" << playout->toString();
 #endif
-        if (playout->repetitions()) {
+        if (!playout->isExact() && playout->repetitions()) {
             playout->setContext(Node::GameCycleInTree);
             playout->backPropagateGameCycleAndDirty();
         } else

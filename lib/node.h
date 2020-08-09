@@ -578,8 +578,10 @@ inline void Node::setInitialQValueFromPosition()
 {
     Q_ASSERT(!m_visited);
     m_qValue = m_position->qValue();
-    if (hasContext(GameCycleInTree))
+    if (hasContext(GameCycleInTree)) {
+        Q_ASSERT(!isExact());
         m_qValue = qValueWithGameCyclePenalty(m_qValue, m_gameCycles);
+    }
     if (Node *parent = this->parent())
         parent->m_policySum += pValue();
     if (!m_position->visits()) {
