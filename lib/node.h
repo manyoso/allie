@@ -147,10 +147,9 @@ public:
         MinimaxWin          = 10, // MinimaxExact
         MinimaxLoss,
         MinimaxDraw,
-        GameContextDraw     = 20, // Exact, but cannot be shared
-        FiftyMoveRuleDraw,
+        FiftyMoveRuleDraw   = 20, // Exact
         ThreeFoldDraw,
-        Win                 = 30, // Can be shared by many transpositions
+        Win,
         Loss,
         Draw,
         TBWin,
@@ -158,7 +157,8 @@ public:
         TBDraw,
         PropagateWin        = 50, // Proven exact
         PropagateLoss,
-        PropagateDraw
+        PropagateDraw,
+        GameContextDraw
     };
 
     enum Context : quint8 {
