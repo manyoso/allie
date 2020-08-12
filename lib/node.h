@@ -290,6 +290,7 @@ public:
 
     bool checkAndGenerateDTZ(int *dtz);
     bool checkMoveClockOrThreefold(quint64 hash, Cache *cache);
+    bool checkDeadPositionOrTB();
     void generatePotentials();
     void reservePotentials(int totalSize);
     Node::Potential *generatePotential(const Move &move);
