@@ -2,15 +2,11 @@
 
 ## What is Allie?
 
-Allie is a new and original chess engine heavily inspired by the seminal AlphaZero paper and the [Lc0](https://lczero.org "Lc0") project.
+Allie is a chess engine heavily inspired by the seminal AlphaZero paper and the [Lc0](https://lczero.org "Lc0") project.
 
 ## How is she related to Leela?
 
 Like Leela, Allie is based off of the same concepts and algorithms that were introduced by Deepmind in the AlphaZero paper(s), but her code is original and contains an alternative implementation of those ideas. You can think of Allie as a young cousin of Leela that utilizes the same networks produced by the Lc0 project.
-
-## Is this like Anti-fish or Leelenstein?
-
-Not exactly. AF and the Stein are (apparently quite successful) experiments with the training procedures that go into making a Lc0 project neural net. However, they both utilize the Lc0 binary as the actual chess engine and just load these alternative networks. Allie is different. She can be used as a complete replacement of the Lc0 binary with different search, hash, move generation, etc, etc. That means that Allie can be used with the AF or Stein networks too.
 
 ## Ok, so details. How is she different?
 
@@ -43,7 +39,7 @@ Here is what Allie uses from the Lc0 codebase:
 
 ## All right, brass tacks how strong is she?
 
-Depends. First, her ELO will obviously depend upon which network is used. However, head-to-head using the same network on my limited hardware setup she is very competitive with Lc0 and SF.
+She is among the strongest chess engines in the world as of November, 2020.
 
 ## Why did you develop her rather than just help out Leela?
 
