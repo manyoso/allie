@@ -823,7 +823,6 @@ bool Node::checkAndGenerateDTZ(int *dtz)
 
 bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
 {
-    Q_ASSERT(m_position);
     Q_ASSERT(m_children.isEmpty());
     // Check if this is drawn by rules
     if (Q_UNLIKELY(isMoveClock())) {
@@ -852,14 +851,14 @@ bool Node::checkMoveClockOrThreefold(quint64 hash, Cache *cache)
     return false;
 }
 
-bool Node::checkDeadPositionOrTB()
+void Node::generatePotentials()
 {
-    Q_ASSERT(m_position);
     Q_ASSERT(m_children.isEmpty());
+
     // Check if this is drawn by rules
     if (Q_UNLIKELY(m_position->position().isDeadPosition()) && !isRootNode()) {
         setTypeAndScore(Draw, 0.0f);
-        return true;
+        return;
     }
 
     const TB::Probe result = isRootNode() ?
@@ -869,23 +868,18 @@ bool Node::checkDeadPositionOrTB()
         break;
     case TB::Win:
         setTypeAndScore(TBWin, 1.0f);
-        return true;
+        return;
     case TB::Loss:
         setTypeAndScore(TBLoss, -1.0f);
-        return true;
+        return;
     case TB::Draw:
         setTypeAndScore(TBDraw, 0.0f);
-        return true;
+        return;
     }
-    return false;
-}
 
-void Node::generatePotentials()
-{
     Q_ASSERT(m_position);
     Q_ASSERT(m_position->potentials()->isEmpty());
     Q_ASSERT(m_position->refs() == 1);
-    Q_ASSERT(m_children.isEmpty());
 
     m_position->position().pseudoLegalMoves(this);
 

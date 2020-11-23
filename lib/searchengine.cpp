@@ -336,11 +336,6 @@ bool SearchWorker::handlePlayout(Node *playout, Cache *cache)
         return false;
     }
 
-    if (playout->checkDeadPositionOrTB()) {
-        playout->backPropagateDirty();
-        return false;
-    }
-
     // We can go ahead and use the transposition iff it has already been scored, this is
     // thread safe because the if the position does not have visits at this time, then it
     // will have been made unique by the cache
